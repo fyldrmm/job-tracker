@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addStageHistoryEntry, getAllApplications, putApplication } from '../lib/localStore'
-import type { Application, ApplicationStage, ArchiveReason } from '../types/application'
+import { addRemoteStageHistoryEntry, getAllRemoteApplications, putRemoteApplication } from '../lib/remoteStore'
+import type { Application, ApplicationStage, ArchiveReason, StageHistoryEntry } from '../types/application'
 
 export interface ApplicationInput {
   company: string
@@ -13,16 +14,48 @@ export interface ApplicationInput {
   notes: string | null
 }
 
-export function useApplications() {
+// Signed-in: Supabase is the source of truth, mirrored into IndexedDB as a
+// write-through cache (so reads can fall back to it if offline). Guest:
+// IndexedDB only, unchanged from pre-M5 behavior. Writes always require
+// being online while signed in -- no offline write queue/sync.
+async function persistApplication(application: Application, userId: string | null): Promise<void> {
+  if (userId) {
+    await putRemoteApplication(application)
+  }
+  await putApplication(application)
+}
+
+async function persistStageHistoryEntry(entry: StageHistoryEntry, userId: string | null): Promise<void> {
+  if (userId) {
+    await addRemoteStageHistoryEntry(entry)
+  }
+  await addStageHistoryEntry(entry)
+}
+
+export function useApplications(userId: string | null) {
   const [applications, setApplications] = useState<Application[]>([])
   const [loading, setLoading] = useState(true)
 
   const refresh = useCallback(async () => {
-    const all = await getAllApplications()
-    setApplications(all)
-  }, [])
+    if (userId) {
+      try {
+        const remote = await getAllRemoteApplications(userId)
+        setApplications(remote)
+        await Promise.all(remote.map((app) => putApplication(app)))
+        return
+      } catch (err) {
+        console.warn('Falling back to local cache -- could not reach Supabase.', err)
+        const cached = await getAllApplications()
+        setApplications(cached.filter((app) => app.user_id === userId))
+        return
+      }
+    }
+    const local = await getAllApplications()
+    setApplications(local)
+  }, [userId])
 
   useEffect(() => {
+    setLoading(true)
     refresh().finally(() => setLoading(false))
   }, [refresh])
 
@@ -31,7 +64,7 @@ export function useApplications() {
       const now = new Date().toISOString()
       const application: Application = {
         id: crypto.randomUUID(),
-        user_id: null,
+        user_id: userId,
         ...input,
         is_archived: false,
         archive_reason: null,
@@ -39,10 +72,10 @@ export function useApplications() {
         created_at: now,
         updated_at: now,
       }
-      await putApplication(application)
+      await persistApplication(application, userId)
       await refresh()
     },
-    [refresh],
+    [userId, refresh],
   )
 
   const updateApplication = useCallback(
@@ -54,10 +87,10 @@ export function useApplications() {
         ...input,
         updated_at: new Date().toISOString(),
       }
-      await putApplication(updated)
+      await persistApplication(updated, userId)
       await refresh()
     },
-    [applications, refresh],
+    [applications, userId, refresh],
   )
 
   const moveApplicationStage = useCallback(
@@ -66,16 +99,14 @@ export function useApplications() {
       if (!existing || existing.current_stage === newStage) return
       const now = new Date().toISOString()
       const updated: Application = { ...existing, current_stage: newStage, updated_at: now }
-      await putApplication(updated)
-      await addStageHistoryEntry({
-        id: crypto.randomUUID(),
-        application_id: id,
-        stage: newStage,
-        entered_at: now,
-      })
+      await persistApplication(updated, userId)
+      await persistStageHistoryEntry(
+        { id: crypto.randomUUID(), application_id: id, stage: newStage, entered_at: now },
+        userId,
+      )
       await refresh()
     },
-    [applications, refresh],
+    [applications, userId, refresh],
   )
 
   const archiveApplication = useCallback(
@@ -90,10 +121,10 @@ export function useApplications() {
         archived_at: now,
         updated_at: now,
       }
-      await putApplication(updated)
+      await persistApplication(updated, userId)
       await refresh()
     },
-    [applications, refresh],
+    [applications, userId, refresh],
   )
 
   const unarchiveApplication = useCallback(
@@ -107,10 +138,10 @@ export function useApplications() {
         archived_at: null,
         updated_at: new Date().toISOString(),
       }
-      await putApplication(updated)
+      await persistApplication(updated, userId)
       await refresh()
     },
-    [applications, refresh],
+    [applications, userId, refresh],
   )
 
   return {
@@ -121,5 +152,6 @@ export function useApplications() {
     moveApplicationStage,
     archiveApplication,
     unarchiveApplication,
+    refresh,
   }
 }

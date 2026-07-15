@@ -28,6 +28,11 @@ export async function getStageHistory(applicationId: string): Promise<StageHisto
   return db.getAllFromIndex('stage_history', 'by-application_id', applicationId)
 }
 
+export async function getAllStageHistory(): Promise<StageHistoryEntry[]> {
+  const db = await getDB()
+  return db.getAll('stage_history')
+}
+
 export async function addStageHistoryEntry(entry: StageHistoryEntry): Promise<void> {
   const db = await getDB()
   await db.put('stage_history', entry)

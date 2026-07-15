@@ -12,19 +12,25 @@ import {
 } from '@dnd-kit/core'
 import type { Application, ApplicationStage, ArchiveReason } from '../types/application'
 import { useApplications } from '../hooks/useApplications'
+import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
+import { hasMigrated, migrateGuestDataToAccount } from '../lib/migration'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
 import { CardVisual } from './CardVisual'
 import { ArchiveView } from './ArchiveView'
 import { UndoToast } from './UndoToast'
+import { AuthModal } from './AuthModal'
+import { AccountNudgeBanner } from './AccountNudgeBanner'
 
 type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
 
 const UNDO_WINDOW_MS = 10000
+const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 
 export function Board() {
+  const { user, signUp, signIn, signOut } = useAuth()
   const {
     applications,
     loading,
@@ -33,13 +39,19 @@ export function Board() {
     moveApplicationStage,
     archiveApplication,
     unarchiveApplication,
-  } = useApplications()
+    refresh,
+  } = useApplications(user?.id ?? null)
   const [formState, setFormState] = useState<FormState>(null)
   const [detailApplication, setDetailApplication] = useState<Application | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [view, setView] = useState<'board' | 'archive'>('board')
   const [undoState, setUndoState] = useState<{ id: string; company: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
+  const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
+  const [bannerDismissed, setBannerDismissed] = useState(
+    () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === 'true',
+  )
+  const [migrating, setMigrating] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -113,6 +125,15 @@ export function Board() {
 
   useEffect(() => clearUndoTimer, [])
 
+  useEffect(() => {
+    if (!user || hasMigrated(user.id)) return
+    setMigrating(true)
+    migrateGuestDataToAccount(user.id)
+      .then(refresh)
+      .catch((err) => console.error('Migration failed', err))
+      .finally(() => setMigrating(false))
+  }, [user, refresh])
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
   }
@@ -147,6 +168,7 @@ export function Board() {
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
         <h1 className="text-xl font-medium text-slate-800">Job Application Tracker</h1>
         <div className="flex items-center gap-4">
+          {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
           <button
             type="button"
             onClick={() => setView('archive')}
@@ -154,6 +176,35 @@ export function Board() {
           >
             {archivedApplications.length} archived
           </button>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-slate-500 truncate max-w-[12rem]">{user.email}</span>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setAuthModalMode('log-in')}
+                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => setAuthModalMode('sign-up')}
+                className="text-sm font-medium text-slate-700 hover:underline"
+              >
+                Sign up
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
@@ -163,6 +214,16 @@ export function Board() {
           </button>
         </div>
       </header>
+
+      {!user && !bannerDismissed && (
+        <AccountNudgeBanner
+          onSignUp={() => setAuthModalMode('sign-up')}
+          onDismiss={() => {
+            sessionStorage.setItem(BANNER_DISMISSED_KEY, 'true')
+            setBannerDismissed(true)
+          }}
+        />
+      )}
 
       {view === 'archive' ? (
         <ArchiveView
@@ -228,6 +289,15 @@ export function Board() {
 
       {undoState && (
         <UndoToast message={`Archived ${undoState.company}`} onUndo={handleUndo} />
+      )}
+
+      {authModalMode && (
+        <AuthModal
+          mode={authModalMode}
+          onSignUp={signUp}
+          onSignIn={signIn}
+          onClose={() => setAuthModalMode(null)}
+        />
       )}
     </div>
   )
