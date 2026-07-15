@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M5 (not started)
-- **Last completed:** M4 (Archive + undo)
+- **Active milestone:** M6 (not started)
+- **Last completed:** M5 (Auth + guest→account migration) — built and mostly verified; **one manual QA pass still needed before trusting it in production**, see checklist below
 - **App runs?** yes — `npm run dev`
-- **Next action:** start M5 (Auth + guest→account migration) — the highest-risk milestone; decide auth method first (see open decision below)
+- **Next action:** run the M5 manual QA checklist below (10 min), then start M6 (GDPR + polish)
 
 ---
 
@@ -62,14 +62,27 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Undo toast (~10s) after archiving; **Ctrl/Cmd+Z undoes the last archive** (last-archive only)
 - [x] Committed; PLAN.md updated
 
-### M5 — Auth + guest→account migration  *(effort: Extra high — highest-risk, correctness-critical)*
-- [ ] Supabase Auth: sign up / log in
-- [ ] Gentle, **dismissible** account-nudge banner (warns about data loss without an account)
-- [ ] **Migration:** on account creation by a guest, upload ALL local data into the new account with **zero loss**; make it idempotent and test it hard
-- [ ] After migration, Supabase is source of truth; local store acts as cache
-- [ ] Verify RLS: a signed-in user can read/write only their own rows
-- [ ] Committed; PLAN.md updated
-- *Deferred (do not build): multi-device merge / offline-edit conflict resolution.*
+### M5 — Auth + guest→account migration  *(effort: Extra high — highest-risk, correctness-critical)* — built, needs manual QA (see checklist)
+- [x] Supabase Auth: sign up / log in
+- [x] Gentle, **dismissible** account-nudge banner (warns about data loss without an account)
+- [x] **Migration:** on account creation by a guest, upload ALL local data into the new account with **zero loss**; made idempotent (upsert by primary key + a local "already migrated" flag); logic verified via mocked-client test (see notes), but not via a real live signup
+- [x] After migration, Supabase is source of truth; local store acts as write-through cache (reads fall back to it if offline; no offline-write queue — that's still deferred, see below)
+- [x] Verify RLS: a signed-in user can read/write only their own rows — re-confirmed via curl (unaffected by M5, schema unchanged)
+- [x] Committed; PLAN.md updated
+- *Deferred (do not build): multi-device merge / offline-edit conflict resolution, and (newly scoped down in M5) offline writes — writes require being online while signed in.*
+
+#### Manual QA checklist for M5 (do this before trusting it / before M6)
+
+I couldn't complete a live sign-up → confirm → migrate round trip myself — see the note below on why. Please do this once:
+
+1. `npm run dev`, use the app as a guest, add 2-3 applications, move one's stage (drag or double-click), archive one.
+2. Click "Sign up" in the header, use a real email you can check, set a password, submit.
+3. Check email, click the confirmation link. It should redirect to `http://localhost:5173/`.
+4. Confirm: the app now shows you as signed in (email in header), and **all the guest data you added in step 1 is present** — same companies, roles, stages, and the archived one still archived with its reason.
+5. In the Supabase dashboard's Table Editor, check the `applications` table — confirm the rows have your new `user_id`, not null.
+6. Reload the page. Data should still be there (now coming from Supabase, not the local guest copy).
+7. Sign out, sign back in. Data should still be there and correct.
+8. If anything in steps 4-7 doesn't match, tell me what broke and I'll fix it — don't just patch it yourself, since the fix might need to account for the migration timing/idempotency design.
 
 ### M6 — GDPR + polish  *(effort: High)*
 - [ ] Export all my data as JSON
@@ -99,8 +112,11 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - **Key naming note:** this Supabase project uses the newer key format — `sb_publishable_...` (goes in `VITE_SUPABASE_ANON_KEY`, safe client-side because RLS is on) and `sb_secret_...` (service-role equivalent — never put this in any `VITE_`-prefixed var or commit it; it was shared once in chat and should probably be rotated in the dashboard as routine hygiene).
 - RLS verified end-to-end via curl against the REST API: unauthenticated reads return `[]` (not an error — RLS filters rows), unauthenticated inserts are rejected with a `42501` row-level-security violation.
 - IndexedDB mirror (`src/lib/db.ts`, `src/lib/localStore.ts`) verified with a manual round-trip smoke test in the browser (write + read-back across reloads), then reverted out of `App.tsx` — that test code was temporary, not meant to ship.
-- Auth method (email+password / magic link / OAuth): _TBD, decide before M5._
+- Auth method: **email + password** (decided). Email confirmation is left ON in Supabase (user's choice, safer default) — this means signUp() never returns an active session immediately; migration is triggered from `onAuthStateChange` reporting an active session, not from the signUp call itself. Keep that in mind if this ever needs modifying — the trigger point is intentional, not incidental.
 - Hosting: _TBD, decide before M6 / launch._
+- **M5 note — data layer architecture:** `useApplications(userId)` now branches on whether `userId` is null (guest → IndexedDB only, unchanged from M1-M4) or set (signed-in → Supabase is primary, mirrored into IndexedDB via `persistApplication`/`persistStageHistoryEntry` write-through helpers in the hook). Reads try Supabase first and fall back to the local cache (filtered by `user_id`) if the request fails — this is genuinely useful offline-read support, not just decoration. Writes do NOT have an offline queue: if you're signed in and offline, a write will throw. That's a deliberate scope cut — full offline-write sync needs conflict resolution, which the brief explicitly defers.
+- **M5 note — migration trigger & idempotency:** `migrateGuestDataToAccount(userId)` in `src/lib/migration.ts` reads all local IndexedDB data, stamps `user_id`, and `upsert`s into Supabase (upsert-by-primary-key makes retries safe). It's gated by a `localStorage` flag (`job-tracker:migrated-for-user:<id>`) so it only actually runs once per user per browser, even though the upsert itself would also be safe to repeat. Called from a `useEffect` in `Board.tsx` keyed on `user` — fires whenever a session becomes active and hasn't migrated yet, which correctly covers the "confirmed email in a later browser session" case.
+- **M5 note — testing limitation, important for future sessions:** I could not complete a live signup → email-confirm → migration test myself. I did get further than expected: I created a real test signup with a `mailinator.com` disposable address, found the confirmation email, and located the confirmation link — but the browser automation tool refused to navigate to `supabase.co` (a newly-encountered external origin) with a hard "denied" error, both via direct navigation and via clicking the link in-page. This appears to be a sandbox restriction on this environment, not something fixable in the app. I instead verified the migration function's correctness by temporarily exposing it on `window` in `main.tsx` (reverted before committing — check `git diff src/main.tsx` is empty if picking this up), mocking `supabase.from()` to capture calls without hitting the network, and confirming: (a) correct payload shape with `user_id` stamped, (b) the idempotency guard produces zero calls on a second run. This gives high confidence in the transformation logic but does NOT prove the live signup→session→migration wiring works end-to-end — that's what the manual QA checklist above is for. If a future session needs to test this kind of live-auth flow, worth knowing upfront that this environment can't drive it.
 - M2 note: clicking a card currently opens the edit form directly (not a detail view) — M3 replaces this with the real card detail panel per brief §6.3. Kept the same `ApplicationForm` component for both add and edit (branches on whether `initial` is set) rather than two separate forms.
 - M2 note: "Eyes on" quick-action question from brief §10 is still open — no explicit "mark as applied" button yet, drag-and-drop (M3) will be the only way to change stage until/unless we decide to add one.
 - Browser-preview tooling note (not a product decision): coordinate-based clicks in the in-app browser tool didn't line up with visual screenshot coordinates during testing; ref-based clicks (from `read_page`) worked correctly. Worth using refs over raw coordinates when verifying UI in future sessions.
