@@ -9,7 +9,7 @@ interface CardVisualProps {
 export function CardVisual({ application, dragging }: CardVisualProps) {
   return (
     <div
-      className={`w-full text-left bg-white rounded-md border border-slate-200 p-3 transition ${
+      className={`w-full text-left bg-white rounded-md border border-slate-200 p-3 transition select-none ${
         dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-slate-300'
       }`}
     >
