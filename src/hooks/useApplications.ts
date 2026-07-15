@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getAllApplications, putApplication } from '../lib/localStore'
+import { addStageHistoryEntry, getAllApplications, putApplication } from '../lib/localStore'
 import type { Application, ApplicationStage } from '../types/application'
 
 export interface ApplicationInput {
@@ -60,5 +60,23 @@ export function useApplications() {
     [applications, refresh],
   )
 
-  return { applications, loading, createApplication, updateApplication }
+  const moveApplicationStage = useCallback(
+    async (id: string, newStage: ApplicationStage) => {
+      const existing = applications.find((app) => app.id === id)
+      if (!existing || existing.current_stage === newStage) return
+      const now = new Date().toISOString()
+      const updated: Application = { ...existing, current_stage: newStage, updated_at: now }
+      await putApplication(updated)
+      await addStageHistoryEntry({
+        id: crypto.randomUUID(),
+        application_id: id,
+        stage: newStage,
+        entered_at: now,
+      })
+      await refresh()
+    },
+    [applications, refresh],
+  )
+
+  return { applications, loading, createApplication, updateApplication, moveApplicationStage }
 }

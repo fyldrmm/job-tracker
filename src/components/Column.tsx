@@ -1,3 +1,4 @@
+import { useDroppable } from '@dnd-kit/core'
 import type { Application, ApplicationStage } from '../types/application'
 import { Card } from './Card'
 
@@ -6,10 +7,13 @@ interface ColumnProps {
   stage: ApplicationStage
   applications: Application[]
   onAdd: (stage: ApplicationStage) => void
-  onCardClick: (application: Application) => void
+  onCardOpen: (application: Application) => void
+  onCardAdvance: (application: Application) => void
 }
 
-export function Column({ title, stage, applications, onAdd, onCardClick }: ColumnProps) {
+export function Column({ title, stage, applications, onAdd, onCardOpen, onCardAdvance }: ColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({ id: stage })
+
   return (
     <div className="flex flex-col bg-slate-100 rounded-lg w-72 shrink-0 max-h-full">
       <div className="flex items-center justify-between px-3 py-2">
@@ -25,12 +29,22 @@ export function Column({ title, stage, applications, onAdd, onCardClick }: Colum
           +
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2">
+      <div
+        ref={setNodeRef}
+        className={`flex-1 overflow-y-auto px-2 pb-2 space-y-2 rounded-md transition ${
+          isOver ? 'ring-2 ring-inset ring-slate-400 bg-slate-200/50' : ''
+        }`}
+      >
         {applications.length === 0 && (
           <p className="text-xs text-slate-400 px-1 py-4 text-center">No applications yet</p>
         )}
         {applications.map((application) => (
-          <Card key={application.id} application={application} onClick={() => onCardClick(application)} />
+          <Card
+            key={application.id}
+            application={application}
+            onOpenDetail={() => onCardOpen(application)}
+            onAdvance={() => onCardAdvance(application)}
+          />
         ))}
       </div>
     </div>
