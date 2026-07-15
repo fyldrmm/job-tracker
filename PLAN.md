@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M2 (not started)
-- **Last completed:** M1 (Foundation)
-- **App runs?** yes — `npm run dev`, app shell renders
-- **Next action:** start M2 (Kanban board + manual entry form)
+- **Active milestone:** M3 (not started)
+- **Last completed:** M2 (Board + manual entry)
+- **App runs?** yes — `npm run dev`; board is fully usable as a guest (add/edit, persists across reload)
+- **Next action:** start M3 (drag-and-drop + stage_history + card detail view)
 
 ---
 
@@ -37,13 +37,13 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] App shell runs (empty board placeholder is fine)
 - [x] Committed; PLAN.md updated
 
-### M2 — Board + manual entry (local-only, usable)  *(effort: High)*
-- [ ] Kanban board with 4 columns: Eyes on, Applied, Interview, Offer
-- [ ] Card front shows company, role title, date applied (only these three)
-- [ ] Add/edit application form: company*, role*, date applied* (default today), job link, salary, location, notes
-- [ ] New cards land in the triggering column (default Applied); form also edits existing
-- [ ] Data persists to the local store; board is fully usable as a guest
-- [ ] Committed; PLAN.md updated
+### M2 — Board + manual entry (local-only, usable)  *(effort: High)* — ✅ done
+- [x] Kanban board with 4 columns: Eyes on, Applied, Interview, Offer
+- [x] Card front shows company, role title, date applied (only these three)
+- [x] Add/edit application form: company*, role*, date applied* (default today), job link, salary, location, notes
+- [x] New cards land in the triggering column (default Applied); form also edits existing
+- [x] Data persists to the local store; board is fully usable as a guest
+- [x] Committed; PLAN.md updated
 
 ### M3 — Movement + detail  *(effort: Extra high — dnd is fiddly)*
 - [ ] Drag-and-drop cards between columns (dnd-kit); keyboard-accessible
@@ -98,3 +98,6 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - IndexedDB mirror (`src/lib/db.ts`, `src/lib/localStore.ts`) verified with a manual round-trip smoke test in the browser (write + read-back across reloads), then reverted out of `App.tsx` — that test code was temporary, not meant to ship.
 - Auth method (email+password / magic link / OAuth): _TBD, decide before M5._
 - Hosting: _TBD, decide before M6 / launch._
+- M2 note: clicking a card currently opens the edit form directly (not a detail view) — M3 replaces this with the real card detail panel per brief §6.3. Kept the same `ApplicationForm` component for both add and edit (branches on whether `initial` is set) rather than two separate forms.
+- M2 note: "Eyes on" quick-action question from brief §10 is still open — no explicit "mark as applied" button yet, drag-and-drop (M3) will be the only way to change stage until/unless we decide to add one.
+- Browser-preview tooling note (not a product decision): coordinate-based clicks in the in-app browser tool didn't line up with visual screenshot coordinates during testing; ref-based clicks (from `read_page`) worked correctly. Worth using refs over raw coordinates when verifying UI in future sessions.
