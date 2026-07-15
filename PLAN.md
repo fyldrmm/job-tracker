@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M3 (not started)
-- **Last completed:** M2 (Board + manual entry)
-- **App runs?** yes — `npm run dev`; board is fully usable as a guest (add/edit, persists across reload)
-- **Next action:** start M3 (drag-and-drop + stage_history + card detail view)
+- **Active milestone:** M4 (not started)
+- **Last completed:** M3 (Movement + detail) — see note below on drag verification
+- **App runs?** yes — `npm run dev`
+- **Next action:** before starting M4, manually drag a card between columns in a real browser to confirm — see "M3 note" below. If it doesn't work, that's a quick fix to make before moving on.
 
 ---
 
@@ -45,11 +45,12 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Data persists to the local store; board is fully usable as a guest
 - [x] Committed; PLAN.md updated
 
-### M3 — Movement + detail  *(effort: Extra high — dnd is fiddly)*
-- [ ] Drag-and-drop cards between columns (dnd-kit); keyboard-accessible
-- [ ] Moving a card updates `current_stage` and appends a `stage_history` row
-- [ ] Card detail view (panel/modal) showing all fields, with edit
-- [ ] Committed; PLAN.md updated
+### M3 — Movement + detail  *(effort: Extra high — dnd is fiddly)* — ✅ done (drag path unverified by automation, see note)
+- [x] Drag-and-drop cards between columns (dnd-kit); keyboard-accessible
+- [x] Moving a card updates `current_stage` and appends a `stage_history` row
+- [x] Card detail view (panel/modal) showing all fields, with edit
+- [x] Committed; PLAN.md updated
+- [x] Bonus (user request): double-click a card also advances it to the next stage — a trackpad-friendly alternative to dragging
 
 ### M4 — Archive + undo  *(effort: High)*
 - [ ] Split-button archive: main button archives with default reason **Rejected**; **▾** opens reasons (Rejected / Withdrawn / No response / Accepted)
@@ -101,3 +102,5 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - M2 note: clicking a card currently opens the edit form directly (not a detail view) — M3 replaces this with the real card detail panel per brief §6.3. Kept the same `ApplicationForm` component for both add and edit (branches on whether `initial` is set) rather than two separate forms.
 - M2 note: "Eyes on" quick-action question from brief §10 is still open — no explicit "mark as applied" button yet, drag-and-drop (M3) will be the only way to change stage until/unless we decide to add one.
 - Browser-preview tooling note (not a product decision): coordinate-based clicks in the in-app browser tool didn't line up with visual screenshot coordinates during testing; ref-based clicks (from `read_page`) worked correctly. Worth using refs over raw coordinates when verifying UI in future sessions.
+- **M3 note — drag verification gap:** `moveApplicationStage` (src/hooks/useApplications.ts) is the single function both the drag `onDragEnd` handler and the double-click advance call — its data effects (stage change + `stage_history` write) were verified directly against IndexedDB. The double-click path was verified through the real UI. Actual mouse-drag could NOT be verified through the browser automation tool: dispatching synthetic `PointerEvent`s (including a realistic multi-step pointerdown → pointermove × N → pointerup sequence) did not activate dnd-kit's `PointerSensor`, most likely because it (or the browser) checks `event.isTrusted`. The `DndContext`/`useDraggable`/`useDroppable` wiring in `Board.tsx`/`Card.tsx`/`Column.tsx` follows dnd-kit's standard documented API with no customization, so this is believed to work, but **please manually drag a card in a real browser to confirm** before/while starting M4. If it's broken, it's likely a small fix (e.g. collision detection or the `over.id` → stage mapping) — flag it and we'll fix it first.
+- M3 note: double-click disambiguation from single-click uses a manual `setTimeout`-based timer in `Card.tsx` (not the native `dblclick` event), so a fast double-click still opens-then-immediately-advances is avoided — the timer is cleared before the "open detail" callback fires if a second click arrives within 250ms.
