@@ -20,22 +20,22 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M1 (not started)
-- **Last completed:** none
-- **App runs?** not yet
-- **Next action:** scaffold the project (see M1)
+- **Active milestone:** M2 (not started)
+- **Last completed:** M1 (Foundation)
+- **App runs?** yes — `npm run dev`, app shell renders
+- **Next action:** start M2 (Kanban board + manual entry form)
 
 ---
 
 ## Milestones
 
-### M1 — Foundation  *(effort: High)*
-- [ ] Scaffold frontend (React + Vite + TS + Tailwind, or house stack)
-- [ ] Create Supabase project; **enable RLS on all tables from the start**
-- [ ] Define schema: `applications` and `stage_history` (with enums per brief §5)
-- [ ] Set up IndexedDB local store mirroring the same shape
-- [ ] App shell runs (empty board placeholder is fine)
-- [ ] Committed; PLAN.md updated
+### M1 — Foundation  *(effort: High)* — ✅ done
+- [x] Scaffold frontend (React + Vite + TS + Tailwind, or house stack)
+- [x] Create Supabase project; **enable RLS on all tables from the start**
+- [x] Define schema: `applications` and `stage_history` (with enums per brief §5)
+- [x] Set up IndexedDB local store mirroring the same shape
+- [x] App shell runs (empty board placeholder is fine)
+- [x] Committed; PLAN.md updated
 
 ### M2 — Board + manual entry (local-only, usable)  *(effort: High)*
 - [ ] Kanban board with 4 columns: Eyes on, Applied, Interview, Offer
@@ -89,6 +89,12 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 *(Claude Code: record anything future sessions should know here — stack choices made, gotchas hit, deviations from the brief and why.)*
 
-- Stack: _TBD if house standard differs from the brief's recommendation._
-- Auth method (email+password / magic link / OAuth): _TBD._
-- Hosting: _TBD._
+- Stack: brief's default followed as-is — React + Vite (v8) + TS + Tailwind v4 (via `@tailwindcss/vite`, no separate config file needed — see `src/index.css`). Package manager: npm.
+- Supabase project is live at `https://fjlmyaamarnjlthbhycx.supabase.co`. Schema in `supabase/migrations/0001_init.sql`, applied manually via the dashboard SQL editor (no CLI access token set up yet — the CLI's personal access token lives at supabase.com/dashboard/account/tokens, not the per-project settings, which is why it was hard to find). If a future session needs to push schema changes, either paste the new migration into the SQL editor manually, or get an access token then and use `supabase link` + `supabase db push`.
+- `stage_history` has no `user_id` column (matches the brief's data model exactly). Its RLS policies scope through the parent `applications` row's ownership via an `EXISTS` subquery instead of a direct column check.
+- Local Supabase credentials live in `.env` (gitignored, confirmed via `git check-ignore`). `.env.example` documents the two required keys with empty values.
+- **Key naming note:** this Supabase project uses the newer key format — `sb_publishable_...` (goes in `VITE_SUPABASE_ANON_KEY`, safe client-side because RLS is on) and `sb_secret_...` (service-role equivalent — never put this in any `VITE_`-prefixed var or commit it; it was shared once in chat and should probably be rotated in the dashboard as routine hygiene).
+- RLS verified end-to-end via curl against the REST API: unauthenticated reads return `[]` (not an error — RLS filters rows), unauthenticated inserts are rejected with a `42501` row-level-security violation.
+- IndexedDB mirror (`src/lib/db.ts`, `src/lib/localStore.ts`) verified with a manual round-trip smoke test in the browser (write + read-back across reloads), then reverted out of `App.tsx` — that test code was temporary, not meant to ship.
+- Auth method (email+password / magic link / OAuth): _TBD, decide before M5._
+- Hosting: _TBD, decide before M6 / launch._
