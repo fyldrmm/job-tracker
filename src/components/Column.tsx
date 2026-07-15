@@ -9,9 +9,18 @@ interface ColumnProps {
   onAdd: (stage: ApplicationStage) => void
   onCardOpen: (application: Application) => void
   onCardAdvance: (application: Application) => void
+  onCardRetreat: (application: Application) => void
 }
 
-export function Column({ title, stage, applications, onAdd, onCardOpen, onCardAdvance }: ColumnProps) {
+export function Column({
+  title,
+  stage,
+  applications,
+  onAdd,
+  onCardOpen,
+  onCardAdvance,
+  onCardRetreat,
+}: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
 
   return (
@@ -31,7 +40,7 @@ export function Column({ title, stage, applications, onAdd, onCardOpen, onCardAd
       </div>
       <div
         ref={setNodeRef}
-        className={`flex-1 overflow-y-auto px-2 pb-2 space-y-2 rounded-md transition ${
+        className={`flex-1 overflow-y-auto p-2 space-y-2 rounded-md transition ${
           isOver ? 'ring-2 ring-inset ring-slate-400 bg-slate-200/50' : ''
         }`}
       >
@@ -44,6 +53,7 @@ export function Column({ title, stage, applications, onAdd, onCardOpen, onCardAd
             application={application}
             onOpenDetail={() => onCardOpen(application)}
             onAdvance={() => onCardAdvance(application)}
+            onRetreat={() => onCardRetreat(application)}
           />
         ))}
       </div>

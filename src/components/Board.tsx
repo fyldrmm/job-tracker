@@ -1,19 +1,22 @@
 import { useMemo, useState } from 'react'
 import {
   DndContext,
+  DragOverlay,
   closestCenter,
   PointerSensor,
   KeyboardSensor,
   useSensor,
   useSensors,
+  type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import type { Application, ApplicationStage } from '../types/application'
 import { useApplications } from '../hooks/useApplications'
-import { STAGE_ORDER, STAGE_LABELS, nextStage } from '../lib/stages'
+import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
+import { CardVisual } from './CardVisual'
 
 type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
 
@@ -22,6 +25,7 @@ export function Board() {
     useApplications()
   const [formState, setFormState] = useState<FormState>(null)
   const [detailApplication, setDetailApplication] = useState<Application | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -42,15 +46,31 @@ export function Board() {
     return grouped
   }, [applications])
 
+  const activeApplication = activeId ? applications.find((app) => app.id === activeId) ?? null : null
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id))
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event
+    setActiveId(null)
     if (!over) return
     moveApplicationStage(String(active.id), over.id as ApplicationStage)
+  }
+
+  function handleDragCancel() {
+    setActiveId(null)
   }
 
   function handleCardAdvance(application: Application) {
     const next = nextStage(application.current_stage)
     if (next) moveApplicationStage(application.id, next)
+  }
+
+  function handleCardRetreat(application: Application) {
+    const prev = prevStage(application.current_stage)
+    if (prev) moveApplicationStage(application.id, prev)
   }
 
   if (loading) {
@@ -71,7 +91,13 @@ export function Board() {
       </header>
 
       <main className="flex-1 overflow-x-auto p-6">
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
           <div className="flex gap-4 h-full">
             {STAGE_ORDER.map((stage) => (
               <Column
@@ -82,9 +108,13 @@ export function Board() {
                 onAdd={(s) => setFormState({ mode: 'add', stage: s })}
                 onCardOpen={setDetailApplication}
                 onCardAdvance={handleCardAdvance}
+                onCardRetreat={handleCardRetreat}
               />
             ))}
           </div>
+          <DragOverlay>
+            {activeApplication ? <CardVisual application={activeApplication} dragging /> : null}
+          </DragOverlay>
         </DndContext>
       </main>
 

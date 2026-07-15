@@ -14,3 +14,9 @@ export function nextStage(stage: ApplicationStage): ApplicationStage | null {
   if (idx === -1 || idx === STAGE_ORDER.length - 1) return null
   return STAGE_ORDER[idx + 1]
 }
+
+export function prevStage(stage: ApplicationStage): ApplicationStage | null {
+  const idx = STAGE_ORDER.indexOf(stage)
+  if (idx <= 0) return null
+  return STAGE_ORDER[idx - 1]
+}
