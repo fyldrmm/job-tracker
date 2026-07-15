@@ -1,0 +1,38 @@
+import type { Application, ApplicationStage } from '../types/application'
+import { Card } from './Card'
+
+interface ColumnProps {
+  title: string
+  stage: ApplicationStage
+  applications: Application[]
+  onAdd: (stage: ApplicationStage) => void
+  onCardClick: (application: Application) => void
+}
+
+export function Column({ title, stage, applications, onAdd, onCardClick }: ColumnProps) {
+  return (
+    <div className="flex flex-col bg-slate-100 rounded-lg w-72 shrink-0 max-h-full">
+      <div className="flex items-center justify-between px-3 py-2">
+        <h2 className="font-medium text-slate-700 text-sm">
+          {title} <span className="text-slate-400 font-normal">{applications.length}</span>
+        </h2>
+        <button
+          type="button"
+          onClick={() => onAdd(stage)}
+          aria-label={`Add application to ${title}`}
+          className="text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded w-6 h-6 flex items-center justify-center text-lg leading-none"
+        >
+          +
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-2">
+        {applications.length === 0 && (
+          <p className="text-xs text-slate-400 px-1 py-4 text-center">No applications yet</p>
+        )}
+        {applications.map((application) => (
+          <Card key={application.id} application={application} onClick={() => onCardClick(application)} />
+        ))}
+      </div>
+    </div>
+  )
+}
