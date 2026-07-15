@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M4 (not started)
-- **Last completed:** M3 (Movement + detail), plus a follow-up bugfix pass — real drag confirmed working by user; fixed z-index (DragOverlay), a clipped focus ring, and added triple-click retreat
+- **Active milestone:** M5 (not started)
+- **Last completed:** M4 (Archive + undo)
 - **App runs?** yes — `npm run dev`
-- **Next action:** start M4 (Archive + undo)
+- **Next action:** start M5 (Auth + guest→account migration) — the highest-risk milestone; decide auth method first (see open decision below)
 
 ---
 
@@ -54,13 +54,13 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Bugfix: dragged card no longer renders under other columns (switched to dnd-kit's `DragOverlay`)
 - [x] Bugfix: focus ring on the first card in a column no longer clipped by the column header
 
-### M4 — Archive + undo  *(effort: High)*
-- [ ] Split-button archive: main button archives with default reason **Rejected**; **▾** opens reasons (Rejected / Withdrawn / No response / Accepted)
-- [ ] `current_stage` preserved on archive; `is_archived`, `archive_reason`, `archived_at` set
-- [ ] Separate Archive view listing archived items, with **un-archive**
-- [ ] Quiet archived count on the board, linking into the Archive view
-- [ ] Undo toast (~10s) after archiving; **Ctrl/Cmd+Z undoes the last archive** (last-archive only)
-- [ ] Committed; PLAN.md updated
+### M4 — Archive + undo  *(effort: High)* — ✅ done
+- [x] Split-button archive: main button archives with default reason **Rejected**; **▾** opens reasons (Rejected / Withdrawn / No response / Accepted)
+- [x] `current_stage` preserved on archive; `is_archived`, `archive_reason`, `archived_at` set
+- [x] Separate Archive view listing archived items, with **un-archive**
+- [x] Quiet archived count on the board, linking into the Archive view
+- [x] Undo toast (~10s) after archiving; **Ctrl/Cmd+Z undoes the last archive** (last-archive only)
+- [x] Committed; PLAN.md updated
 
 ### M5 — Auth + guest→account migration  *(effort: Extra high — highest-risk, correctness-critical)*
 - [ ] Supabase Auth: sign up / log in
@@ -106,4 +106,5 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - Browser-preview tooling note (not a product decision): coordinate-based clicks in the in-app browser tool didn't line up with visual screenshot coordinates during testing; ref-based clicks (from `read_page`) worked correctly. Worth using refs over raw coordinates when verifying UI in future sessions.
 - **M3 follow-up (resolved):** user manually confirmed real mouse-drag works, and found three bugs, all now fixed: (1) dragged card rendered under other columns — fixed by rendering the drag preview through dnd-kit's `DragOverlay` (portals to `document.body`, immune to column overflow/stacking) instead of relying on the dragged element's own `transform`; the original card fades to `opacity-30` in place while the overlay copy follows the pointer. (2) Focus ring on the first card in a column was clipped by the column header — the scrollable card list had `px-2 pb-2` with no top padding, so a focused card's ring at the very top had no room before `overflow-y-auto` clipped it; changed to `p-2` (uniform padding fixes it). (3) Added triple-click to retreat a card to the previous stage (`prevStage` in `src/lib/stages.ts`), mirroring double-click's advance.
 - M3 note: click disambiguation in `Card.tsx` was reworked from "act immediately on the 2nd click" to a debounce — every click resets a `setTimeout`, and the action only fires once no further click arrives within 250ms, checking the accumulated click count (1/2/3+). This was necessary to add triple-click without it also firing the double-click action first. Tradeoff: double-click now waits the full 250ms after the second click before advancing, rather than firing instantly — not noticeable in practice.
-- Tooling note: when testing via the browser automation tool's `javascript_tool`, a DOM query like `el.textContent.includes(X)` can match ancestor elements (e.g. `#root`) that also happen to contain the text — matched too loosely once and dispatched a click on the wrong element. Prefer an exact match (`el.textContent.trim() === X`) on the most specific element, then walk up via `.parentElement` to the actual interactive target.
+- Tooling note: when testing via the browser automation tool's `javascript_tool`, a DOM query like `el.textContent.includes(X)` can match ancestor elements (e.g. `#root`) that also happen to contain the text — matched too loosely once and dispatched a click on the wrong element. Prefer an exact match (`el.textContent.trim() === X`) on the most specific element, then walk up via `.parentElement` to the actual interactive target. Same trap bit again in M4 testing when a list has multiple structurally-identical rows (Archive view) — `.find()` on a loose `textContent.includes()` predicate can match a shared ancestor container instead of one specific row, and then a nested `querySelectorAll('button').find(...)` grabs the first matching button in the WHOLE container rather than that row's button. When rows repeat, scope the query more tightly (e.g. match on unique text combos, or use `closest()`/index into a specific row element) before querying descendants.
+- **M4 bug fixed during testing:** `handleArchive` in `Board.tsx` originally called `archiveApplication(...)` without `await`, then immediately called `setUndoState(...)`. Because `unarchiveApplication` is a `useCallback` keyed on `applications`, and the keydown effect resubscribes only when `undoState` changes, the effect could capture a stale `unarchiveApplication` closure still bound to pre-archive data — `Ctrl/Cmd+Z` would silently no-op even with the undo toast visibly showing. Fixed by awaiting the archive write (and its `applications` refresh) before setting undo state, so the effect's dependent renders always see post-archive data. Worth remembering for any future "fire an async write, then immediately gate a keyboard shortcut on its result" pattern (e.g. if M5's migration ever needs something similar) — await first, or the shortcut can silently do nothing while looking like it should work.
