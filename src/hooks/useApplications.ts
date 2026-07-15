@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addStageHistoryEntry, getAllApplications, putApplication } from '../lib/localStore'
-import type { Application, ApplicationStage } from '../types/application'
+import type { Application, ApplicationStage, ArchiveReason } from '../types/application'
 
 export interface ApplicationInput {
   company: string
@@ -78,5 +78,48 @@ export function useApplications() {
     [applications, refresh],
   )
 
-  return { applications, loading, createApplication, updateApplication, moveApplicationStage }
+  const archiveApplication = useCallback(
+    async (id: string, reason: ArchiveReason = 'rejected') => {
+      const existing = applications.find((app) => app.id === id)
+      if (!existing || existing.is_archived) return
+      const now = new Date().toISOString()
+      const updated: Application = {
+        ...existing,
+        is_archived: true,
+        archive_reason: reason,
+        archived_at: now,
+        updated_at: now,
+      }
+      await putApplication(updated)
+      await refresh()
+    },
+    [applications, refresh],
+  )
+
+  const unarchiveApplication = useCallback(
+    async (id: string) => {
+      const existing = applications.find((app) => app.id === id)
+      if (!existing || !existing.is_archived) return
+      const updated: Application = {
+        ...existing,
+        is_archived: false,
+        archive_reason: null,
+        archived_at: null,
+        updated_at: new Date().toISOString(),
+      }
+      await putApplication(updated)
+      await refresh()
+    },
+    [applications, refresh],
+  )
+
+  return {
+    applications,
+    loading,
+    createApplication,
+    updateApplication,
+    moveApplicationStage,
+    archiveApplication,
+    unarchiveApplication,
+  }
 }

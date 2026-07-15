@@ -1,11 +1,14 @@
-import type { Application } from '../types/application'
+import type { Application, ArchiveReason } from '../types/application'
 import { formatDate } from '../lib/format'
 import { STAGE_LABELS } from '../lib/stages'
+import { ARCHIVE_REASON_LABELS } from '../lib/archive'
+import { ArchiveSplitButton } from './ArchiveSplitButton'
 
 interface CardDetailProps {
   application: Application
   onEdit: () => void
   onClose: () => void
+  onArchive: (reason: ArchiveReason) => void
 }
 
 interface FieldProps {
@@ -33,7 +36,7 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
   )
 }
 
-export function CardDetail({ application, onEdit, onClose }: CardDetailProps) {
+export function CardDetail({ application, onEdit, onClose, onArchive }: CardDetailProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
@@ -55,27 +58,38 @@ export function CardDetail({ application, onEdit, onClose }: CardDetailProps) {
         <dl className="divide-y divide-slate-100 mt-2">
           <Field label="Stage" value={STAGE_LABELS[application.current_stage]} />
           <Field label="Date applied" value={formatDate(application.date_applied)} />
+          {application.is_archived && application.archive_reason && (
+            <Field
+              label="Archived"
+              value={`${ARCHIVE_REASON_LABELS[application.archive_reason]}${
+                application.archived_at ? ` · ${formatDate(application.archived_at.slice(0, 10))}` : ''
+              }`}
+            />
+          )}
           <Field label="Job link" value={application.job_link} isLink />
           <Field label="Salary range" value={application.salary_range} />
           <Field label="Location" value={application.location} />
           <Field label="Notes" value={application.notes} multiline />
         </dl>
 
-        <div className="flex justify-end gap-2 pt-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 rounded-md hover:bg-slate-100"
-          >
-            Close
-          </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
-          >
-            Edit
-          </button>
+        <div className="flex items-center justify-between pt-4">
+          <div>{!application.is_archived && <ArchiveSplitButton onArchive={onArchive} />}</div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-slate-600 rounded-md hover:bg-slate-100"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={onEdit}
+              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+            >
+              Edit
+            </button>
+          </div>
         </div>
       </div>
     </div>
