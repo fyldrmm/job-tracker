@@ -21,9 +21,9 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 ## Current status
 
 - **Active milestone:** M4 (not started)
-- **Last completed:** M3 (Movement + detail) — see note below on drag verification
+- **Last completed:** M3 (Movement + detail), plus a follow-up bugfix pass — real drag confirmed working by user; fixed z-index (DragOverlay), a clipped focus ring, and added triple-click retreat
 - **App runs?** yes — `npm run dev`
-- **Next action:** before starting M4, manually drag a card between columns in a real browser to confirm — see "M3 note" below. If it doesn't work, that's a quick fix to make before moving on.
+- **Next action:** start M4 (Archive + undo)
 
 ---
 
@@ -45,12 +45,14 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Data persists to the local store; board is fully usable as a guest
 - [x] Committed; PLAN.md updated
 
-### M3 — Movement + detail  *(effort: Extra high — dnd is fiddly)* — ✅ done (drag path unverified by automation, see note)
-- [x] Drag-and-drop cards between columns (dnd-kit); keyboard-accessible
+### M3 — Movement + detail  *(effort: Extra high — dnd is fiddly)* — ✅ done, incl. follow-up fixes
+- [x] Drag-and-drop cards between columns (dnd-kit); keyboard-accessible; real mouse-drag confirmed by user
 - [x] Moving a card updates `current_stage` and appends a `stage_history` row
 - [x] Card detail view (panel/modal) showing all fields, with edit
 - [x] Committed; PLAN.md updated
-- [x] Bonus (user request): double-click a card also advances it to the next stage — a trackpad-friendly alternative to dragging
+- [x] Bonus (user request): double-click a card advances it to the next stage; triple-click retreats it to the previous stage — trackpad-friendly alternatives to dragging
+- [x] Bugfix: dragged card no longer renders under other columns (switched to dnd-kit's `DragOverlay`)
+- [x] Bugfix: focus ring on the first card in a column no longer clipped by the column header
 
 ### M4 — Archive + undo  *(effort: High)*
 - [ ] Split-button archive: main button archives with default reason **Rejected**; **▾** opens reasons (Rejected / Withdrawn / No response / Accepted)
@@ -102,5 +104,6 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - M2 note: clicking a card currently opens the edit form directly (not a detail view) — M3 replaces this with the real card detail panel per brief §6.3. Kept the same `ApplicationForm` component for both add and edit (branches on whether `initial` is set) rather than two separate forms.
 - M2 note: "Eyes on" quick-action question from brief §10 is still open — no explicit "mark as applied" button yet, drag-and-drop (M3) will be the only way to change stage until/unless we decide to add one.
 - Browser-preview tooling note (not a product decision): coordinate-based clicks in the in-app browser tool didn't line up with visual screenshot coordinates during testing; ref-based clicks (from `read_page`) worked correctly. Worth using refs over raw coordinates when verifying UI in future sessions.
-- **M3 note — drag verification gap:** `moveApplicationStage` (src/hooks/useApplications.ts) is the single function both the drag `onDragEnd` handler and the double-click advance call — its data effects (stage change + `stage_history` write) were verified directly against IndexedDB. The double-click path was verified through the real UI. Actual mouse-drag could NOT be verified through the browser automation tool: dispatching synthetic `PointerEvent`s (including a realistic multi-step pointerdown → pointermove × N → pointerup sequence) did not activate dnd-kit's `PointerSensor`, most likely because it (or the browser) checks `event.isTrusted`. The `DndContext`/`useDraggable`/`useDroppable` wiring in `Board.tsx`/`Card.tsx`/`Column.tsx` follows dnd-kit's standard documented API with no customization, so this is believed to work, but **please manually drag a card in a real browser to confirm** before/while starting M4. If it's broken, it's likely a small fix (e.g. collision detection or the `over.id` → stage mapping) — flag it and we'll fix it first.
-- M3 note: double-click disambiguation from single-click uses a manual `setTimeout`-based timer in `Card.tsx` (not the native `dblclick` event), so a fast double-click still opens-then-immediately-advances is avoided — the timer is cleared before the "open detail" callback fires if a second click arrives within 250ms.
+- **M3 follow-up (resolved):** user manually confirmed real mouse-drag works, and found three bugs, all now fixed: (1) dragged card rendered under other columns — fixed by rendering the drag preview through dnd-kit's `DragOverlay` (portals to `document.body`, immune to column overflow/stacking) instead of relying on the dragged element's own `transform`; the original card fades to `opacity-30` in place while the overlay copy follows the pointer. (2) Focus ring on the first card in a column was clipped by the column header — the scrollable card list had `px-2 pb-2` with no top padding, so a focused card's ring at the very top had no room before `overflow-y-auto` clipped it; changed to `p-2` (uniform padding fixes it). (3) Added triple-click to retreat a card to the previous stage (`prevStage` in `src/lib/stages.ts`), mirroring double-click's advance.
+- M3 note: click disambiguation in `Card.tsx` was reworked from "act immediately on the 2nd click" to a debounce — every click resets a `setTimeout`, and the action only fires once no further click arrives within 250ms, checking the accumulated click count (1/2/3+). This was necessary to add triple-click without it also firing the double-click action first. Tradeoff: double-click now waits the full 250ms after the second click before advancing, rather than firing instantly — not noticeable in practice.
+- Tooling note: when testing via the browser automation tool's `javascript_tool`, a DOM query like `el.textContent.includes(X)` can match ancestor elements (e.g. `#root`) that also happen to contain the text — matched too loosely once and dispatched a click on the wrong element. Prefer an exact match (`el.textContent.trim() === X`) on the most specific element, then walk up via `.parentElement` to the actual interactive target.
