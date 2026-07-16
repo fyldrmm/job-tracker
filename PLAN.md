@@ -111,6 +111,13 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
    - Delete a tracker with data in it — confirm the type-to-confirm gate works, and check the dashboard afterward that both the `trackers` row AND its `applications`/`stage_history` rows are actually gone (the cascade).
 4. If anything in step 3 errors, the most likely culprits are (a) step 1 not run yet, or (b) RLS on the new `trackers` table — tell me the exact error and I'll fix it rather than you patching it directly, since the fix might need to account for the migration's backfill logic.
 
+#### Two bugs found and fixed after the checklist was first run
+
+1. **Sign-out didn't clear the local cache** — after logging out, the app showed the previous account's trackers/cards, since IndexedDB mirrors whatever account is signed in and nothing cleared it on sign-out. Fixed in `Board.tsx`'s new `handleSignOut` (clears local store, resets active tracker, then signs out). Verified the two pieces this composes independently (see commit); could not verify the full live round trip for the same sandbox reason as everything else auth-related.
+2. **Sign-up showed a bare "{}" error** — hardened `AuthModal.tsx`'s error handling so it never displays that literally again, and logs the raw error to console. The underlying cause is still unconfirmed — most likely the custom SMTP/Resend setup from the M5 note. **Needs you to check Supabase dashboard → Authentication → Logs** for the actual signup failure and report back what it says before we know if there's more to fix here.
+
+Redo the multi-tracker checklist above once both are addressed, especially the sign-out step (log in, do something, log out, confirm you land on a clean empty guest board — not the account's data).
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
