@@ -230,6 +230,11 @@ export function Board() {
     setDeleteTrackerTarget(null)
   }
 
+  async function handleCreateFirstTracker() {
+    const tracker = await createTracker('My Applications')
+    setActiveTrackerId(tracker.id)
+  }
+
   async function handleExport() {
     const data = await buildExportData(user?.id ?? null)
     const date = new Date().toISOString().slice(0, 10)
@@ -255,7 +260,7 @@ export function Board() {
     await refresh()
   }
 
-  if (loading || trackersLoading || !activeTrackerId) {
+  if (loading || trackersLoading) {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
   }
 
@@ -289,7 +294,7 @@ export function Board() {
           >
             <CoffeeIcon className="w-5 h-5" />
           </a>
-          {view === 'board' && (
+          {view === 'board' && activeTrackerId && (
             <button
               type="button"
               onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
@@ -311,7 +316,7 @@ export function Board() {
         />
       )}
 
-      {view === 'board' && (
+      {view === 'board' && trackers.length > 0 && (
         <TrackerTabs
           trackers={trackers}
           activeTrackerId={activeTrackerId}
@@ -332,6 +337,22 @@ export function Board() {
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
+      ) : trackers.length === 0 || !activeTrackerId ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-sm">
+            <h2 className="text-lg font-medium text-slate-800">Create your first tracker</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              A tracker is its own board -- handy if you're job hunting in more than one place at once.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreateFirstTracker}
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+            >
+              + Create tracker
+            </button>
+          </div>
+        </div>
       ) : !activeTrackerHasApplications ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm">
@@ -387,7 +408,7 @@ export function Board() {
       )}
       </div>
 
-      {formState && (
+      {formState && activeTrackerId && (
         <ApplicationForm
           initial={formState.mode === 'edit' ? formState.application : null}
           defaultStage={formState.mode === 'add' ? formState.stage : 'applied'}
