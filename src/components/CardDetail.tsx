@@ -6,6 +6,7 @@ import { ArchiveSplitButton } from './ArchiveSplitButton'
 
 interface CardDetailProps {
   application: Application
+  trackerName: string | undefined
   onEdit: () => void
   onClose: () => void
   onArchive: (reason: ArchiveReason) => void
@@ -36,12 +37,15 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
   )
 }
 
-export function CardDetail({ application, onEdit, onClose, onArchive }: CardDetailProps) {
+export function CardDetail({ application, trackerName, onEdit, onClose, onArchive }: CardDetailProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-start justify-between">
           <div>
+            {trackerName && (
+              <p className="text-slate-400 text-xs uppercase tracking-wide mb-0.5">{trackerName}</p>
+            )}
             <h2 className="text-lg font-medium text-slate-800">{application.company}</h2>
             <p className="text-slate-600 text-sm">{application.role_title}</p>
           </div>

@@ -424,6 +424,7 @@ export function Board() {
       {detailApplication && (
         <CardDetail
           application={detailApplication}
+          trackerName={trackers.find((t) => t.id === detailApplication.tracker_id)?.name}
           onEdit={() => {
             setFormState({ mode: 'edit', application: detailApplication })
             setDetailApplication(null)
