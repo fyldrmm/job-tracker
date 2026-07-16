@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 milestones built, plus a post-MVP polish pass (nav redesign + a drag bugfix). **Feature-complete pending one manual step.**
-- **Last completed:** post-M6 polish — fixed a drag-and-drop visual glitch (card flashing back to its old column on drop), and replaced the top bar with a hover-expanding sidebar nav (see notes below). Account deletion now requires password re-verification.
+- **Active milestone:** none — all 6 MVP milestones done, plus two post-MVP feature passes (nav redesign + a drag bugfix, then multiple named trackers). **Two manual SQL migrations pending, both blocking real use.**
+- **Last completed:** multiple named trackers ("tabs") per user — e.g. "US Applications" / "EU Applications" as separate self-contained boards. Built and verified thoroughly in guest mode; the SQL migration and the signed-in/remote path are NOT yet run/verified. See "Manual step + QA checklist" under that section below.
 - **App runs?** yes — `npm run dev`
-- **Next action:** run `supabase/migrations/0002_delete_account.sql` in the Supabase SQL editor (if not done already), then do the M6 manual QA checklist below (5 min) — now also covering the password-reverification step on delete. After that, the MVP as scoped in the brief is complete — remaining work is your call (hosting/launch, the deferred deletion-confirmation email, or anything from the "out of scope" list you now want).
+- **Next action:** run **both** pending SQL migrations in order — `0002_delete_account.sql` (if not already done) then `0003_trackers.sql` — in the Supabase SQL editor. Then work through the multi-tracker manual QA checklist below. Until `0003_trackers.sql` runs, signed-in users will error trying to read/write applications (the column is NOT NULL with no default) -- guest mode is unaffected since IndexedDB migrates itself automatically on load.
 
 ---
 
@@ -90,6 +90,27 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 6. In the Supabase dashboard's Table Editor, confirm the user's row is gone from `applications` (and check **Authentication → Users** — the account itself should be gone too, not just their data).
 7. If step 3 errors out on the correct password, the most likely cause is step 1 not having been run yet (the RPC function won't exist) — double check that first before treating it as a code bug.
 
+### Post-MVP — Multiple named trackers  *(user request, not in the original brief)* — built, needs migration + signed-in QA
+
+- [x] Users can create/rename/delete named trackers (e.g. "US Applications" / "EU Applications"), each a fully separate 4-column board
+- [x] Tab strip above the columns to switch between trackers; "+" to add, double-click to rename, hover "x" to delete
+- [x] Archive stays a single shared view but groups entries by tracker (product decision, not per-tracker archives)
+- [x] Deleting a tracker cascades everything in it; light one-click confirm if empty, type-the-name confirm if it has any applications
+- [x] Every user/guest always has at least one tracker — new accounts/guests get a "My Applications" default automatically; pre-existing data (both Supabase and local IndexedDB) gets backfilled onto a default tracker too
+- [x] Guest→account migration carries trackers across (uploaded before applications, since tracker_id is a FK)
+- [x] Committed; PLAN.md updated
+
+#### Manual step + QA checklist for multiple trackers
+
+1. In the Supabase dashboard's SQL editor, run `supabase/migrations/0003_trackers.sql`. This is a real schema change with a data backfill (existing applications get assigned to a new per-user "My Applications" tracker) — read it over before running if you want to double check, though it's written to be safe for the current (essentially empty, pre-launch) data.
+2. `npm run dev` as a guest first (already verified by me, but a quick sanity pass doesn't hurt): create a second tracker, add a card to each, confirm switching tabs actually isolates them, archive one from each and check the Archive view groups them by tracker name correctly.
+3. Sign in with an account. This is the part I could not test myself (same sandbox limitation noted for M5/M6 — no live authenticated session reachable here). Confirm:
+   - Your existing applications (if any) show up under a "My Applications" tracker automatically (the backfill).
+   - You can create a second tracker, add a card, and it syncs to Supabase — check the `trackers` and `applications` tables in the dashboard's Table Editor to confirm `tracker_id` is set correctly.
+   - Reload the page — both trackers and their cards should still be there (this proves the remote read path works, not just the write).
+   - Delete a tracker with data in it — confirm the type-to-confirm gate works, and check the dashboard afterward that both the `trackers` row AND its `applications`/`stage_history` rows are actually gone (the cascade).
+4. If anything in step 3 errors, the most likely culprits are (a) step 1 not run yet, or (b) RLS on the new `trackers` table — tell me the exact error and I'll fix it rather than you patching it directly, since the fix might need to account for the migration's backfill logic.
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
@@ -102,6 +123,10 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 *(Claude Code: record anything future sessions should know here — stack choices made, gotchas hit, deviations from the brief and why.)*
 
+- **Multi-tracker note — naming:** the new per-tab entity is called a "tracker" in code (table `trackers`, type `Tracker`, hook `useTrackers`) specifically to avoid colliding with the existing `Board` component name, which is the whole page shell (sidebar + header + the currently-active tracker's 4 columns). If you're looking for "where does switching between tabs happen," it's `activeTrackerId` state in `Board.tsx`, not a separate top-level component.
+- **Multi-tracker note — real concurrency bug found and fixed:** `useTrackers`'s "create a default tracker if the user has zero" branch had no guard against being called twice concurrently. React StrictMode's dev-mode double-invoke of effects triggered exactly that — two `refresh()` calls both saw an empty tracker list before either's write landed, so both created a "My Applications" tracker, resulting in two duplicates on first load. Fixed with a `useRef` lock around that branch (`creatingDefaultRef` in `useTrackers.ts`). Worth remembering as a general pattern: any "check state, then conditionally create exactly one of X" logic inside a hook needs to guard against being entered twice before the first write completes — StrictMode will find this in dev even if it's rare in prod, so treat StrictMode-only-reproducible bugs as real bugs, not false positives.
+- **Multi-tracker note — archive scope:** per explicit product decision, there's one shared Archive view across all trackers (not one archive per tracker), grouped by tracker name within that single screen. If a future request asks for "per-tracker archive," that's a UI change to `ArchiveView.tsx`'s grouping (already computed) rather than a data model change.
+- **Multi-tracker note — verification gap:** thoroughly verified in guest mode (isolation between trackers, archive grouping, rename, both delete-confirmation paths including checking the confirm button's actual `disabled` state rather than trusting a screenshot, and the cascade delete via direct IndexedDB inspection). Did NOT verify: the `0003_trackers.sql` migration itself, or any signed-in/remote tracker CRUD — same root cause as the M5/M6 gaps (no live authenticated Supabase session reachable in this sandbox). See the manual QA checklist under the milestone above.
 - Stack: brief's default followed as-is — React + Vite (v8) + TS + Tailwind v4 (via `@tailwindcss/vite`, no separate config file needed — see `src/index.css`). Package manager: npm.
 - Supabase project is live at `https://fjlmyaamarnjlthbhycx.supabase.co`. Schema in `supabase/migrations/0001_init.sql`, applied manually via the dashboard SQL editor (no CLI access token set up yet — the CLI's personal access token lives at supabase.com/dashboard/account/tokens, not the per-project settings, which is why it was hard to find). If a future session needs to push schema changes, either paste the new migration into the SQL editor manually, or get an access token then and use `supabase link` + `supabase db push`.
 - `stage_history` has no `user_id` column (matches the brief's data model exactly). Its RLS policies scope through the parent `applications` row's ownership via an `EXISTS` subquery instead of a direct column check.
