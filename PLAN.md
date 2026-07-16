@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 MVP milestones done, plus two post-MVP feature passes (nav redesign + a drag bugfix, then multiple named trackers). **Two manual SQL migrations pending, both blocking real use.**
-- **Last completed:** multiple named trackers ("tabs") per user — e.g. "US Applications" / "EU Applications" as separate self-contained boards. Built and verified thoroughly in guest mode; the SQL migration and the signed-in/remote path are NOT yet run/verified. See "Manual step + QA checklist" under that section below.
+- **Active milestone:** none — all 6 MVP milestones done, plus two post-MVP feature passes (nav redesign + a drag bugfix, then multiple named trackers). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
+- **Last completed:** multiple named trackers ("tabs") per user. User ran the full manual QA checklist signed-in; found 3 bugs (sign-out not clearing local cache, a bare "{}" auth error, data needing a manual reload after signup/login) — all fixed, see notes below. Bug #3's fix has NOT been re-verified by the user yet (fixed right before a context-compaction break).
 - **App runs?** yes — `npm run dev`
-- **Next action:** run **both** pending SQL migrations in order — `0002_delete_account.sql` (if not already done) then `0003_trackers.sql` — in the Supabase SQL editor. Then work through the multi-tracker manual QA checklist below. Until `0003_trackers.sql` runs, signed-in users will error trying to read/write applications (the column is NOT NULL with no default) -- guest mode is unaffected since IndexedDB migrates itself automatically on load.
+- **Next action:** re-run the "create data as guest → sign up → confirm data appears without a manual reload" case to confirm bug #3's fix actually works, then the multi-tracker feature can be considered fully closed out. After that, this project is in a genuinely stable, feature-complete state — next steps are entirely your call (hosting/launch, verifying a Resend domain for real email delivery, or new feature requests).
 
 ---
 
@@ -111,12 +111,11 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
    - Delete a tracker with data in it — confirm the type-to-confirm gate works, and check the dashboard afterward that both the `trackers` row AND its `applications`/`stage_history` rows are actually gone (the cascade).
 4. If anything in step 3 errors, the most likely culprits are (a) step 1 not run yet, or (b) RLS on the new `trackers` table — tell me the exact error and I'll fix it rather than you patching it directly, since the fix might need to account for the migration's backfill logic.
 
-#### Two bugs found and fixed after the checklist was first run
+#### Bugs found and fixed after the checklist was first run
 
-1. **Sign-out didn't clear the local cache** — after logging out, the app showed the previous account's trackers/cards, since IndexedDB mirrors whatever account is signed in and nothing cleared it on sign-out. Fixed in `Board.tsx`'s new `handleSignOut` (clears local store, resets active tracker, then signs out). Verified the two pieces this composes independently (see commit); could not verify the full live round trip for the same sandbox reason as everything else auth-related.
-2. **Sign-up showed a bare "{}" error** — hardened `AuthModal.tsx`'s error handling so it never displays that literally again, and logs the raw error to console. The underlying cause is still unconfirmed — most likely the custom SMTP/Resend setup from the M5 note. **Needs you to check Supabase dashboard → Authentication → Logs** for the actual signup failure and report back what it says before we know if there's more to fix here.
-
-Redo the multi-tracker checklist above once both are addressed, especially the sign-out step (log in, do something, log out, confirm you land on a clean empty guest board — not the account's data).
+1. **Sign-out didn't clear the local cache** — fixed in `Board.tsx`'s `handleSignOut` (clears local store, resets active tracker, then signs out). User confirmed fixed (re-ran the checklist, sign-out step passed).
+2. **Sign-up showed a bare "{}" error** — root cause confirmed via Supabase Auth logs: Resend's sandbox mode only delivers to the account owner's own verified email until a domain is verified at resend.com/domains; the signup attempt used a typo'd address (`fyildirimo2012@gmail.com` vs the real `fyildirim2012@gmail.com`), which Resend rejected with a 550. Not a code bug — the AuthModal error-display hardening from the earlier commit stands regardless (never shows a bare "{}" again). **Still outstanding, not urgent**: verify a domain on Resend and update Supabase's SMTP "from" address before real launch — the account-owner-only restriction is fine for continued dev/testing.
+3. **Data looked lost until a manual page reload after signup/login** — found during the SAME checklist re-run that confirmed #1 and #2. Root cause: the guest→account migration effect only refreshed `applications` after completing, never `trackers`. `useTrackers` has its own fetch triggered independently by the same `userId` change that starts migration, which could resolve on stale/empty data before migration's uploads landed, and nothing forced a second look once migration actually finished. Fixed by refreshing both applications and trackers once migration resolves. **Not yet re-verified by the user** — this was the last thing fixed before context compaction; re-check this specific case (create data as guest, sign up, confirm data appears WITHOUT a manual reload) next session before considering the multi-tracker feature fully closed out.
 
 ---
 
