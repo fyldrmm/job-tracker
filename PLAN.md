@@ -126,6 +126,7 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] "Notes" sort is two-tier per user spec: applications with non-empty notes first (alphabetical by company), then applications without notes (alphabetical by company) — a small `NoteIcon` marks cards that have notes, in both the archive list and (implicitly, since it's not hidden) anywhere else that reuses the icon
 - [x] When grouping is off, each row also shows its tracker name inline (needed for the flat view to stay legible — not explicitly requested but a direct consequence of the toggle)
 - [x] `CardDetail.tsx` now shows the owning tracker's name (small label above company/role) — passed in from `Board.tsx` via a `trackers.find(...)` lookup, not stored on the application itself
+- [x] Added after initial build (user follow-up): a "Reasons (n)" multi-select filter dropdown (Rejected/Withdrawn/No response/Accepted), all checked by default, filtering applied before grouping/sorting. Design decision made with user input: unchecking the last remaining reason is a no-op (checkbox stays checked) rather than locking one specific reason (e.g. "Rejected") as protected — a generic "can't reach zero" rule was chosen over special-casing any one value. Verified in-browser: unchecking a reason hides matching cards immediately, and the last checked box can't be unchecked.
 - [x] Committed; PLAN.md updated
 
 ---
