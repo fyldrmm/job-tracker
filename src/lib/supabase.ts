@@ -10,4 +10,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   )
 }
 
-export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '')
+// createClient throws synchronously on an empty URL, which would crash the
+// whole app (including guest mode) before React ever renders -- fall back to
+// a syntactically valid placeholder so a misconfigured deploy just leaves
+// Supabase calls failing (caught by the existing offline-fallback paths in
+// useApplications/useTrackers) instead of taking down the entire page.
+export const supabase = createClient(supabaseUrl || 'https://placeholder.supabase.co', supabaseAnonKey || 'placeholder')
