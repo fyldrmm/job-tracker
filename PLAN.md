@@ -20,11 +20,11 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 MVP milestones done, plus two post-MVP feature passes (nav redesign + a drag bugfix, then multiple named trackers). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
-- **Last completed:** Archive view got a "group by tracker" toggle + a sort dropdown (date applied / date archived / company name / notes), and `CardDetail` now shows which tracker an application belongs to. See "Post-MVP — Archive grouping & sort" below.
-- **App runs?** yes — `npm run dev`
-- **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Sign-up should now work with any real email address.
-- **Next action:** hosting — user wants to move off running the app on their own PC now that a domain is owned. Recommended Cloudflare Pages (domain's already there, no nameserver changes needed, deploys straight from the GitHub repo). Not yet started. After that: nothing else is blocking; remaining items are the user's call — see "Postponed / deferred" below.
+- **Active milestone:** none — all 6 MVP milestones done, plus three post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
+- **Last completed:** Hosting — the app is live at `jobtracker.fazare.dev` via Cloudflare's Workers/Pages platform, auto-deploying from the `main` branch. See "Post-MVP — Hosting" below for the full story, including a real blank-page bug found and fixed during the first deploy.
+- **App runs?** yes — both locally (`npm run dev`) and live in production
+- **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
+- **Next action:** nothing blocking. The MVP plus every post-MVP request so far is done, verified, and live. Remaining items are the user's call — see "Postponed / deferred" below.
 
 ---
 
@@ -129,6 +129,16 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Added after initial build (user follow-up): a "Reasons (n)" multi-select filter dropdown (Rejected/Withdrawn/No response/Accepted), all checked by default, filtering applied before grouping/sorting. Design decision made with user input: unchecking the last remaining reason is a no-op (checkbox stays checked) rather than locking one specific reason (e.g. "Rejected") as protected — a generic "can't reach zero" rule was chosen over special-casing any one value. Verified in-browser: unchecking a reason hides matching cards immediately, and the last checked box can't be unchecked.
 - [x] Committed; PLAN.md updated
 
+### Post-MVP — Hosting  *(user request)* — ✅ done, live and verified
+
+- [x] User bought `fazare.dev` on Cloudflare (temporary domain, expected to change once a permanent project name is picked), verified it on Resend, and pointed Supabase's SMTP sender at it
+- [x] Deployed via Cloudflare's unified Workers/Pages platform (connected to the `fyldrmm/job-tracker` GitHub repo, production branch `main`, build command `npm run build`, output `dist`), project named generically (`job-tracker`, not `fazare`) so the custom domain can change later without recreating the project
+- [x] Live at `jobtracker.fazare.dev`
+- [x] **Bug found and fixed during first deploy:** the site loaded as a fully blank white page. Root cause: `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` weren't set in Cloudflare's build-time variables, so `createClient('', '')` threw synchronously in `src/lib/supabase.ts` and crashed the entire React tree before any render — including guest mode, which the code's own warning message incorrectly claimed would still work. Fixed two ways: (1) the real fix — user found the correct settings location (Cloudflare's newer Workers-based deploy model splits "Variables and secrets" into a *runtime* section, which refuses variables for static-asset-only projects, versus a separate *Build* section's "Variables and secrets" that actually feeds `npm run build` — the build-time one is what needed the two `VITE_` vars) and added them there, then retried the deployment; (2) a defensive code fix regardless — `supabase.ts` now falls back to a syntactically-valid placeholder URL/key when the env vars are missing, so a future misconfigured deploy degrades to a working guest-only board instead of a blank crash.
+- [x] Verified live: guest mode renders correctly with no console warnings (confirming real env vars are now baked in), and a bogus login attempt returned Supabase's actual "Invalid login credentials" response (confirming the deployed client is really talking to the live Supabase project, not the placeholder fallback)
+- [x] Confirmed deploys are automatic going forward — every push to `main` triggers a new Cloudflare build without manual intervention; the one manual "retry deployment" was only needed because the *existing* build predated the env var fix
+- [x] Committed; PLAN.md updated
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
@@ -142,8 +152,9 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
 - **Deletion-confirmation email.** When a user deletes their account, send an email confirming it happened. Explicitly postponed (not urgent) — needs a Supabase Edge Function (new server-side infra for this project), a Resend API key kept server-side (never in frontend code), and a Supabase CLI personal access token to deploy the function (see the M1 note on where to find that token). Not started.
-- **Hosting.** In progress — see "Current status" above. Recommendation given: Cloudflare Pages, project named generically (not after the temporary `fazare.dev` domain) so the custom domain can be swapped later without recreating the project.
 - **Old Supabase Auth accounts from testing.** `fyildirimo2012@gmail.com` is the user's own real secondary email (not a typo or test account, corrected after an earlier session mislabeled it) — no action needed unless the user wants it removed, which they can do directly from the Supabase dashboard themselves. Any actually-stale test signups (e.g. an old `mailinator.com` address from M5 testing) are still fine to delete whenever convenient — pure housekeeping, no code involved.
+
+~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
 
 ~~Show which tracker an archived application belongs to, inside `CardDetail.tsx`~~ — **done**, see "Post-MVP — Archive grouping & sort" below.
 ~~Real Ko-fi/donation flow verification~~ — **done**, user clicked through and confirmed it leads to the correct page.
