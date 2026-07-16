@@ -20,11 +20,12 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 MVP milestones done, plus three post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
-- **Last completed:** Hosting — the app is live at `jobtracker.fazare.dev` via Cloudflare's Workers/Pages platform, auto-deploying from the `main` branch. See "Post-MVP — Hosting" below for the full story, including a real blank-page bug found and fixed during the first deploy.
+- **Active milestone:** none — all 6 MVP milestones done, plus four post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter; hosting; deletion-confirmation email). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user, and the `delete-account` Edge Function is deployed.
+- **Last completed:** Deletion-confirmation email, via a new `delete-account` Edge Function — the project's first server-side infra beyond SQL migrations. Also closed a real security gap found while building it: account-deletion password verification now happens server-side (inside the function), not just client-side, so a bare stolen session token can no longer delete an account without the password too. See "Post-MVP — Deletion-confirmation email" below.
 - **App runs?** yes — both locally (`npm run dev`) and live in production
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
-- **Next action:** nothing blocking. The MVP plus every post-MVP request so far is done, verified, and live. Remaining items are the user's call — see "Postponed / deferred" below.
+- **Supabase Auth users:** cleaned up — only the primary account remains, both leftover test/secondary accounts were deleted by the user directly in the dashboard.
+- **Next action:** nothing blocking, nothing postponed. Every request raised so far is built, verified, and live — see "Postponed / deferred" below (currently empty of open items). Next steps are entirely new requests from the user.
 
 ---
 
@@ -139,6 +140,15 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Confirmed deploys are automatic going forward — every push to `main` triggers a new Cloudflare build without manual intervention; the one manual "retry deployment" was only needed because the *existing* build predated the env var fix
 - [x] Committed; PLAN.md updated
 
+### Post-MVP — Deletion-confirmation email  *(user request)* — ✅ done, live and verified
+
+- [x] New `supabase/functions/delete-account/index.ts` Edge Function — first server-side infra this project has used (Deno runtime, deployed by pasting into the Supabase dashboard's Edge Functions editor since no CLI link is set up). Sends a best-effort confirmation email via Resend (`RESEND_API_KEY` as a Function secret) BEFORE calling `delete_own_account()`, since the user's email no longer exists to send to once that RPC has run. Email failure never blocks deletion — it's a notification, not a gate on the user's right to erase their data.
+- [x] `src/lib/remoteStore.ts`'s `deleteOwnAccount()` now calls this function (`supabase.functions.invoke`) instead of the RPC directly.
+- [x] User tested live: deletion email arrived correctly.
+- [x] **Security hardening found and fixed during this build, not originally scoped:** the account-deletion password re-check (`DeleteAccountModal` → `signIn()`) only ever ran client-side, in the browser, before calling the deletion function. That stops the normal app UI but does nothing against someone who calls the Edge Function directly with just a stolen session token (XSS, a malicious browser extension, a shared/unlocked device) — no password needed, since the function itself only checked "is there a valid session," never the password. Fixed by moving password verification server-side: the function now requires the password in its request body and verifies it against Supabase Auth itself (via a separate `signInWithPassword` call inside the function) before proceeding. A bare stolen session token is no longer sufficient on its own. `Board.tsx`'s separate client-side `signIn()` call before deletion was removed since the function now does that check itself.
+- [x] Prompted a broader security pass: audited every other write path (all `applications`/`stage_history`/`trackers` RLS policies, the `delete_own_account` RPC's `auth.uid()`-hardcoding, and the whole codebase for `dangerouslySetInnerHTML`/`eval`). Found no other gaps — every other table has proper `with check (auth.uid() = user_id)` on inserts/updates in `0001_init.sql`/`0003_trackers.sql`, so writes are enforced by Postgres itself, not client-side trust. Two minor, explicitly-declined-for-now items: `job_link` renders as a real `<a href>` (self-XSS risk only, since RLS means you can only ever see your own data — not fixed), and the delete-account function's CORS is wide open `*` (not a real hole given the function already requires a valid session + correct password regardless of calling origin — not fixed). Both logged here in case worth revisiting, not urgent.
+- [x] Committed; PLAN.md updated
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
@@ -151,11 +161,11 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-- **Deletion-confirmation email.** When a user deletes their account, send an email confirming it happened. Explicitly postponed (not urgent) — needs a Supabase Edge Function (new server-side infra for this project), a Resend API key kept server-side (never in frontend code), and a Supabase CLI personal access token to deploy the function (see the M1 note on where to find that token). Not started.
-- **Old Supabase Auth accounts from testing.** `fyildirimo2012@gmail.com` is the user's own real secondary email (not a typo or test account, corrected after an earlier session mislabeled it) — no action needed unless the user wants it removed, which they can do directly from the Supabase dashboard themselves. Any actually-stale test signups (e.g. an old `mailinator.com` address from M5 testing) are still fine to delete whenever convenient — pure housekeeping, no code involved.
+Nothing currently on this list — every item raised so far has been either built or actioned. Two minor, explicitly-declined-for-now hardening items are logged in the "Deletion-confirmation email" milestone note above (`job_link` self-XSS risk, wide-open CORS on the delete-account function) in case worth revisiting later.
 
 ~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
-
+~~Deletion-confirmation email~~ — **done**, see "Post-MVP — Deletion-confirmation email" below.
+~~Old Supabase Auth accounts from testing~~ — **done**, user deleted both leftover accounts directly from the Supabase dashboard; only the primary account remains.
 ~~Show which tracker an archived application belongs to, inside `CardDetail.tsx`~~ — **done**, see "Post-MVP — Archive grouping & sort" below.
 ~~Real Ko-fi/donation flow verification~~ — **done**, user clicked through and confirmed it leads to the correct page.
 
