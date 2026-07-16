@@ -28,6 +28,7 @@ import { AuthModal } from './AuthModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
+import { Sidebar } from './Sidebar'
 
 type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
 type View = 'board' | 'archive' | 'privacy'
@@ -172,7 +173,12 @@ export function Board() {
     downloadJSON(data, `job-tracker-export-${date}.json`)
   }
 
-  async function handleDeleteAccount() {
+  async function handleDeleteAccount(password: string) {
+    if (!user?.email) throw new Error('No signed-in user.')
+    // Re-verify identity before an irreversible action -- signInWithPassword
+    // throws (wrong password / other auth error) if this fails, which
+    // DeleteAccountModal surfaces and stops here, before anything is deleted.
+    await signIn(user.email, password)
     await deleteOwnAccount()
     await clearLocalStore()
     try {
@@ -190,69 +196,35 @@ export function Board() {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
   }
 
+  const pageTitle = view === 'board' ? 'Job Application Tracker' : view === 'archive' ? 'Archive' : 'Privacy policy'
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="h-screen bg-slate-50 flex">
+      <Sidebar
+        view={view}
+        onNavigate={setView}
+        archivedCount={archivedApplications.length}
+        user={user}
+        onExport={handleExport}
+        onDeleteAccount={() => setDeleteModalOpen(true)}
+        onSignOut={() => signOut()}
+        onSignUp={() => setAuthModalMode('sign-up')}
+        onLogIn={() => setAuthModalMode('log-in')}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-        <h1 className="text-xl font-medium text-slate-800">Job Application Tracker</h1>
+        <h1 className="text-xl font-medium text-slate-800">{pageTitle}</h1>
         <div className="flex items-center gap-4">
           {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
-          <button
-            type="button"
-            onClick={() => setView('archive')}
-            className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-          >
-            {archivedApplications.length} archived
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-          >
-            Export data
-          </button>
-          {user ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-500 truncate max-w-[12rem]">{user.email}</span>
-              <button
-                type="button"
-                onClick={() => setDeleteModalOpen(true)}
-                className="text-sm text-slate-500 hover:text-rose-600 hover:underline"
-              >
-                Delete account
-              </button>
-              <button
-                type="button"
-                onClick={() => signOut()}
-                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-              >
-                Sign out
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setAuthModalMode('log-in')}
-                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
-              >
-                Log in
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthModalMode('sign-up')}
-                className="text-sm font-medium text-slate-700 hover:underline"
-              >
-                Sign up
-              </button>
-            </div>
+          {view === 'board' && (
+            <button
+              type="button"
+              onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+            >
+              + Add application
+            </button>
           )}
-          <button
-            type="button"
-            onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
-          >
-            + Add application
-          </button>
         </div>
       </header>
 
@@ -337,6 +309,7 @@ export function Board() {
           </a>
         </footer>
       )}
+      </div>
 
       {formState && (
         <ApplicationForm

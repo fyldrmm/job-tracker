@@ -1,14 +1,15 @@
 import { useState } from 'react'
 
 interface DeleteAccountModalProps {
-  onConfirm: () => Promise<void>
+  onConfirm: (password: string) => Promise<void>
   onClose: () => void
 }
 
 const CONFIRM_TEXT = 'DELETE'
 
 export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalProps) {
-  const [input, setInput] = useState('')
+  const [confirmInput, setConfirmInput] = useState('')
+  const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,12 +17,14 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
     setSubmitting(true)
     setError(null)
     try {
-      await onConfirm()
+      await onConfirm(password)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
       setSubmitting(false)
     }
   }
+
+  const canSubmit = confirmInput === CONFIRM_TEXT && password.length > 0
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
@@ -32,17 +35,36 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
           undo. If you want a copy first, close this and use{' '}
           <span className="font-medium">Export data</span> instead.
         </p>
-        <p className="text-sm text-slate-600">
-          Type <span className="font-mono font-medium">{CONFIRM_TEXT}</span> to confirm.
-        </p>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
-          autoFocus
-        />
+
+        <div>
+          <label htmlFor="delete-password" className="block text-sm font-medium text-slate-700">
+            Confirm your password
+          </label>
+          <input
+            id="delete-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="delete-confirm-text" className="block text-sm font-medium text-slate-700">
+            Type <span className="font-mono">{CONFIRM_TEXT}</span> to confirm
+          </label>
+          <input
+            id="delete-confirm-text"
+            type="text"
+            value={confirmInput}
+            onChange={(e) => setConfirmInput(e.target.value)}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400"
+          />
+        </div>
+
         {error && <p className="text-sm text-rose-600">{error}</p>}
+
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
@@ -54,7 +76,7 @@ export function DeleteAccountModal({ onConfirm, onClose }: DeleteAccountModalPro
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={input !== CONFIRM_TEXT || submitting}
+            disabled={!canSubmit || submitting}
             className="px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded-md hover:bg-rose-700 disabled:opacity-40"
           >
             Delete my account
