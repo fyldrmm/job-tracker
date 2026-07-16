@@ -25,12 +25,17 @@ export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
   return data as StageHistoryEntry[]
 }
 
-// Calls the delete_own_account() Postgres function (see
-// supabase/migrations/0002_delete_account.sql) -- deletes the caller's
-// auth.users row, cascading through applications and stage_history.
+// Calls the delete-account Edge Function (see
+// supabase/functions/delete-account/index.ts) rather than the
+// delete_own_account() RPC directly -- the function sends a confirmation
+// email BEFORE deleting, since the caller's email no longer exists to send
+// to once delete_own_account() has run. The function still calls that same
+// RPC under the hood, so the actual deletion semantics (cascades through
+// applications -> stage_history) are unchanged.
 export async function deleteOwnAccount(): Promise<void> {
-  const { error } = await supabase.rpc('delete_own_account')
+  const { data, error } = await supabase.functions.invoke('delete-account')
   if (error) throw error
+  if (data?.error) throw new Error(data.error)
 }
 
 export async function getAllRemoteTrackers(userId: string): Promise<Tracker[]> {
