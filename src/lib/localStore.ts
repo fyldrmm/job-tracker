@@ -1,5 +1,5 @@
 import { getDB } from './db'
-import type { Application, StageHistoryEntry } from '../types/application'
+import type { Application, StageHistoryEntry, Tracker } from '../types/application'
 
 export async function getAllApplications(): Promise<Application[]> {
   const db = await getDB()
@@ -42,8 +42,65 @@ export async function addStageHistoryEntry(entry: StageHistoryEntry): Promise<vo
 // show a signed-out guest the now-deleted account's mirrored data.
 export async function clearLocalStore(): Promise<void> {
   const db = await getDB()
-  const tx = db.transaction(['applications', 'stage_history'], 'readwrite')
+  const tx = db.transaction(['applications', 'stage_history', 'trackers'], 'readwrite')
   await tx.objectStore('applications').clear()
   await tx.objectStore('stage_history').clear()
+  await tx.objectStore('trackers').clear()
+  await tx.done
+}
+
+export async function getAllTrackers(): Promise<Tracker[]> {
+  const db = await getDB()
+  return db.getAll('trackers')
+}
+
+export async function putTracker(tracker: Tracker): Promise<void> {
+  const db = await getDB()
+  await db.put('trackers', tracker)
+}
+
+export async function deleteTracker(id: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction(['trackers', 'applications', 'stage_history'], 'readwrite')
+  await tx.objectStore('trackers').delete(id)
+
+  const appStore = tx.objectStore('applications')
+  const appIndex = appStore.index('by-tracker_id')
+  const historyStore = tx.objectStore('stage_history')
+  const historyIndex = historyStore.index('by-application_id')
+  for await (const cursor of appIndex.iterate(id)) {
+    for await (const historyCursor of historyIndex.iterate(cursor.value.id)) {
+      await historyCursor.delete()
+    }
+    await cursor.delete()
+  }
+  await tx.done
+}
+
+/**
+ * Guest data created before trackers existed has no tracker_id. Creates a
+ * default tracker and backfills every orphaned application onto it --
+ * mirrors the same one-time backfill the Supabase migration does for
+ * existing signed-in users.
+ */
+export async function backfillDefaultTracker(): Promise<void> {
+  const db = await getDB()
+  const orphaned = (await db.getAll('applications')).filter((app) => !app.tracker_id)
+  if (orphaned.length === 0) return
+
+  const now = new Date().toISOString()
+  const defaultTracker: Tracker = {
+    id: crypto.randomUUID(),
+    user_id: null,
+    name: 'My Applications',
+    created_at: now,
+    updated_at: now,
+  }
+
+  const tx = db.transaction(['applications', 'trackers'], 'readwrite')
+  await tx.objectStore('trackers').put(defaultTracker)
+  for (const app of orphaned) {
+    await tx.objectStore('applications').put({ ...app, tracker_id: defaultTracker.id })
+  }
   await tx.done
 }

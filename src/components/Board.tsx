@@ -10,8 +10,9 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import type { Application, ApplicationStage, ArchiveReason } from '../types/application'
+import type { Application, ApplicationStage, ArchiveReason, Tracker } from '../types/application'
 import { useApplications } from '../hooks/useApplications'
+import { useTrackers } from '../hooks/useTrackers'
 import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { hasMigrated, migrateGuestDataToAccount } from '../lib/migration'
@@ -29,6 +30,8 @@ import { AccountNudgeBanner } from './AccountNudgeBanner'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
 import { Sidebar } from './Sidebar'
+import { TrackerTabs } from './TrackerTabs'
+import { DeleteTrackerModal } from './DeleteTrackerModal'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
@@ -50,6 +53,15 @@ export function Board() {
     unarchiveApplication,
     refresh,
   } = useApplications(user?.id ?? null)
+  const {
+    trackers,
+    loading: trackersLoading,
+    createTracker,
+    renameTracker,
+    removeTracker,
+  } = useTrackers(user?.id ?? null)
+  const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
+  const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
   const [formState, setFormState] = useState<FormState>(null)
   const [detailApplication, setDetailApplication] = useState<Application | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -69,7 +81,7 @@ export function Board() {
   )
 
   const byStage = useMemo(() => {
-    const active = applications.filter((app) => !app.is_archived)
+    const active = applications.filter((app) => !app.is_archived && app.tracker_id === activeTrackerId)
     const grouped: Record<ApplicationStage, Application[]> = {
       eyes_on: [],
       applied: [],
@@ -80,9 +92,26 @@ export function Board() {
       grouped[app.current_stage].push(app)
     }
     return grouped
-  }, [applications])
+  }, [applications, activeTrackerId])
 
+  // Archive spans every tracker (grouped by tracker in ArchiveView) rather
+  // than being scoped to the active one -- per product decision, there's
+  // one shared Archive screen, not one per tracker.
   const archivedApplications = useMemo(() => applications.filter((app) => app.is_archived), [applications])
+
+  const activeTrackerHasApplications = useMemo(
+    () => applications.some((app) => app.tracker_id === activeTrackerId),
+    [applications, activeTrackerId],
+  )
+
+  // Keep a valid active tracker selected: pick the first one once trackers
+  // load, and re-pick if the active one gets deleted out from under us.
+  useEffect(() => {
+    if (trackers.length === 0) return
+    if (!activeTrackerId || !trackers.some((t) => t.id === activeTrackerId)) {
+      setActiveTrackerId(trackers[0].id)
+    }
+  }, [trackers, activeTrackerId])
 
   const activeApplication = activeId ? applications.find((app) => app.id === activeId) ?? null : null
 
@@ -169,6 +198,13 @@ export function Board() {
     if (prev) moveApplicationStage(application.id, prev)
   }
 
+  async function handleConfirmDeleteTracker() {
+    if (!deleteTrackerTarget) return
+    await removeTracker(deleteTrackerTarget.id)
+    if (activeTrackerId === deleteTrackerTarget.id) setActiveTrackerId(null)
+    setDeleteTrackerTarget(null)
+  }
+
   async function handleExport() {
     const data = await buildExportData(user?.id ?? null)
     const date = new Date().toISOString().slice(0, 10)
@@ -194,7 +230,7 @@ export function Board() {
     await refresh()
   }
 
-  if (loading) {
+  if (loading || trackersLoading || !activeTrackerId) {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
   }
 
@@ -250,16 +286,28 @@ export function Board() {
         />
       )}
 
+      {view === 'board' && (
+        <TrackerTabs
+          trackers={trackers}
+          activeTrackerId={activeTrackerId}
+          onSelect={setActiveTrackerId}
+          onCreate={(name) => createTracker(name).then((t) => setActiveTrackerId(t.id))}
+          onRename={renameTracker}
+          onDeleteRequest={setDeleteTrackerTarget}
+        />
+      )}
+
       {view === 'archive' ? (
         <ArchiveView
           applications={archivedApplications}
+          trackers={trackers}
           onBack={() => setView('board')}
           onCardOpen={setDetailApplication}
           onUnarchive={handleUnarchive}
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
-      ) : applications.length === 0 ? (
+      ) : !activeTrackerHasApplications ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm">
             <h2 className="text-lg font-medium text-slate-800">Nothing here yet</h2>
@@ -321,7 +369,7 @@ export function Board() {
           onSubmit={
             formState.mode === 'edit'
               ? (input) => updateApplication(formState.application.id, input)
-              : createApplication
+              : (input) => createApplication(input, activeTrackerId)
           }
           onClose={() => setFormState(null)}
         />
@@ -354,6 +402,15 @@ export function Board() {
 
       {deleteModalOpen && (
         <DeleteAccountModal onConfirm={handleDeleteAccount} onClose={() => setDeleteModalOpen(false)} />
+      )}
+
+      {deleteTrackerTarget && (
+        <DeleteTrackerModal
+          tracker={deleteTrackerTarget}
+          applicationCount={applications.filter((app) => app.tracker_id === deleteTrackerTarget.id).length}
+          onConfirm={handleConfirmDeleteTracker}
+          onClose={() => setDeleteTrackerTarget(null)}
+        />
       )}
     </div>
   )

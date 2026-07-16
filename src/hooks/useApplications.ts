@@ -60,11 +60,12 @@ export function useApplications(userId: string | null) {
   }, [refresh])
 
   const createApplication = useCallback(
-    async (input: ApplicationInput) => {
+    async (input: ApplicationInput, trackerId: string) => {
       const now = new Date().toISOString()
       const application: Application = {
         id: crypto.randomUUID(),
         user_id: userId,
+        tracker_id: trackerId,
         ...input,
         is_archived: false,
         archive_reason: null,

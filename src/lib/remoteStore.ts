@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Application, StageHistoryEntry } from '../types/application'
+import type { Application, StageHistoryEntry, Tracker } from '../types/application'
 
 export async function getAllRemoteApplications(userId: string): Promise<Application[]> {
   const { data, error } = await supabase.from('applications').select('*').eq('user_id', userId)
@@ -30,5 +30,23 @@ export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
 // auth.users row, cascading through applications and stage_history.
 export async function deleteOwnAccount(): Promise<void> {
   const { error } = await supabase.rpc('delete_own_account')
+  if (error) throw error
+}
+
+export async function getAllRemoteTrackers(userId: string): Promise<Tracker[]> {
+  const { data, error } = await supabase.from('trackers').select('*').eq('user_id', userId)
+  if (error) throw error
+  return data as Tracker[]
+}
+
+export async function putRemoteTracker(tracker: Tracker): Promise<void> {
+  const { error } = await supabase.from('trackers').upsert(tracker)
+  if (error) throw error
+}
+
+// Cascades to applications -> stage_history via the FKs in
+// 0003_trackers.sql / 0001_init.sql.
+export async function deleteRemoteTracker(id: string): Promise<void> {
+  const { error } = await supabase.from('trackers').delete().eq('id', id)
   if (error) throw error
 }
