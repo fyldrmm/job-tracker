@@ -28,7 +28,17 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
         onClose()
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      // Always log the raw error -- Supabase auth errors are sometimes not
+      // useful Error instances (e.g. a server-side email-sending failure can
+      // surface as an empty/malformed body), so err.message alone can be an
+      // unhelpful "{}" or similar. Fall back through a few extraction
+      // strategies rather than showing that directly.
+      console.error('Auth error', err)
+      const message =
+        err instanceof Error && err.message && err.message !== '{}'
+          ? err.message
+          : 'Something went wrong. Please try again -- if this keeps happening, the account email service may be misconfigured.'
+      setError(message)
     } finally {
       setSubmitting(false)
     }

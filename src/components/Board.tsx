@@ -198,6 +198,23 @@ export function Board() {
     if (prev) moveApplicationStage(application.id, prev)
   }
 
+  async function handleSignOut() {
+    // The local IndexedDB store is a write-through cache of whatever
+    // account is signed in (see useApplications/useTrackers). Without
+    // clearing it, "guest mode" after sign-out would read that account's
+    // mirrored data straight back out of the cache instead of a clean
+    // slate -- a real data leak between accounts on a shared device.
+    await clearLocalStore()
+    setActiveTrackerId(null)
+    setView('board')
+    try {
+      await signOut()
+    } catch {
+      // Local cache is already cleared regardless of whether the network
+      // sign-out call itself succeeds.
+    }
+  }
+
   async function handleConfirmDeleteTracker() {
     if (!deleteTrackerTarget) return
     await removeTracker(deleteTrackerTarget.id)
@@ -245,7 +262,7 @@ export function Board() {
         user={user}
         onExport={handleExport}
         onDeleteAccount={() => setDeleteModalOpen(true)}
-        onSignOut={() => signOut()}
+        onSignOut={handleSignOut}
         onSignUp={() => setAuthModalMode('sign-up')}
         onLogIn={() => setAuthModalMode('log-in')}
       />
