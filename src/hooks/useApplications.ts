@@ -99,6 +99,13 @@ export function useApplications(userId: string | null) {
       if (!existing || existing.current_stage === newStage) return
       const now = new Date().toISOString()
       const updated: Application = { ...existing, current_stage: newStage, updated_at: now }
+      // Optimistic: reflect the move in state immediately, in the same tick
+      // as the drop, so the card lands in its new column before the drag
+      // overlay/opacity teardown even renders. Without this, the card
+      // briefly flashes back into its old column while the write (and the
+      // refresh() that would otherwise be the only thing updating state) is
+      // still in flight -- visible as a glitch on drop.
+      setApplications((prev) => prev.map((app) => (app.id === id ? updated : app)))
       await persistApplication(updated, userId)
       await persistStageHistoryEntry(
         { id: crypto.randomUUID(), application_id: id, stage: newStage, entered_at: now },
