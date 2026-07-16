@@ -20,10 +20,10 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** M6 (not started)
-- **Last completed:** M5 (Auth + guest→account migration) — fully verified, including live manual QA (signup → email confirm → migration → reload → sign out/in) by the user
+- **Active milestone:** none — all 6 milestones built; **MVP feature-complete pending one manual step**
+- **Last completed:** M6 (GDPR + polish) — built and mostly verified; **account deletion needs a SQL migration run + manual QA**, see checklist below
 - **App runs?** yes — `npm run dev`
-- **Next action:** start M6 (GDPR + polish)
+- **Next action:** run `supabase/migrations/0002_delete_account.sql` in the Supabase SQL editor, then do the M6 manual QA checklist below (5 min). After that, the MVP as scoped in the brief is complete — remaining work is your call (hosting/launch, or anything from the "out of scope" list you now want).
 
 ---
 
@@ -71,14 +71,23 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Committed; PLAN.md updated
 - *Deferred (do not build): multi-device merge / offline-edit conflict resolution, and (newly scoped down in M5) offline writes — writes require being online while signed in.*
 
-### M6 — GDPR + polish  *(effort: High)*
-- [ ] Export all my data as JSON
-- [ ] Delete my account (truly deletes all the user's data)
-- [ ] Short privacy policy page
-- [ ] Empty states for board and columns
-- [ ] Optional: subtle "stale" indicator on old cards (in-app only, no notifications)
-- [ ] Optional: external donation link (e.g. Ko-fi) in the footer
-- [ ] Committed; PLAN.md updated
+### M6 — GDPR + polish  *(effort: High)* — built, needs migration + manual QA for account deletion (see checklist)
+- [x] Export all my data as JSON — works for guest (IndexedDB) and signed-in (Supabase); verified in-browser, correct filename and JSON shape
+- [x] Delete my account (truly deletes all the user's data) — built (SQL migration + RPC + type-DELETE-to-confirm modal), **not yet verified live** — see checklist
+- [x] Short privacy policy page — in-app view, linked from footer; verified
+- [x] Empty states for board and columns — board-level empty state added for zero-data case (existing per-column "No applications yet" was already there from M2); verified
+- [x] Optional: subtle "stale" indicator on old cards (in-app only, no notifications) — 14-day threshold on `updated_at`; verified with a seeded 20-day-old card
+- [x] Optional: external donation link (e.g. Ko-fi) in the footer — added (points to ko-fi.com generically; swap in a real Ko-fi/Buy-Me-a-Coffee page before launch)
+- [x] Committed; PLAN.md updated
+
+#### Manual step + QA checklist for M6 (do this to finish the MVP)
+
+1. In the Supabase dashboard's SQL editor, run `supabase/migrations/0002_delete_account.sql` (same process as the M1 schema and M5 note — paste and run).
+2. `npm run dev`, sign in with an account that has some data (your M5 test account is fine, or a fresh one).
+3. Click "Delete account" in the header, type `DELETE` to confirm, submit.
+4. Confirm: you're signed out and back to a fresh guest board (no leftover data from the deleted account).
+5. In the Supabase dashboard's Table Editor, confirm the user's row is gone from `applications` (and check **Authentication → Users** — the account itself should be gone too, not just their data).
+6. If step 3 errors out, the most likely cause is step 1 not having been run yet (the RPC function won't exist) — double check that first before treating it as a code bug.
 
 ---
 
@@ -111,4 +120,7 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 - **M3 follow-up (resolved):** user manually confirmed real mouse-drag works, and found three bugs, all now fixed: (1) dragged card rendered under other columns — fixed by rendering the drag preview through dnd-kit's `DragOverlay` (portals to `document.body`, immune to column overflow/stacking) instead of relying on the dragged element's own `transform`; the original card fades to `opacity-30` in place while the overlay copy follows the pointer. (2) Focus ring on the first card in a column was clipped by the column header — the scrollable card list had `px-2 pb-2` with no top padding, so a focused card's ring at the very top had no room before `overflow-y-auto` clipped it; changed to `p-2` (uniform padding fixes it). (3) Added triple-click to retreat a card to the previous stage (`prevStage` in `src/lib/stages.ts`), mirroring double-click's advance.
 - M3 note: click disambiguation in `Card.tsx` was reworked from "act immediately on the 2nd click" to a debounce — every click resets a `setTimeout`, and the action only fires once no further click arrives within 250ms, checking the accumulated click count (1/2/3+). This was necessary to add triple-click without it also firing the double-click action first. Tradeoff: double-click now waits the full 250ms after the second click before advancing, rather than firing instantly — not noticeable in practice.
 - Tooling note: when testing via the browser automation tool's `javascript_tool`, a DOM query like `el.textContent.includes(X)` can match ancestor elements (e.g. `#root`) that also happen to contain the text — matched too loosely once and dispatched a click on the wrong element. Prefer an exact match (`el.textContent.trim() === X`) on the most specific element, then walk up via `.parentElement` to the actual interactive target. Same trap bit again in M4 testing when a list has multiple structurally-identical rows (Archive view) — `.find()` on a loose `textContent.includes()` predicate can match a shared ancestor container instead of one specific row, and then a nested `querySelectorAll('button').find(...)` grabs the first matching button in the WHOLE container rather than that row's button. When rows repeat, scope the query more tightly (e.g. match on unique text combos, or use `closest()`/index into a specific row element) before querying descendants.
+- **M6 note — delete-account design:** Supabase's client SDK has no way for a user to delete their own `auth.users` row (that's normally a service-role-only operation, and the service-role key must never be in frontend code — see the M1 note on key naming). The fix is `delete_own_account()` in `supabase/migrations/0002_delete_account.sql`, a `SECURITY DEFINER` Postgres function hardcoded to `delete from auth.users where id = auth.uid()` — no parameter, so an authenticated caller can only ever delete themselves, never anyone else. This cascades through the existing `applications`/`stage_history` FKs (from `0001_init.sql`), so it's a genuine full wipe, not just an orphaned auth row with data left behind. Called via `supabase.rpc('delete_own_account')` in `src/lib/remoteStore.ts`.
+- **M6 note — testing limitation, same root cause as M5:** I verified export, the privacy page, the empty state, and the stale badge directly in-browser. I could NOT verify account deletion live, for the same reason as M5's migration test — I have no live confirmed Supabase session in this sandbox (can't navigate to `supabase.co` to click a confirmation link). Deletion also requires the new migration to be run first, which I can't do myself either (no DB access beyond the anon key). See the M6 checklist above.
+- **M6 note — export data structure:** `buildExportData(userId)` in `src/lib/export.ts` returns `{ exported_at, applications, stage_history }`. For guest it reads IndexedDB directly; for signed-in it reads Supabase (`getAllRemoteApplications` + `getAllRemoteStageHistory`, the latter relying on RLS to scope results rather than an explicit `.eq()` — no `user_id` column on `stage_history` to filter by, same reasoning as its RLS policies). Verified the actual downloaded blob content in-browser (not just that a download "happened") by temporarily patching `URL.revokeObjectURL` to a no-op so the blob URL survived long enough to `fetch()` and inspect.
 - **M4 bug fixed during testing:** `handleArchive` in `Board.tsx` originally called `archiveApplication(...)` without `await`, then immediately called `setUndoState(...)`. Because `unarchiveApplication` is a `useCallback` keyed on `applications`, and the keydown effect resubscribes only when `undoState` changes, the effect could capture a stale `unarchiveApplication` closure still bound to pre-archive data — `Ctrl/Cmd+Z` would silently no-op even with the undo toast visibly showing. Fixed by awaiting the archive write (and its `applications` refresh) before setting undo state, so the effect's dependent renders always see post-archive data. Worth remembering for any future "fire an async write, then immediately gate a keyboard shortcut on its result" pattern (e.g. if M5's migration ever needs something similar) — await first, or the shortcut can silently do nothing while looking like it should work.
