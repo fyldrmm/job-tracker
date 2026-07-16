@@ -15,6 +15,9 @@ import { useApplications } from '../hooks/useApplications'
 import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { hasMigrated, migrateGuestDataToAccount } from '../lib/migration'
+import { buildExportData, downloadJSON } from '../lib/export'
+import { deleteOwnAccount } from '../lib/remoteStore'
+import { clearLocalStore } from '../lib/localStore'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
@@ -23,8 +26,11 @@ import { ArchiveView } from './ArchiveView'
 import { UndoToast } from './UndoToast'
 import { AuthModal } from './AuthModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
+import { DeleteAccountModal } from './DeleteAccountModal'
+import { PrivacyPolicy } from './PrivacyPolicy'
 
 type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
+type View = 'board' | 'archive' | 'privacy'
 
 const UNDO_WINDOW_MS = 10000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
@@ -44,7 +50,8 @@ export function Board() {
   const [formState, setFormState] = useState<FormState>(null)
   const [detailApplication, setDetailApplication] = useState<Application | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [view, setView] = useState<'board' | 'archive'>('board')
+  const [view, setView] = useState<View>('board')
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [undoState, setUndoState] = useState<{ id: string; company: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
   const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
@@ -159,6 +166,26 @@ export function Board() {
     if (prev) moveApplicationStage(application.id, prev)
   }
 
+  async function handleExport() {
+    const data = await buildExportData(user?.id ?? null)
+    const date = new Date().toISOString().slice(0, 10)
+    downloadJSON(data, `job-tracker-export-${date}.json`)
+  }
+
+  async function handleDeleteAccount() {
+    await deleteOwnAccount()
+    await clearLocalStore()
+    try {
+      await signOut()
+    } catch {
+      // Session is likely already invalid post-deletion -- fine, we're
+      // resetting to guest state regardless.
+    }
+    setDeleteModalOpen(false)
+    setView('board')
+    await refresh()
+  }
+
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
   }
@@ -176,9 +203,23 @@ export function Board() {
           >
             {archivedApplications.length} archived
           </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+          >
+            Export data
+          </button>
           {user ? (
             <div className="flex items-center gap-3">
               <span className="text-sm text-slate-500 truncate max-w-[12rem]">{user.email}</span>
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(true)}
+                className="text-sm text-slate-500 hover:text-rose-600 hover:underline"
+              >
+                Delete account
+              </button>
               <button
                 type="button"
                 onClick={() => signOut()}
@@ -232,6 +273,24 @@ export function Board() {
           onCardOpen={setDetailApplication}
           onUnarchive={handleUnarchive}
         />
+      ) : view === 'privacy' ? (
+        <PrivacyPolicy onBack={() => setView('board')} />
+      ) : applications.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-sm">
+            <h2 className="text-lg font-medium text-slate-800">Nothing here yet</h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Add the first job you're eyeing, applying to, or already interviewing for.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+            >
+              + Add your first application
+            </button>
+          </div>
+        </div>
       ) : (
         <main className="flex-1 overflow-x-auto p-6">
           <DndContext
@@ -260,6 +319,23 @@ export function Board() {
             </DragOverlay>
           </DndContext>
         </main>
+      )}
+
+      {view !== 'privacy' && (
+        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <button type="button" onClick={() => setView('privacy')} className="hover:text-slate-600 hover:underline">
+            Privacy policy
+          </button>
+          <span>·</span>
+          <a
+            href="https://ko-fi.com"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-slate-600 hover:underline"
+          >
+            Support this project
+          </a>
+        </footer>
       )}
 
       {formState && (
@@ -298,6 +374,10 @@ export function Board() {
           onSignIn={signIn}
           onClose={() => setAuthModalMode(null)}
         />
+      )}
+
+      {deleteModalOpen && (
+        <DeleteAccountModal onConfirm={handleDeleteAccount} onClose={() => setDeleteModalOpen(false)} />
       )}
     </div>
   )

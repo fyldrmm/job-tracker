@@ -6,6 +6,13 @@ interface CardVisualProps {
   dragging?: boolean
 }
 
+const STALE_THRESHOLD_DAYS = 14
+
+function isStale(application: Application): boolean {
+  const daysSinceUpdate = (Date.now() - new Date(application.updated_at).getTime()) / (1000 * 60 * 60 * 24)
+  return daysSinceUpdate > STALE_THRESHOLD_DAYS
+}
+
 export function CardVisual({ application, dragging }: CardVisualProps) {
   return (
     <div
@@ -15,7 +22,17 @@ export function CardVisual({ application, dragging }: CardVisualProps) {
     >
       <div className="font-medium text-slate-800 text-sm truncate">{application.company}</div>
       <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
-      <div className="text-slate-400 text-xs mt-1">{formatDate(application.date_applied)}</div>
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-slate-400 text-xs">{formatDate(application.date_applied)}</span>
+        {isStale(application) && (
+          <span
+            title={`No activity in over ${STALE_THRESHOLD_DAYS} days`}
+            className="text-amber-600 text-[10px] font-medium uppercase tracking-wide"
+          >
+            Stale
+          </span>
+        )}
+      </div>
     </div>
   )
 }

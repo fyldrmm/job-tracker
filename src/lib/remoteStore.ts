@@ -16,3 +16,19 @@ export async function addRemoteStageHistoryEntry(entry: StageHistoryEntry): Prom
   const { error } = await supabase.from('stage_history').insert(entry)
   if (error) throw error
 }
+
+// No .eq(user_id) needed -- RLS already scopes stage_history to rows whose
+// parent application belongs to the caller.
+export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
+  const { data, error } = await supabase.from('stage_history').select('*')
+  if (error) throw error
+  return data as StageHistoryEntry[]
+}
+
+// Calls the delete_own_account() Postgres function (see
+// supabase/migrations/0002_delete_account.sql) -- deletes the caller's
+// auth.users row, cascading through applications and stage_history.
+export async function deleteOwnAccount(): Promise<void> {
+  const { error } = await supabase.rpc('delete_own_account')
+  if (error) throw error
+}

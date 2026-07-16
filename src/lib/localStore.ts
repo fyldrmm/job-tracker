@@ -37,3 +37,13 @@ export async function addStageHistoryEntry(entry: StageHistoryEntry): Promise<vo
   const db = await getDB()
   await db.put('stage_history', entry)
 }
+
+// Used after account deletion -- the local cache would otherwise still
+// show a signed-out guest the now-deleted account's mirrored data.
+export async function clearLocalStore(): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction(['applications', 'stage_history'], 'readwrite')
+  await tx.objectStore('applications').clear()
+  await tx.objectStore('stage_history').clear()
+  await tx.done
+}
