@@ -243,11 +243,13 @@ export function Board() {
 
   async function handleDeleteAccount(password: string) {
     if (!user?.email) throw new Error('No signed-in user.')
-    // Re-verify identity before an irreversible action -- signInWithPassword
-    // throws (wrong password / other auth error) if this fails, which
+    // Password verification happens server-side inside the delete-account
+    // Edge Function now, not via a separate client-side signIn() call here
+    // -- a client-only check can't stop someone who calls the function
+    // directly with just a stolen session token. deleteOwnAccount() throws
+    // (wrong password / other error) if verification fails, which
     // DeleteAccountModal surfaces and stops here, before anything is deleted.
-    await signIn(user.email, password)
-    await deleteOwnAccount()
+    await deleteOwnAccount(password)
     await clearLocalStore()
     try {
       await signOut()

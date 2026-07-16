@@ -27,13 +27,14 @@ export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
 
 // Calls the delete-account Edge Function (see
 // supabase/functions/delete-account/index.ts) rather than the
-// delete_own_account() RPC directly -- the function sends a confirmation
-// email BEFORE deleting, since the caller's email no longer exists to send
-// to once delete_own_account() has run. The function still calls that same
-// RPC under the hood, so the actual deletion semantics (cascades through
-// applications -> stage_history) are unchanged.
-export async function deleteOwnAccount(): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('delete-account')
+// delete_own_account() RPC directly -- the function verifies the password
+// and sends a confirmation email BEFORE deleting (both server-side, so
+// neither can be bypassed by a direct API call with just a stolen session
+// token). It still calls that same RPC under the hood, so the actual
+// deletion semantics (cascades through applications -> stage_history) are
+// unchanged.
+export async function deleteOwnAccount(password: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('delete-account', { body: { password } })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
 }

@@ -1,10 +1,19 @@
-// Deletes the caller's own account, after best-effort emailing them a
-// confirmation first. Runs server-side because the confirmation email MUST
-// be sent before deletion -- once delete_own_account() runs, the auth.users
-// row (and the caller's email address) is gone, so there is no "after" to
-// send it from. Deployed via the Supabase dashboard's Edge Functions editor
-// (see PLAN.md for the manual setup steps); SUPABASE_URL and
-// SUPABASE_ANON_KEY are injected automatically by the platform.
+// Deletes the caller's own account, after verifying their password and
+// sending a best-effort confirmation email -- both server-side.
+//
+// Password verification happens HERE, not just in the browser, because a
+// client-side-only check (calling signInWithPassword before invoking this
+// function) is a UX gate, not a security boundary -- anyone with a valid
+// session token could call this function directly, bypassing the browser
+// UI entirely. Requiring the password in the request body and verifying it
+// against Supabase Auth here means a bare stolen session token is no longer
+// enough on its own to delete the account.
+//
+// The confirmation email must be sent BEFORE deletion, since the user's
+// email no longer exists to send to once delete_own_account() has run.
+// Deployed via the Supabase dashboard's Edge Functions editor (see
+// PLAN.md for the manual setup steps); SUPABASE_URL and SUPABASE_ANON_KEY
+// are injected automatically by the platform.
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -14,6 +23,13 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+  })
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
@@ -21,35 +37,54 @@ Deno.serve(async (req: Request) => {
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) {
-    return new Response(JSON.stringify({ error: 'Missing Authorization header' }), {
-      status: 401,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ error: 'Missing Authorization header' }, 401)
   }
 
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
+  let password: string | undefined
+  try {
+    const body = await req.json()
+    password = body?.password
+  } catch {
+    // no body -- password stays undefined, handled below
+  }
+  if (!password) {
+    return jsonResponse({ error: 'Password is required' }, 400)
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
+
+  // Bound to the caller's own session -- identifies who's asking, and later
+  // scopes the delete RPC to auth.uid() via that same session.
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  })
 
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser()
 
-  if (userError || !user) {
-    return new Response(JSON.stringify({ error: 'Not authenticated' }), {
-      status: 401,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+  if (userError || !user || !user.email) {
+    return jsonResponse({ error: 'Not authenticated' }, 401)
+  }
+
+  // Verify the password server-side, on a separate plain client so it
+  // doesn't disturb the caller's own session above.
+  const verifier = createClient(supabaseUrl, supabaseAnonKey)
+  const { error: passwordError } = await verifier.auth.signInWithPassword({
+    email: user.email,
+    password,
+  })
+  if (passwordError) {
+    return jsonResponse({ error: 'Incorrect password.' }, 401)
   }
 
   // Best-effort confirmation email -- a failure here (bad API key, Resend
   // outage, etc.) must not block the user's right to delete their own data.
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const fromEmail = Deno.env.get('DELETE_EMAIL_FROM') ?? 'noreply@fazare.dev'
-  if (resendApiKey && user.email) {
+  if (resendApiKey) {
     try {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -73,13 +108,8 @@ Deno.serve(async (req: Request) => {
 
   const { error: deleteError } = await supabase.rpc('delete_own_account')
   if (deleteError) {
-    return new Response(JSON.stringify({ error: deleteError.message }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-    })
+    return jsonResponse({ error: deleteError.message }, 500)
   }
 
-  return new Response(JSON.stringify({ success: true }), {
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  })
+  return jsonResponse({ success: true })
 })
