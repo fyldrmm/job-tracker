@@ -59,6 +59,7 @@ export function Board() {
     createTracker,
     renameTracker,
     removeTracker,
+    refresh: refreshTrackers,
   } = useTrackers(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
@@ -168,10 +169,17 @@ export function Board() {
     if (!user || hasMigrated(user.id)) return
     setMigrating(true)
     migrateGuestDataToAccount(user.id)
-      .then(refresh)
+      // Refresh both applications AND trackers once migration lands.
+      // Missing the trackers refresh here was the bug: useTrackers has its
+      // own fetch triggered independently by the userId change (same
+      // moment migration starts), which can resolve before migration's
+      // uploads finish and land on stale/empty data -- with nothing to
+      // force a second look once migration actually completes, the UI
+      // stayed stuck on that stale snapshot until a full page reload.
+      .then(() => Promise.all([refresh(), refreshTrackers()]))
       .catch((err) => console.error('Migration failed', err))
       .finally(() => setMigrating(false))
-  }, [user, refresh])
+  }, [user, refresh, refreshTrackers])
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
