@@ -29,6 +29,8 @@ import { AccountNudgeBanner } from './AccountNudgeBanner'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
 import { Sidebar } from './Sidebar'
+import { CoffeeIcon } from './icons'
+import { DONATION_URL } from '../lib/constants'
 
 type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
 type View = 'board' | 'archive' | 'privacy'
@@ -216,6 +218,16 @@ export function Board() {
         <h1 className="text-xl font-medium text-slate-800">{pageTitle}</h1>
         <div className="flex items-center gap-4">
           {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
+          <a
+            href={DONATION_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Support this project"
+            title="Support this project"
+            className="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100"
+          >
+            <CoffeeIcon className="w-5 h-5" />
+          </a>
           {view === 'board' && (
             <button
               type="button"
@@ -264,7 +276,7 @@ export function Board() {
           </div>
         </div>
       ) : (
-        <main className="flex-1 overflow-x-auto p-6">
+        <main className="flex-1 overflow-x-auto py-6">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -272,7 +284,7 @@ export function Board() {
             onDragEnd={handleDragEnd}
             onDragCancel={handleDragCancel}
           >
-            <div className="flex gap-4 h-full">
+            <div className="flex h-full justify-evenly">
               {STAGE_ORDER.map((stage) => (
                 <Column
                   key={stage}
@@ -294,19 +306,10 @@ export function Board() {
       )}
 
       {view !== 'privacy' && (
-        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center gap-4 text-xs text-slate-400">
+        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center text-xs text-slate-400">
           <button type="button" onClick={() => setView('privacy')} className="hover:text-slate-600 hover:underline">
             Privacy policy
           </button>
-          <span>·</span>
-          <a
-            href="https://ko-fi.com"
-            target="_blank"
-            rel="noreferrer"
-            className="hover:text-slate-600 hover:underline"
-          >
-            Support this project
-          </a>
         </footer>
       )}
       </div>

@@ -70,3 +70,13 @@ export function UserPlusIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function CoffeeIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M5 9h11v6a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4V9Z" />
+      <path d="M16 10.5h1.5a2.25 2.25 0 0 1 0 4.5H16" />
+      <path d="M8 5.5c0-.7.5-1 .8-1.5M12 5.5c0-.7.5-1 .8-1.5" />
+    </svg>
+  )
+}

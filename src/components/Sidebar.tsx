@@ -8,7 +8,9 @@ import {
   LogoutIcon,
   LoginIcon,
   UserPlusIcon,
+  CoffeeIcon,
 } from './icons'
+import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
   view: 'board' | 'archive' | 'privacy'
@@ -107,6 +109,14 @@ export function Sidebar({
           <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
         </>
       )}
+
+      <div className="border-t border-slate-200 my-2" />
+
+      <NavItem
+        icon={<CoffeeIcon />}
+        label="Support this project"
+        onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
+      />
     </nav>
   )
 }
