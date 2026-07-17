@@ -73,6 +73,8 @@ export function Sidebar({
         onClick={() => onNavigate('archive')}
       />
 
+      <div className="flex-1" />
+
       <div className="border-t border-slate-200 my-2" />
 
       <div className="px-4 py-2 mb-1">
