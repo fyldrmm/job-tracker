@@ -17,7 +17,7 @@ import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { hasMigrated, migrateGuestDataToAccount } from '../lib/migration'
 import { buildExportData, downloadJSON } from '../lib/export'
-import { deleteOwnAccount } from '../lib/remoteStore'
+import { deleteOwnAccount, changePassword } from '../lib/remoteStore'
 import { clearLocalStore } from '../lib/localStore'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
@@ -27,6 +27,7 @@ import { ArchiveView } from './ArchiveView'
 import { UndoToast } from './UndoToast'
 import { AuthModal } from './AuthModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
+import { AccountModal } from './AccountModal'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
 import { Sidebar } from './Sidebar'
@@ -42,7 +43,7 @@ const UNDO_WINDOW_MS = 10000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 
 export function Board() {
-  const { user, signUp, signIn, signOut } = useAuth()
+  const { user, displayName, signUp, signIn, signOut, updateName } = useAuth()
   const {
     applications,
     loading,
@@ -68,6 +69,7 @@ export function Board() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [view, setView] = useState<View>('board')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [undoState, setUndoState] = useState<{ id: string; company: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
   const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
@@ -274,12 +276,11 @@ export function Board() {
         view={view}
         onNavigate={setView}
         archivedCount={archivedApplications.length}
-        user={user}
-        onExport={handleExport}
-        onDeleteAccount={() => setDeleteModalOpen(true)}
+        isSignedIn={!!user}
+        displayName={displayName}
+        onOpenAccount={() => setAccountModalOpen(true)}
         onSignOut={handleSignOut}
         onSignUp={() => setAuthModalMode('sign-up')}
-        onLogIn={() => setAuthModalMode('log-in')}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -446,6 +447,25 @@ export function Board() {
           onSignUp={signUp}
           onSignIn={signIn}
           onClose={() => setAuthModalMode(null)}
+        />
+      )}
+
+      {accountModalOpen && user && (
+        <AccountModal
+          name={displayName}
+          email={user.email ?? ''}
+          onUpdateName={updateName}
+          onChangePassword={changePassword}
+          onExport={handleExport}
+          onOpenDeleteAccount={() => {
+            setAccountModalOpen(false)
+            setDeleteModalOpen(true)
+          }}
+          onSignOut={() => {
+            setAccountModalOpen(false)
+            handleSignOut()
+          }}
+          onClose={() => setAccountModalOpen(false)}
         />
       )}
 

@@ -71,6 +71,15 @@ export function UserPlusIcon(props: IconProps) {
   )
 }
 
+export function UserIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <circle cx="12" cy="8" r="3.25" />
+      <path d="M4.5 20c0-3.7 3.4-6.5 7.5-6.5s7.5 2.8 7.5 6.5" />
+    </svg>
+  )
+}
+
 export function NoteIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

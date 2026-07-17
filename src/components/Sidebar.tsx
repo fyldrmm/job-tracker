@@ -1,27 +1,16 @@
 import type { ReactNode } from 'react'
-import type { User } from '@supabase/supabase-js'
-import {
-  BoardIcon,
-  ArchiveIcon,
-  DownloadIcon,
-  TrashIcon,
-  LogoutIcon,
-  LoginIcon,
-  UserPlusIcon,
-  CoffeeIcon,
-} from './icons'
+import { BoardIcon, ArchiveIcon, LogoutIcon, UserIcon, UserPlusIcon, CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
   view: 'board' | 'archive' | 'privacy'
   onNavigate: (view: 'board' | 'archive') => void
   archivedCount: number
-  user: User | null
-  onExport: () => void
-  onDeleteAccount: () => void
+  isSignedIn: boolean
+  displayName: string
+  onOpenAccount: () => void
   onSignOut: () => void
   onSignUp: () => void
-  onLogIn: () => void
 }
 
 interface NavItemProps {
@@ -29,22 +18,17 @@ interface NavItemProps {
   label: string
   badge?: number
   active?: boolean
-  danger?: boolean
   onClick: () => void
 }
 
-function NavItem({ icon, label, badge, active, danger, onClick }: NavItemProps) {
+function NavItem({ icon, label, badge, active, onClick }: NavItemProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-label={label}
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-md transition-colors ${
-        danger
-          ? 'text-rose-600 underline decoration-rose-300 hover:decoration-rose-600'
-          : active
-            ? 'text-slate-900 bg-slate-100 font-medium'
-            : 'text-slate-600 hover:bg-slate-100'
+        active ? 'text-slate-900 bg-slate-100 font-medium' : 'text-slate-600 hover:bg-slate-100'
       }`}
     >
       <span className="shrink-0 w-5 h-5">{icon}</span>
@@ -62,12 +46,11 @@ export function Sidebar({
   view,
   onNavigate,
   archivedCount,
-  user,
-  onExport,
-  onDeleteAccount,
+  isSignedIn,
+  displayName,
+  onOpenAccount,
   onSignOut,
   onSignUp,
-  onLogIn,
 }: SidebarProps) {
   return (
     <nav className="group h-screen sticky top-0 shrink-0 w-14 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1">
@@ -97,17 +80,13 @@ export function Sidebar({
           Account
         </span>
       </div>
-      <NavItem icon={<DownloadIcon />} label="Export data" onClick={onExport} />
-      {user ? (
+      {isSignedIn ? (
         <>
-          <NavItem icon={<TrashIcon />} label="Delete account" danger onClick={onDeleteAccount} />
+          <NavItem icon={<UserIcon />} label={displayName} onClick={onOpenAccount} />
           <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} />
         </>
       ) : (
-        <>
-          <NavItem icon={<LoginIcon />} label="Log in" onClick={onLogIn} />
-          <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
-        </>
+        <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
       )}
 
       <div className="border-t border-slate-200 my-2" />
