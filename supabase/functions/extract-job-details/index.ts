@@ -25,6 +25,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 const PER_USER_MONTHLY_LIMIT = 20
 const GLOBAL_MONTHLY_LIMIT = 5000
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -82,6 +83,15 @@ Deno.serve(async (req: Request) => {
   }
   if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mediaType)) {
     return jsonResponse({ error: `Unsupported image type: ${mediaType}` }, 400)
+  }
+  // Bound worst-case input-token spend -- a much larger image than any real
+  // screenshot costs more Anthropic tokens, so reject oversized payloads
+  // before any Anthropic call rather than let them through and pay for them.
+  const decodedImageBytes = Math.floor(
+    (imageBase64.length * 3) / 4 - (imageBase64.endsWith('==') ? 2 : imageBase64.endsWith('=') ? 1 : 0),
+  )
+  if (decodedImageBytes > MAX_IMAGE_BYTES) {
+    return jsonResponse({ error: 'Image is too large. Please use a smaller screenshot (max 5MB).' }, 400)
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -152,7 +162,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
+        max_tokens: 500,
         messages: [
           {
             role: 'user',
