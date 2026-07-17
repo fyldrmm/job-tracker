@@ -77,6 +77,14 @@ export function Sidebar({
 
       <div className="border-t border-slate-200 my-2" />
 
+      <NavItem
+        icon={<CoffeeIcon />}
+        label="Support this project"
+        onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
+      />
+
+      <div className="border-t border-slate-200 my-2" />
+
       <div className="px-4 py-2 mb-1">
         <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
           Account
@@ -90,14 +98,6 @@ export function Sidebar({
       ) : (
         <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
       )}
-
-      <div className="border-t border-slate-200 my-2" />
-
-      <NavItem
-        icon={<CoffeeIcon />}
-        label="Support this project"
-        onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
-      />
     </nav>
   )
 }
