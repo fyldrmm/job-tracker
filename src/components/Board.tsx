@@ -243,7 +243,7 @@ export function Board() {
 
   async function handleDeleteAccount(password: string) {
     if (!user?.email) throw new Error('No signed-in user.')
-    // Password verification happens server-side inside the delete-account
+    // Password verification happens server-side inside the account-action
     // Edge Function now, not via a separate client-side signIn() call here
     // -- a client-only check can't stop someone who calls the function
     // directly with just a stolen session token. deleteOwnAccount() throws
