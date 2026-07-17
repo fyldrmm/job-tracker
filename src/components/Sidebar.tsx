@@ -4,10 +4,10 @@ import {
   BoardIcon,
   ArchiveIcon,
   DownloadIcon,
+  TrashIcon,
   LogoutIcon,
   LoginIcon,
   UserPlusIcon,
-  UserIcon,
   CoffeeIcon,
 } from './icons'
 import { DONATION_URL } from '../lib/constants'
@@ -17,9 +17,8 @@ interface SidebarProps {
   onNavigate: (view: 'board' | 'archive') => void
   archivedCount: number
   user: User | null
-  displayName: string | null
-  onOpenAccount: () => void
   onExport: () => void
+  onDeleteAccount: () => void
   onSignOut: () => void
   onSignUp: () => void
   onLogIn: () => void
@@ -59,31 +58,24 @@ function NavItem({ icon, label, badge, active, danger, onClick }: NavItemProps) 
   )
 }
 
-function GroupLabel({ children }: { children: ReactNode }) {
-  return (
-    <div className="px-4 py-2 mb-1">
-      <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-        {children}
-      </span>
-    </div>
-  )
-}
-
 export function Sidebar({
   view,
   onNavigate,
   archivedCount,
   user,
-  displayName,
-  onOpenAccount,
   onExport,
+  onDeleteAccount,
   onSignOut,
   onSignUp,
   onLogIn,
 }: SidebarProps) {
   return (
     <nav className="group h-screen sticky top-0 shrink-0 w-14 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1">
-      <GroupLabel>Tracker</GroupLabel>
+      <div className="px-4 py-2 mb-1">
+        <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          Tracker
+        </span>
+      </div>
       <NavItem
         icon={<BoardIcon />}
         label="Job Tracker"
@@ -98,40 +90,33 @@ export function Sidebar({
         onClick={() => onNavigate('archive')}
       />
 
-      {/* Guests have no account -- expose the guest-relevant actions inline
-          (export works from IndexedDB; log in / sign up). Signed-in users get
-          everything folded into the account panel instead, opened from the
-          name button pinned at the bottom. */}
-      {!user && (
+      <div className="border-t border-slate-200 my-2" />
+
+      <div className="px-4 py-2 mb-1">
+        <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          Account
+        </span>
+      </div>
+      <NavItem icon={<DownloadIcon />} label="Export data" onClick={onExport} />
+      {user ? (
         <>
-          <div className="border-t border-slate-200 my-2" />
-          <GroupLabel>Account</GroupLabel>
-          <NavItem icon={<DownloadIcon />} label="Export data" onClick={onExport} />
+          <NavItem icon={<TrashIcon />} label="Delete account" danger onClick={onDeleteAccount} />
+          <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} />
+        </>
+      ) : (
+        <>
           <NavItem icon={<LoginIcon />} label="Log in" onClick={onLogIn} />
           <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
         </>
       )}
 
-      <div className="flex-1" />
+      <div className="border-t border-slate-200 my-2" />
 
       <NavItem
         icon={<CoffeeIcon />}
         label="Support this project"
         onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
       />
-
-      {user && (
-        <>
-          <div className="border-t border-slate-200 my-2" />
-          <NavItem
-            icon={<UserIcon />}
-            label={displayName ?? 'Account'}
-            active={false}
-            onClick={onOpenAccount}
-          />
-          <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} />
-        </>
-      )}
     </nav>
   )
 }

@@ -19,15 +19,8 @@ export function useAuth() {
     return () => listener.subscription.unsubscribe()
   }, [])
 
-  async function signUp(email: string, password: string, name: string) {
-    // Name lives in Supabase Auth's built-in user_metadata -- no separate
-    // profiles table needed for a single field. Read back via
-    // user.user_metadata.name (see displayName below).
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name: name.trim() } },
-    })
+  async function signUp(email: string, password: string) {
+    const { error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
   }
 
@@ -41,14 +34,5 @@ export function useAuth() {
     if (error) throw error
   }
 
-  async function updateName(name: string) {
-    const { error } = await supabase.auth.updateUser({ data: { name: name.trim() } })
-    if (error) throw error
-  }
-
-  const user = session?.user ?? null
-  const displayName =
-    (typeof user?.user_metadata?.name === 'string' && user.user_metadata.name.trim()) || null
-
-  return { session, user, displayName, loading, signUp, signIn, signOut, updateName }
+  return { session, user: session?.user ?? null, loading, signUp, signIn, signOut }
 }
