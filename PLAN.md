@@ -176,6 +176,13 @@ Confirmed working end-to-end after the fix: fresh sign-up with a compulsory name
 2. ~~Live QA: sign-up with compulsory name, sidebar name display, account panel edits, password change, account deletion~~ — done, all confirmed working by the user on real accounts (including catching and fixing the bug above).
 3. Committed; PLAN.md updated
 
+#### Post-M7 sidebar polish  *(user request)* — ✅ done
+
+- [x] A `flex-1` spacer between the Tracker group and everything below it pins the account section (Sign up when signed out; name button + Sign out when signed in) and Support this project to the bottom of the sidebar in both states, instead of sitting immediately below the tracker items
+- [x] Order at the bottom: Support this project first, then the account section below it
+- [x] Login stays reachable only via the "Already have an account? Log in" toggle inside the Sign-up modal, not as a separate always-visible sidebar item — confirmed as the intended behavior, not a gap
+- [x] Committed; PLAN.md updated
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
