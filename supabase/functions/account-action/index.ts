@@ -25,14 +25,22 @@
 //
 // SUPABASE_SERVICE_ROLE_KEY note: a client built from just the caller's
 // Authorization header (global.headers override) is enough for getUser()
-// and RPC calls, but auth.updateUser() and auth.signOut() need an actual
-// session set via setSession() -- which we don't have (only an access
-// token, no refresh token) -- and throw "Auth session missing!" otherwise.
-// Confirmed by hitting this exact error live. Fixed by using the admin API
-// (service-role client) for updateUserById, and a raw fetch to the
-// /auth/v1/logout REST endpoint (same one the JS SDK calls internally) for
-// signing out other sessions, since that only needs the bearer token in
-// the header, not the SDK's internal session state.
+// and RPC calls, but auth.updateUser() needs an actual session set via
+// setSession() -- which we don't have (only an access token, no refresh
+// token) -- and throws "Auth session missing!" otherwise. Confirmed by
+// hitting this exact error live. Fixed by using the admin API (service-role
+// client) for updateUserById.
+//
+// NOT doing: signing out other sessions/devices after a password change.
+// Tried this via a raw fetch to /auth/v1/logout?scope=others, but GoTrue's
+// own logout handler falls back to a FULL GLOBAL logout (every session,
+// including the current one) if it can't resolve "which session is the
+// current one" from the request -- confirmed via GoTrue's source and by
+// reproducing the exact failure live: a user's own current session got
+// silently revoked this way, then failed with "session_not_found" on
+// their very next action (deleting their account). Removed rather than
+// keep debugging a mechanism that already caused real harm once -- the
+// core password-change functionality doesn't depend on it.
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -150,21 +158,6 @@ Deno.serve(async (req: Request) => {
       }
       const { error } = await admin.auth.admin.updateUserById(user.id, { password: newPassword })
       if (error) return jsonResponse({ error: error.message }, 500)
-      // Sign out every OTHER session/device now that the password changed --
-      // keeps the current session (this request's) alive. This revokes
-      // refresh tokens; an already-issued access token on another device
-      // stays valid until its own short natural expiry, it just can't renew
-      // after this point. Raw fetch to the REST endpoint directly (not
-      // supabase.auth.signOut()) since that SDK method needs a locally-set
-      // session we don't have -- this only needs the bearer token itself.
-      try {
-        await fetch(`${supabaseUrl}/auth/v1/logout?scope=others`, {
-          method: 'POST',
-          headers: { Authorization: authHeader, apikey: supabaseAnonKey },
-        })
-      } catch (err) {
-        console.error('account-action: sign-out-others failed after password change', err)
-      }
       return jsonResponse({ success: true })
     }
     default:

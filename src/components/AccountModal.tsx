@@ -163,9 +163,7 @@ export function AccountModal({
             <p className="text-xs text-rose-600">Passwords don't match.</p>
           )}
           {passwordError && <p className="text-sm text-rose-600">{passwordError}</p>}
-          {passwordSaved && (
-            <p className="text-sm text-emerald-600">Password updated. Other devices have been signed out.</p>
-          )}
+          {passwordSaved && <p className="text-sm text-emerald-600">Password updated.</p>}
           <button
             type="submit"
             disabled={!canSubmitPassword || passwordSubmitting}
