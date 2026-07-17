@@ -20,11 +20,11 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 MVP milestones done, plus three post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
-- **Last completed:** Hosting — the app is live at `jobtracker.fazare.dev` via Cloudflare's Workers/Pages platform, auto-deploying from the `main` branch. See "Post-MVP — Hosting" below for the full story, including a real blank-page bug found and fixed during the first deploy.
+- **Active milestone:** none — all 6 MVP milestones done, plus M7 (account panel + names) and three earlier post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
+- **Last completed:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. See "M7 — Account panel + names" below for the full story, including a first attempt that broke silently in the app, was fully reverted, and was rebuilt with each Edge Function action curl-tested standalone before any UI touched it.
 - **App runs?** yes — both locally (`npm run dev`) and live in production
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
-- **Next action:** nothing blocking. The MVP plus every post-MVP request so far is done, verified, and live. Remaining items are the user's call — see "Postponed / deferred" below.
+- **Next action:** M7 needs one round of live QA (see the checklist under its milestone section below) before it's considered fully closed out. User plans to delete their current primary account and sign up fresh afterward, which conveniently doubles as that test. Every push to `main` auto-deploys via Cloudflare, so `jobtracker.fazare.dev` already has M7 live — no separate deploy step needed. After the QA checklist: nothing blocking, nothing postponed — see "Postponed / deferred" below.
 
 ---
 
@@ -139,6 +139,35 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 - [x] Confirmed deploys are automatic going forward — every push to `main` triggers a new Cloudflare build without manual intervention; the one manual "retry deployment" was only needed because the *existing* build predated the env var fix
 - [x] Committed; PLAN.md updated
 
+### M7 — Account panel + names  *(user request)* — built, needs one round of live QA
+
+**Note on documentation gap:** the deletion-confirmation-email feature (a `delete-account` Edge Function sending an email before deleting, plus moving password verification server-side) was built and confirmed working *before* M7 started. Reverting M7's first attempt (see below) accidentally rolled PLAN.md back to a point *before* that feature's documentation was added, even though the feature itself was unaffected (M7's revert target already included it in code). This section folds that lost writeup back in along with M7 proper, since M7 also subsumed that function into the unified one described below.
+
+- [x] Sign-up requires a **Name** field (not optional) — stored in Supabase Auth's `user_metadata`, no separate profiles table needed for one field. Exposed via `useAuth`'s `displayName`.
+- [x] One `AccountModal` consolidates what used to be scattered sidebar items: name (editable inline), email (read-only, no edit control at all), change password (current + new + confirm), export data, delete account, sign out.
+- [x] Sidebar restructure: signed-in shows a single button labeled with the user's name (opens the modal) plus Sign out as its own separate item at the bottom; signed-out shows one **Sign up** button only — the existing "Already have an account? Log in" toggle inside `AuthModal` covers logging in, so there's no separate "Log in" sidebar item anymore.
+- [x] One `account-action` Edge Function handles every password-gated action (`delete`, `change-password`) through a shared password-verification gate, rather than one function per action — adding a future password-gated action means adding a case, not deploying something new. Supersedes the earlier single-purpose `delete-account` function (kept deployed and in the repo as a rollback option, per user request, but no longer called by the client).
+- [x] Changing your password signs out every *other* session/device (`scope: 'others'`) while keeping the current one active — user-requested improvement beyond the original ask, once the "why would this only affect one specific archive reason" style question came up naturally during planning.
+
+#### A first attempt broke and was fully reverted — here's what happened and what changed the second time
+
+The first build wired `change-password` straight into the UI without testing it against the real deployed function first. It crashed in the app with a generic "Edge Function returned a non-2xx status code" error for both right and wrong passwords, and diagnosing it took a long back-and-forth (terminal quoting issues with `curl`, shell history-expansion breaking on a password containing `!`, wrong assumptions about which token to use) before finding the real root cause was still unconfirmed. Rather than keep patching blind, the whole M7 attempt was reverted with `git checkout ba09e92` (the last fully-verified commit) and rebuilt from scratch, this time with a hard rule: **every Edge Function action gets curl-tested standalone, with a real account, before any UI touches it.**
+
+That discipline caught the actual bug fast the second time: `supabase.auth.updateUser()` and `supabase.auth.signOut()` both throw `"Auth session missing!"` when called on a client built from just an `Authorization` header override (`global.headers`) — they need an actual session set via `setSession()`, which requires a refresh token the Edge Function never has (only the access token, via the header). Confirmed by hitting the exact error live, not guessed. Fixed by:
+- Using the **service-role admin API** (`admin.auth.admin.updateUserById`) for the password change itself, since the caller's identity was already independently verified via `getUser()` and the password check before this point.
+- Using a **raw `fetch()` to `/auth/v1/logout?scope=others`** (the same REST endpoint the JS SDK calls internally) instead of `supabase.auth.signOut()`, since that only needs the bearer token in the header, not the SDK's internal session state.
+
+Sources checked before implementing (not guessed): [Supabase docs — Signing out](https://supabase.com/docs/guides/auth/signout), [GitHub discussion on the "Auth session missing" error and `admin.updateUserById`](https://github.com/orgs/supabase/discussions/26791).
+
+Both the `delete` and `change-password` cases were confirmed working via direct `curl` calls against the real deployed function (wrong-password rejection for both, and a real successful password change with `{"success":true}`) before `remoteStore.ts`/the UI were wired to it.
+
+#### Manual step + QA checklist for M7
+
+1. Edge Function code lives in the repo at `supabase/functions/account-action/index.ts` — already deployed and curl-verified as of this write-up. If it's ever redeployed from scratch, double check `SUPABASE_SERVICE_ROLE_KEY` shows up in the function's environment (should be auto-injected by the platform, same as `SUPABASE_URL`/`SUPABASE_ANON_KEY`) and that `RESEND_API_KEY` is set as a Function secret (project-wide, likely already present from the earlier deletion-email work).
+2. User plans to delete their current primary account and sign up fresh with the new compulsory name field — this doubles as the live QA pass. Confirm: sign-up requires a name and won't submit without one; the sidebar shows that name once signed in; opening the account panel shows the right name/email; editing the name and saving updates it (check it persists across a reload); changing the password with the wrong current password is rejected with a clear error and nothing changes; changing it with the correct current password succeeds, and logging in elsewhere afterward with the *old* password fails while the *new* one works; export/delete/sign-out still all work from inside the panel.
+3. If anything errors, check the Edge Function's logs in the Supabase dashboard (Edge Functions → `account-action` → Logs) for the real error rather than trusting `supabase-js`'s generic client-side message — `remoteStore.ts`'s `callAccountAction` helper now extracts the real message from the response body when it can, but worth knowing where to look directly if that ever falls back to the generic text.
+4. Committed; PLAN.md updated
+
 ---
 
 ## Out of scope for MVP (do not build; don't design out)
@@ -151,11 +180,11 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-- **Deletion-confirmation email.** When a user deletes their account, send an email confirming it happened. Explicitly postponed (not urgent) — needs a Supabase Edge Function (new server-side infra for this project), a Resend API key kept server-side (never in frontend code), and a Supabase CLI personal access token to deploy the function (see the M1 note on where to find that token). Not started.
-- **Old Supabase Auth accounts from testing.** `fyildirimo2012@gmail.com` is the user's own real secondary email (not a typo or test account, corrected after an earlier session mislabeled it) — no action needed unless the user wants it removed, which they can do directly from the Supabase dashboard themselves. Any actually-stale test signups (e.g. an old `mailinator.com` address from M5 testing) are still fine to delete whenever convenient — pure housekeeping, no code involved.
+Nothing currently on this list — every item raised so far has been either built or actioned.
 
 ~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
-
+~~Deletion-confirmation email~~ — **done**, folded into M7's unified `account-action` function — see "M7 — Account panel + names" below.
+~~Old Supabase Auth accounts from testing~~ — **done**, user deleted both leftover accounts (the real secondary email and an old test signup) directly from the Supabase dashboard; only the primary account remained before the M7 QA pass, which will replace it with a fresh one.
 ~~Show which tracker an archived application belongs to, inside `CardDetail.tsx`~~ — **done**, see "Post-MVP — Archive grouping & sort" below.
 ~~Real Ko-fi/donation flow verification~~ — **done**, user clicked through and confirmed it leads to the correct page.
 
