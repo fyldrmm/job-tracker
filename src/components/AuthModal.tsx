@@ -2,13 +2,14 @@ import { useState, type FormEvent } from 'react'
 
 interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
-  onSignUp: (email: string, password: string) => Promise<void>
+  onSignUp: (email: string, password: string, name: string) => Promise<void>
   onSignIn: (email: string, password: string) => Promise<void>
   onClose: () => void
 }
 
 export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: AuthModalProps) {
   const [mode, setMode] = useState(initialMode)
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -21,7 +22,7 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
     setSubmitting(true)
     try {
       if (mode === 'sign-up') {
-        await onSignUp(email, password)
+        await onSignUp(email, password, name)
         setSignedUp(true)
       } else {
         await onSignIn(email, password)
@@ -84,6 +85,23 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
               <p className="text-sm text-slate-500">
                 Your existing board data will transfer to this account automatically.
               </p>
+            )}
+
+            {mode === 'sign-up' && (
+              <div>
+                <label htmlFor="auth-name" className="block text-sm font-medium text-slate-700">
+                  Name
+                </label>
+                <input
+                  id="auth-name"
+                  type="text"
+                  required
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                />
+              </div>
             )}
 
             <div>

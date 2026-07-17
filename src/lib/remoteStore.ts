@@ -25,16 +25,28 @@ export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
   return data as StageHistoryEntry[]
 }
 
-// Calls the delete-account Edge Function (see
-// supabase/functions/delete-account/index.ts) rather than the
-// delete_own_account() RPC directly -- the function verifies the password
-// and sends a confirmation email BEFORE deleting (both server-side, so
-// neither can be bypassed by a direct API call with just a stolen session
-// token). It still calls that same RPC under the hood, so the actual
-// deletion semantics (cascades through applications -> stage_history) are
-// unchanged.
+// Both of these go through the one account-action Edge Function (see
+// supabase/functions/account-action/index.ts), which verifies the password
+// server-side before running the requested action -- so neither can be
+// bypassed by a direct API call with just a stolen session token. Any future
+// password-gated action is another `action` value there, not a new function.
+
+// Deletes the caller's account (cascades through applications ->
+// stage_history via the delete_own_account() RPC the function calls) after
+// emailing a confirmation first.
 export async function deleteOwnAccount(password: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('delete-account', { body: { password } })
+  const { data, error } = await supabase.functions.invoke('account-action', {
+    body: { action: 'delete', password },
+  })
+  if (error) throw error
+  if (data?.error) throw new Error(data.error)
+}
+
+// Changes the caller's password after verifying the current one server-side.
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('account-action', {
+    body: { action: 'change-password', password: currentPassword, newPassword },
+  })
   if (error) throw error
   if (data?.error) throw new Error(data.error)
 }
