@@ -11,6 +11,7 @@ interface CardDetailProps {
   onEdit: () => void
   onClose: () => void
   onArchive: (reason: ArchiveReason) => void
+  onDeleteRequest: (application: Application) => void
 }
 
 interface FieldProps {
@@ -38,7 +39,14 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
   )
 }
 
-export function CardDetail({ application, trackerName, onEdit, onClose, onArchive }: CardDetailProps) {
+export function CardDetail({
+  application,
+  trackerName,
+  onEdit,
+  onClose,
+  onArchive,
+  onDeleteRequest,
+}: CardDetailProps) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
@@ -83,7 +91,19 @@ export function CardDetail({ application, trackerName, onEdit, onClose, onArchiv
         </dl>
 
         <div className="flex items-center justify-between pt-4">
-          <div>{!application.is_archived && <ArchiveSplitButton onArchive={onArchive} />}</div>
+          <div>
+            {!application.is_archived ? (
+              <ArchiveSplitButton onArchive={onArchive} />
+            ) : (
+              <button
+                type="button"
+                onClick={() => onDeleteRequest(application)}
+                className="px-4 py-2 text-sm font-medium text-rose-600 border border-rose-200 rounded-md hover:bg-rose-50"
+              >
+                Delete
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
             <button
               type="button"

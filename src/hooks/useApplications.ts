@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useState } from 'react'
-import { addStageHistoryEntry, getAllApplications, putApplication } from '../lib/localStore'
-import { addRemoteStageHistoryEntry, getAllRemoteApplications, putRemoteApplication } from '../lib/remoteStore'
+import {
+  addStageHistoryEntry,
+  deleteApplication as deleteLocalApplication,
+  getAllApplications,
+  putApplication,
+} from '../lib/localStore'
+import {
+  addRemoteStageHistoryEntry,
+  deleteRemoteApplication,
+  getAllRemoteApplications,
+  putRemoteApplication,
+} from '../lib/remoteStore'
 import type {
   Application,
   ApplicationStage,
@@ -161,6 +171,20 @@ export function useApplications(userId: string | null) {
     [applications, userId, refresh],
   )
 
+  // Permanent -- no undo. Only reachable for already-archived applications
+  // (see the Delete UI), so this is deliberately not gated on is_archived
+  // here the way archive/unarchive are; the caller decides when it's valid.
+  const deleteApplication = useCallback(
+    async (id: string) => {
+      if (userId) {
+        await deleteRemoteApplication(id)
+      }
+      await deleteLocalApplication(id)
+      await refresh()
+    },
+    [userId, refresh],
+  )
+
   return {
     applications,
     loading,
@@ -169,6 +193,7 @@ export function useApplications(userId: string | null) {
     moveApplicationStage,
     archiveApplication,
     unarchiveApplication,
+    deleteApplication,
     refresh,
   }
 }

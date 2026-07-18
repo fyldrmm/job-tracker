@@ -33,6 +33,7 @@ import { PrivacyPolicy } from './PrivacyPolicy'
 import { Sidebar } from './Sidebar'
 import { TrackerTabs } from './TrackerTabs'
 import { DeleteTrackerModal } from './DeleteTrackerModal'
+import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
@@ -52,6 +53,7 @@ export function Board() {
     moveApplicationStage,
     archiveApplication,
     unarchiveApplication,
+    deleteApplication,
     refresh,
   } = useApplications(user?.id ?? null)
   const {
@@ -64,6 +66,7 @@ export function Board() {
   } = useTrackers(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
+  const [deleteApplicationTarget, setDeleteApplicationTarget] = useState<Application | null>(null)
   const [formState, setFormState] = useState<FormState>(null)
   const [detailApplication, setDetailApplication] = useState<Application | null>(null)
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -232,6 +235,13 @@ export function Board() {
     setDeleteTrackerTarget(null)
   }
 
+  async function handleConfirmDeleteApplication() {
+    if (!deleteApplicationTarget) return
+    await deleteApplication(deleteApplicationTarget.id)
+    if (detailApplication?.id === deleteApplicationTarget.id) setDetailApplication(null)
+    setDeleteApplicationTarget(null)
+  }
+
   async function handleCreateFirstTracker() {
     const tracker = await createTracker('My Applications')
     setActiveTrackerId(tracker.id)
@@ -338,6 +348,7 @@ export function Board() {
           onBack={() => setView('board')}
           onCardOpen={setDetailApplication}
           onUnarchive={handleUnarchive}
+          onDeleteRequest={setDeleteApplicationTarget}
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
@@ -436,6 +447,7 @@ export function Board() {
           }}
           onClose={() => setDetailApplication(null)}
           onArchive={(reason) => handleArchive(detailApplication, reason)}
+          onDeleteRequest={setDeleteApplicationTarget}
         />
       )}
 
@@ -481,6 +493,14 @@ export function Board() {
           applicationCount={applications.filter((app) => app.tracker_id === deleteTrackerTarget.id).length}
           onConfirm={handleConfirmDeleteTracker}
           onClose={() => setDeleteTrackerTarget(null)}
+        />
+      )}
+
+      {deleteApplicationTarget && (
+        <DeleteApplicationModal
+          application={deleteApplicationTarget}
+          onConfirm={handleConfirmDeleteApplication}
+          onClose={() => setDeleteApplicationTarget(null)}
         />
       )}
     </div>

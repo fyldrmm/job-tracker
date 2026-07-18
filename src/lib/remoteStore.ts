@@ -12,6 +12,12 @@ export async function putRemoteApplication(application: Application): Promise<vo
   if (error) throw error
 }
 
+// Cascades to stage_history via the FK in 0001_init.sql.
+export async function deleteRemoteApplication(id: string): Promise<void> {
+  const { error } = await supabase.from('applications').delete().eq('id', id)
+  if (error) throw error
+}
+
 export async function addRemoteStageHistoryEntry(entry: StageHistoryEntry): Promise<void> {
   const { error } = await supabase.from('stage_history').insert(entry)
   if (error) throw error

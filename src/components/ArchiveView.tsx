@@ -3,7 +3,7 @@ import type { Application, ArchiveReason, EmploymentType, Tracker, WorkMode } fr
 import { formatDate } from '../lib/format'
 import { ARCHIVE_REASON_LABELS, ARCHIVE_REASONS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
-import { NoteIcon } from './icons'
+import { NoteIcon, TrashIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
 
 interface ArchiveViewProps {
@@ -12,6 +12,7 @@ interface ArchiveViewProps {
   onBack: () => void
   onCardOpen: (application: Application) => void
   onUnarchive: (application: Application) => void
+  onDeleteRequest: (application: Application) => void
 }
 
 type SortBy = 'date_applied' | 'date_archived' | 'company' | 'notes'
@@ -63,12 +64,14 @@ function ArchiveRow({
   application,
   onCardOpen,
   onUnarchive,
+  onDeleteRequest,
   showTracker,
   trackerName,
 }: {
   application: Application
   onCardOpen: (application: Application) => void
   onUnarchive: (application: Application) => void
+  onDeleteRequest: (application: Application) => void
   showTracker: boolean
   trackerName: string | undefined
 }) {
@@ -101,11 +104,26 @@ function ArchiveRow({
       >
         Un-archive
       </button>
+      <button
+        type="button"
+        onClick={() => onDeleteRequest(application)}
+        aria-label={`Delete ${application.company}`}
+        className="ml-2 p-1.5 text-slate-400 rounded-md hover:bg-rose-50 hover:text-rose-600 shrink-0"
+      >
+        <TrashIcon className="w-4 h-4" />
+      </button>
     </div>
   )
 }
 
-export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnarchive }: ArchiveViewProps) {
+export function ArchiveView({
+  applications,
+  trackers,
+  onBack,
+  onCardOpen,
+  onUnarchive,
+  onDeleteRequest,
+}: ArchiveViewProps) {
   const [groupByTracker, setGroupByTracker] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('date_archived')
   const [selectedReasons, setSelectedReasons] = useState<Set<ArchiveReason>>(() => new Set(ALL_REASONS))
@@ -225,6 +243,7 @@ export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnar
                     application={application}
                     onCardOpen={onCardOpen}
                     onUnarchive={onUnarchive}
+                    onDeleteRequest={onDeleteRequest}
                     showTracker={false}
                     trackerName={undefined}
                   />
@@ -241,6 +260,7 @@ export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnar
               application={application}
               onCardOpen={onCardOpen}
               onUnarchive={onUnarchive}
+              onDeleteRequest={onDeleteRequest}
               showTracker
               trackerName={trackerNameById.get(application.tracker_id)}
             />
