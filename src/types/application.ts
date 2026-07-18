@@ -2,7 +2,7 @@ export type ApplicationStage = 'eyes_on' | 'applied' | 'interview' | 'offer'
 
 export type ArchiveReason = 'rejected' | 'withdrawn' | 'no_response' | 'accepted'
 
-export type EmploymentType = 'full_time' | 'part_time' | 'freelance'
+export type EmploymentType = 'full_time' | 'part_time' | 'freelance' | 'internship'
 
 export type WorkMode = 'on_site' | 'remote' | 'hybrid'
 

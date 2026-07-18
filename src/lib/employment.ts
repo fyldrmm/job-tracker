@@ -4,6 +4,7 @@ export const EMPLOYMENT_TYPES: { value: EmploymentType; label: string }[] = [
   { value: 'full_time', label: 'Full-time' },
   { value: 'part_time', label: 'Part-time' },
   { value: 'freelance', label: 'Freelance' },
+  { value: 'internship', label: 'Internship' },
 ]
 
 export const WORK_MODES: { value: WorkMode; label: string }[] = [
@@ -16,6 +17,7 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   full_time: 'Full-time',
   part_time: 'Part-time',
   freelance: 'Freelance',
+  internship: 'Internship',
 }
 
 export const WORK_MODE_LABELS: Record<WorkMode, string> = {
