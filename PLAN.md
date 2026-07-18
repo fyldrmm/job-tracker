@@ -20,11 +20,12 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — all 6 MVP milestones done, plus M7 (account panel + names) and three earlier post-MVP feature passes (nav redesign + a drag bugfix; multiple named trackers; Archive grouping/sort/reason-filter). Both SQL migrations (`0002_delete_account.sql`, `0003_trackers.sql`) have been run by the user.
-- **Last completed:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. Verified live end-to-end by the user on real accounts, including catching and fixing a real bug where changing your password silently revoked your own current session (see "M7 — Account panel + names" below for the full story: a first attempt reverted entirely, rebuilt with each Edge Function action curl-tested standalone, then a second bug found live during QA itself and fixed by removing the risky feature rather than continuing to patch it).
-- **App runs?** yes — both locally (`npm run dev`) and live in production
+- **Active milestone:** none — M8 (AI job extraction from a screenshot, Claude Haiku 4.5, spend-capped) is fully built and verified live. All backend pieces (migrations `0004_extractions.sql`/`0005_employment_work_mode.sql`, the `extract-job-details` Edge Function) are live on Supabase and confirmed working via signed-in QA on `localhost`.
+- **Frontend not yet pushed to production:** the M8 QA above was run against `localhost` (dev server) talking to the real/live Supabase backend — the frontend code changes themselves (`ApplicationForm.tsx`, `CardDetail.tsx`, `Sidebar.tsx`, `Board.tsx`, `remoteStore.ts`, `types/application.ts`, new `src/lib/employment.ts`) are still local and uncommitted, so `jobtracker.fazare.dev` does not have any of M8 yet. Commit + push is what triggers Cloudflare's auto-deploy.
+- **Last completed before M8:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. Verified live end-to-end by the user on real accounts, including catching and fixing a real bug where changing your password silently revoked your own current session (see "M7 — Account panel + names" below for the full story: a first attempt reverted entirely, rebuilt with each Edge Function action curl-tested standalone, then a second bug found live during QA itself and fixed by removing the risky feature rather than continuing to patch it).
+- **App runs?** yes — locally (`npm run dev`); production is still pre-M8 until the commit above is pushed.
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
-- **Next action:** nothing blocking, nothing postponed. Every request raised so far — MVP through M7 — is built, verified, and live. Next steps are entirely new requests from the user.
+- **Next action:** nothing blocking. Commit and push the M8 frontend changes so Cloudflare deploys them to production; the backend is already live and ready for them.
 
 ---
 
@@ -180,8 +181,36 @@ Confirmed working end-to-end after the fix: fresh sign-up with a compulsory name
 
 - [x] A `flex-1` spacer between the Tracker group and everything below it pins the account section (Sign up when signed out; name button + Sign out when signed in) and Support this project to the bottom of the sidebar in both states, instead of sitting immediately below the tracker items
 - [x] Order at the bottom: Support this project first, then the account section below it
-- [x] Login stays reachable only via the "Already have an account? Log in" toggle inside the Sign-up modal, not as a separate always-visible sidebar item — confirmed as the intended behavior, not a gap
+- [x] ~~Login stays reachable only via the "Already have an account? Log in" toggle inside the Sign-up modal, not as a separate always-visible sidebar item~~ — **reversed during M8 QA** (user request): a separate "Log in" sidebar item now sits next to "Sign up" for guests, opening `AuthModal` directly in `'log-in'` mode (that mode already existed; the button pointing at it did not). See "M8 — AI job extraction" below.
 - [x] Committed; PLAN.md updated
+
+### M8 — AI job extraction from a screenshot  *(user request)* — ✅ built & verified (backend live; frontend not yet pushed to production)
+
+**Flow:** on the add-application form, a signed-in user clicks "Extract from screenshot," picks an image, and Claude Haiku 4.5 pre-fills company/role/salary/location/link/employment-type/work-mode for the user to review and save. Free but spend-capped (20 extractions/user/month, 5,000/month global ceiling, calendar-month reset) so usage can't produce a surprise bill.
+
+- [x] `supabase/functions/extract-job-details/index.ts` — signed-in-only Edge Function; checks the per-user and global monthly quota BEFORE calling Anthropic (the wallet protection); calls Haiku 4.5 with the image + `output_config.format` structured-output JSON schema; records one `extraction_events` row per successful call. Curl-verified standalone (real extraction, invalid input, simulated over-quota) before any UI touched it, same discipline as M7.
+- [x] `supabase/migrations/0004_extractions.sql` — `extraction_events(user_id, created_at)`, RLS scoped to `select` own rows only.
+- [x] Token-spend caps added after real usage data (~1,093 in / 82 out ≈ $0.0015/extraction, cheaper than the original estimate): reject images over 5MB decoded before any Anthropic call; `max_tokens` 1024 → 500.
+- [x] `extractJobDetails()` in `src/lib/remoteStore.ts`, reusing a shared `invokeEdgeFunction` helper (refactored out of the existing `callAccountAction` for the same error.context-extraction pattern).
+- [x] "Extract from screenshot" button in `ApplicationForm.tsx` (add-mode + signed-in only — hidden entirely for guests and when editing), with client-side type/size validation mirroring the server's 5MB cap, a loading state, and auto-fill on success.
+- [x] User-run live QA on the core extraction flow: passed (button appears when signed in, extracts correctly, re-usable, rejects non-images client-side).
+
+#### Follow-ups from that QA round — all built and verified live
+
+- [x] **Notes no longer auto-fills from extraction** — removed from the Edge Function's schema entirely (the user wants Notes reserved for their own free-form ideas, not AI output) and from the client auto-fill.
+- [x] **Employment type / work mode** — new nullable `employment_type` (`full_time`/`part_time`/`freelance`) and `work_mode` (`on_site`/`remote`/`hybrid`) columns (`0005_employment_work_mode.sql`, same enum-naming pattern as `archive_reason`), form dropdowns in `ApplicationForm.tsx`, display in `CardDetail.tsx`, and both are now part of the AI extraction schema too. Labels centralized in `src/lib/employment.ts` (shared between the form and card detail, same pattern as `src/lib/archive.ts`). **Filter UI to narrow the board/archive by these values is explicitly deferred** — user asked for the data fields first, filtering as a fast follow-on. See "Postponed / deferred" below.
+- [x] **Separate "Log in" sidebar button for guests** — reverses the M7-era decision that login should only be reachable via the toggle inside the Sign-up modal (see the post-M7 sidebar polish note above). Used an icon (`LoginIcon`) that was already defined in `icons.tsx` but unused.
+
+#### Bug found and fixed during the QA round: structured-output schema rejected by Anthropic
+
+First redeploy of the employment_type/work_mode extraction returned a generic "Extraction failed" (the function's deliberately-generic client-facing message for any non-2xx from Anthropic). Root cause: the schema expressed a nullable enum as `{ type: ['string', 'null'], enum: ['full_time', ..., null] }` — valid JSON Schema, but not a construct Anthropic's structured-output validator accepted, unlike the plain `type: ['string', 'null']` (no `enum`) used successfully by the original six fields. Fixed by switching to the documented-safe `anyOf` pattern: `{ anyOf: [{ type: 'string', enum: [...] }, { type: 'null' }] }`. Confirmed working after redeploy — worth remembering as a general pattern if a future field ever needs a nullable enum in a structured-output schema.
+
+#### Manual steps + QA checklist for M8 — all done
+
+1. ~~Run `supabase/migrations/0005_employment_work_mode.sql`~~ — done.
+2. ~~Redeploy `extract-job-details`~~ — done, twice (once for the initial schema change, once for the `anyOf` fix above).
+3. ~~Live QA of all three follow-ups~~ — done, all confirmed: dropdowns persist through a real Supabase round-trip (verified via the Table Editor too), "Not specified" round-trips as `null`, a fresh extraction leaves Notes empty and correctly fills employment type/work mode when the screenshot states them, and the new "Log in" sidebar button opens the modal directly in log-in mode.
+4. Committed; PLAN.md updated.
 
 ---
 
@@ -195,7 +224,7 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-Nothing currently on this list — every item raised so far has been either built or actioned.
+- **Employment type / work mode filter UI** — `employment_type` and `work_mode` are now data fields (form dropdowns, card detail, AI-extractable), but there's no filter control to narrow the board/archive by them yet, unlike the existing "Reasons (n)" filter in `ArchiveView.tsx`. Deliberately deferred (user request during M8 QA) — build the form fields first, add filtering as a fast follow-on.
 
 ~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
 ~~Deletion-confirmation email~~ — **done**, folded into M7's unified `account-action` function — see "M7 — Account panel + names" below.

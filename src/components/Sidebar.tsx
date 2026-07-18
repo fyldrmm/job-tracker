@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BoardIcon, ArchiveIcon, LogoutIcon, UserIcon, UserPlusIcon, CoffeeIcon } from './icons'
+import { BoardIcon, ArchiveIcon, LogoutIcon, LoginIcon, UserIcon, UserPlusIcon, CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
@@ -11,6 +11,7 @@ interface SidebarProps {
   onOpenAccount: () => void
   onSignOut: () => void
   onSignUp: () => void
+  onLogIn: () => void
 }
 
 interface NavItemProps {
@@ -51,6 +52,7 @@ export function Sidebar({
   onOpenAccount,
   onSignOut,
   onSignUp,
+  onLogIn,
 }: SidebarProps) {
   return (
     <nav className="group h-screen sticky top-0 shrink-0 w-14 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1">
@@ -96,7 +98,10 @@ export function Sidebar({
           <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} />
         </>
       ) : (
-        <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
+        <>
+          <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
+          <NavItem icon={<LoginIcon />} label="Log in" onClick={onLogIn} />
+        </>
       )}
     </nav>
   )

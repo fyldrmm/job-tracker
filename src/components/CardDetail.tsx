@@ -2,6 +2,7 @@ import type { Application, ArchiveReason } from '../types/application'
 import { formatDate } from '../lib/format'
 import { STAGE_LABELS } from '../lib/stages'
 import { ARCHIVE_REASON_LABELS } from '../lib/archive'
+import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { ArchiveSplitButton } from './ArchiveSplitButton'
 
 interface CardDetailProps {
@@ -73,6 +74,11 @@ export function CardDetail({ application, trackerName, onEdit, onClose, onArchiv
           <Field label="Job link" value={application.job_link} isLink />
           <Field label="Salary range" value={application.salary_range} />
           <Field label="Location" value={application.location} />
+          <Field
+            label="Employment type"
+            value={application.employment_type ? EMPLOYMENT_TYPE_LABELS[application.employment_type] : null}
+          />
+          <Field label="Work mode" value={application.work_mode ? WORK_MODE_LABELS[application.work_mode] : null} />
           <Field label="Notes" value={application.notes} multiline />
         </dl>
 

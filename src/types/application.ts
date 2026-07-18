@@ -2,6 +2,10 @@ export type ApplicationStage = 'eyes_on' | 'applied' | 'interview' | 'offer'
 
 export type ArchiveReason = 'rejected' | 'withdrawn' | 'no_response' | 'accepted'
 
+export type EmploymentType = 'full_time' | 'part_time' | 'freelance'
+
+export type WorkMode = 'on_site' | 'remote' | 'hybrid'
+
 export interface Tracker {
   id: string
   user_id: string | null
@@ -21,6 +25,8 @@ export interface Application {
   current_stage: ApplicationStage
   salary_range: string | null
   location: string | null
+  employment_type: EmploymentType | null
+  work_mode: WorkMode | null
   notes: string | null
   is_archived: boolean
   archive_reason: ArchiveReason | null

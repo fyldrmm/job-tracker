@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { addStageHistoryEntry, getAllApplications, putApplication } from '../lib/localStore'
 import { addRemoteStageHistoryEntry, getAllRemoteApplications, putRemoteApplication } from '../lib/remoteStore'
-import type { Application, ApplicationStage, ArchiveReason, StageHistoryEntry } from '../types/application'
+import type {
+  Application,
+  ApplicationStage,
+  ArchiveReason,
+  EmploymentType,
+  StageHistoryEntry,
+  WorkMode,
+} from '../types/application'
 
 export interface ApplicationInput {
   company: string
@@ -11,6 +18,8 @@ export interface ApplicationInput {
   current_stage: ApplicationStage
   salary_range: string | null
   location: string | null
+  employment_type: EmploymentType | null
+  work_mode: WorkMode | null
   notes: string | null
 }
 

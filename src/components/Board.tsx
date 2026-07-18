@@ -281,6 +281,7 @@ export function Board() {
         onOpenAccount={() => setAccountModalOpen(true)}
         onSignOut={handleSignOut}
         onSignUp={() => setAuthModalMode('sign-up')}
+        onLogIn={() => setAuthModalMode('log-in')}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -415,6 +416,7 @@ export function Board() {
         <ApplicationForm
           initial={formState.mode === 'edit' ? formState.application : null}
           defaultStage={formState.mode === 'add' ? formState.stage : 'applied'}
+          isSignedIn={!!user}
           onSubmit={
             formState.mode === 'edit'
               ? (input) => updateApplication(formState.application.id, input)

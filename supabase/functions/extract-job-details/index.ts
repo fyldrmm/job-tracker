@@ -52,9 +52,14 @@ const EXTRACTION_SCHEMA = {
     salary_range: { type: ['string', 'null'] },
     location: { type: ['string', 'null'] },
     job_link: { type: ['string', 'null'] },
-    notes: { type: ['string', 'null'] },
+    employment_type: {
+      anyOf: [{ type: 'string', enum: ['full_time', 'part_time', 'freelance'] }, { type: 'null' }],
+    },
+    work_mode: {
+      anyOf: [{ type: 'string', enum: ['on_site', 'remote', 'hybrid'] }, { type: 'null' }],
+    },
   },
-  required: ['company', 'role_title', 'salary_range', 'location', 'job_link', 'notes'],
+  required: ['company', 'role_title', 'salary_range', 'location', 'job_link', 'employment_type', 'work_mode'],
   additionalProperties: false,
 }
 
@@ -175,8 +180,10 @@ Deno.serve(async (req: Request) => {
                 type: 'text',
                 text:
                   'Extract the job posting details visible in this screenshot. ' +
-                  'Use null for any field not present in the image. Do not guess or infer ' +
-                  'values that are not actually shown.',
+                  'For employment_type, classify as full_time, part_time, or freelance only if the ' +
+                  'posting states it explicitly; for work_mode, classify as on_site, remote, or hybrid ' +
+                  'only if explicitly stated. Use null for any field not present in the image. ' +
+                  'Do not guess or infer values that are not actually shown.',
               },
             ],
           },
