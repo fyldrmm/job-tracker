@@ -21,7 +21,7 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 ## Current status
 
 - **Active milestone:** none — M8 (AI job extraction from a screenshot, Claude Haiku 4.5, spend-capped) is fully built and live in production (commit `35de8fd`, pushed), plus the employment type/work mode Archive filter UI (commit `6d44cec`) and an `internship` employment-type addition on top of that, all committed and pushed.
-- **Manual step needed:** run `supabase/migrations/0006_internship_employment_type.sql` in the SQL editor, then redeploy `extract-job-details` (its schema/prompt now mention `internship`) — same paste-and-redeploy pattern as every prior Edge Function change. Nothing else is blocking.
+- **Next action:** nothing blocking. `0006_internship_employment_type.sql` has been run and `extract-job-details` redeployed with the `internship` schema/prompt update — confirmed by the user.
 - **Last completed before M8:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. Verified live end-to-end by the user on real accounts, including catching and fixing a real bug where changing your password silently revoked your own current session (see "M7 — Account panel + names" below for the full story: a first attempt reverted entirely, rebuilt with each Edge Function action curl-tested standalone, then a second bug found live during QA itself and fixed by removing the risky feature rather than continuing to patch it).
 - **App runs?** yes — both locally (`npm run dev`) and live in production
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
@@ -183,7 +183,7 @@ Confirmed working end-to-end after the fix: fresh sign-up with a compulsory name
 - [x] ~~Login stays reachable only via the "Already have an account? Log in" toggle inside the Sign-up modal, not as a separate always-visible sidebar item~~ — **reversed during M8 QA** (user request): a separate "Log in" sidebar item now sits next to "Sign up" for guests, opening `AuthModal` directly in `'log-in'` mode (that mode already existed; the button pointing at it did not). See "M8 — AI job extraction" below.
 - [x] Committed; PLAN.md updated
 
-### M8 — AI job extraction from a screenshot  *(user request)* — ✅ done and live; one follow-on (filter UI) built, needs commit/push
+### M8 — AI job extraction from a screenshot  *(user request)* — ✅ done, live, and verified end-to-end
 
 **Flow:** on the add-application form, a signed-in user clicks "Extract from screenshot," picks an image, and Claude Haiku 4.5 pre-fills company/role/salary/location/link/employment-type/work-mode for the user to review and save. Free but spend-capped (20 extractions/user/month, 5,000/month global ceiling, calendar-month reset) so usage can't produce a surprise bill.
 
