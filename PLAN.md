@@ -20,12 +20,11 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 
 ## Current status
 
-- **Active milestone:** none — M8 (AI job extraction from a screenshot, Claude Haiku 4.5, spend-capped) is fully built and verified live. All backend pieces (migrations `0004_extractions.sql`/`0005_employment_work_mode.sql`, the `extract-job-details` Edge Function) are live on Supabase and confirmed working via signed-in QA on `localhost`.
-- **Frontend not yet pushed to production:** the M8 QA above was run against `localhost` (dev server) talking to the real/live Supabase backend — the frontend code changes themselves (`ApplicationForm.tsx`, `CardDetail.tsx`, `Sidebar.tsx`, `Board.tsx`, `remoteStore.ts`, `types/application.ts`, new `src/lib/employment.ts`) are still local and uncommitted, so `jobtracker.fazare.dev` does not have any of M8 yet. Commit + push is what triggers Cloudflare's auto-deploy.
+- **Active milestone:** none — M8 (AI job extraction from a screenshot, Claude Haiku 4.5, spend-capped) is fully built and live in production (commit `35de8fd`, pushed). One follow-on — the employment type/work mode filter UI in the Archive view — is built and verified locally on `localhost` but **not yet committed/pushed**.
+- **Next action:** commit and push the filter UI work (`MultiSelectFilter.tsx`, `ArchiveView.tsx`, `employment.ts` option-array additions) so it reaches production; nothing else is blocking.
 - **Last completed before M8:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. Verified live end-to-end by the user on real accounts, including catching and fixing a real bug where changing your password silently revoked your own current session (see "M7 — Account panel + names" below for the full story: a first attempt reverted entirely, rebuilt with each Edge Function action curl-tested standalone, then a second bug found live during QA itself and fixed by removing the risky feature rather than continuing to patch it).
-- **App runs?** yes — locally (`npm run dev`); production is still pre-M8 until the commit above is pushed.
+- **App runs?** yes — both locally (`npm run dev`) and live in production
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
-- **Next action:** nothing blocking. Commit and push the M8 frontend changes so Cloudflare deploys them to production; the backend is already live and ready for them.
 
 ---
 
@@ -184,7 +183,7 @@ Confirmed working end-to-end after the fix: fresh sign-up with a compulsory name
 - [x] ~~Login stays reachable only via the "Already have an account? Log in" toggle inside the Sign-up modal, not as a separate always-visible sidebar item~~ — **reversed during M8 QA** (user request): a separate "Log in" sidebar item now sits next to "Sign up" for guests, opening `AuthModal` directly in `'log-in'` mode (that mode already existed; the button pointing at it did not). See "M8 — AI job extraction" below.
 - [x] Committed; PLAN.md updated
 
-### M8 — AI job extraction from a screenshot  *(user request)* — ✅ built & verified (backend live; frontend not yet pushed to production)
+### M8 — AI job extraction from a screenshot  *(user request)* — ✅ done and live; one follow-on (filter UI) built, needs commit/push
 
 **Flow:** on the add-application form, a signed-in user clicks "Extract from screenshot," picks an image, and Claude Haiku 4.5 pre-fills company/role/salary/location/link/employment-type/work-mode for the user to review and save. Free but spend-capped (20 extractions/user/month, 5,000/month global ceiling, calendar-month reset) so usage can't produce a surprise bill.
 
@@ -198,7 +197,8 @@ Confirmed working end-to-end after the fix: fresh sign-up with a compulsory name
 #### Follow-ups from that QA round — all built and verified live
 
 - [x] **Notes no longer auto-fills from extraction** — removed from the Edge Function's schema entirely (the user wants Notes reserved for their own free-form ideas, not AI output) and from the client auto-fill.
-- [x] **Employment type / work mode** — new nullable `employment_type` (`full_time`/`part_time`/`freelance`) and `work_mode` (`on_site`/`remote`/`hybrid`) columns (`0005_employment_work_mode.sql`, same enum-naming pattern as `archive_reason`), form dropdowns in `ApplicationForm.tsx`, display in `CardDetail.tsx`, and both are now part of the AI extraction schema too. Labels centralized in `src/lib/employment.ts` (shared between the form and card detail, same pattern as `src/lib/archive.ts`). **Filter UI to narrow the board/archive by these values is explicitly deferred** — user asked for the data fields first, filtering as a fast follow-on. See "Postponed / deferred" below.
+- [x] **Employment type / work mode** — new nullable `employment_type` (`full_time`/`part_time`/`freelance`) and `work_mode` (`on_site`/`remote`/`hybrid`) columns (`0005_employment_work_mode.sql`, same enum-naming pattern as `archive_reason`), form dropdowns in `ApplicationForm.tsx`, display in `CardDetail.tsx`, and both are now part of the AI extraction schema too. Labels centralized in `src/lib/employment.ts` (shared between the form and card detail, same pattern as `src/lib/archive.ts`).
+- [x] **Employment type / work mode filter UI in the Archive view** *(follow-on, user request)* — extracted a generic `MultiSelectFilter<T>` component (`src/components/MultiSelectFilter.tsx`) from what used to be the Archive view's one-off `ReasonFilter`, then used it for three filters: Reasons (existing, now using the generic component), Employment, Work mode. Scope deliberately limited to the Archive view, matching the existing "Reasons (n)" precedent — the main board has no filter concept at all and adding one there was explicitly ruled out for this pass. Applications with no value for a given field are unaffected by that field's filter (shown regardless), rather than requiring an explicit "not specified" option. Accessibility pass (`web-design-guidelines` skill) added `aria-expanded`/`aria-haspopup` and Escape-to-close-with-focus-return to the shared component — gaps that existed in the original `ReasonFilter` too, fixed once here since three instances were about to ship instead of one. Verified live: filtering narrows correctly, panel toggle/Escape/focus-return all work, `aria-expanded` reflects state.
 - [x] **Separate "Log in" sidebar button for guests** — reverses the M7-era decision that login should only be reachable via the toggle inside the Sign-up modal (see the post-M7 sidebar polish note above). Used an icon (`LoginIcon`) that was already defined in `icons.tsx` but unused.
 
 #### Bug found and fixed during the QA round: structured-output schema rejected by Anthropic
@@ -224,8 +224,9 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-- **Employment type / work mode filter UI** — `employment_type` and `work_mode` are now data fields (form dropdowns, card detail, AI-extractable), but there's no filter control to narrow the board/archive by them yet, unlike the existing "Reasons (n)" filter in `ArchiveView.tsx`. Deliberately deferred (user request during M8 QA) — build the form fields first, add filtering as a fast follow-on.
+Nothing currently on this list — every item raised so far has been either built or actioned.
 
+~~Employment type / work mode filter UI~~ — **done**, see "M8 — AI job extraction from a screenshot" below.
 ~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
 ~~Deletion-confirmation email~~ — **done**, folded into M7's unified `account-action` function — see "M7 — Account panel + names" below.
 ~~Old Supabase Auth accounts from testing~~ — **done**, user deleted both leftover accounts (the real secondary email and an old test signup) directly from the Supabase dashboard, then deleted and recreated the primary account too as part of M7's live QA — the only account now is the fresh one with a name set.

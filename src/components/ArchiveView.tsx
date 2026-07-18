@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Application, ArchiveReason, Tracker } from '../types/application'
+import { useMemo, useState } from 'react'
+import type { Application, ArchiveReason, EmploymentType, Tracker, WorkMode } from '../types/application'
 import { formatDate } from '../lib/format'
 import { ARCHIVE_REASON_LABELS, ARCHIVE_REASONS } from '../lib/archive'
+import { EMPLOYMENT_TYPES, WORK_MODES } from '../lib/employment'
 import { NoteIcon } from './icons'
+import { MultiSelectFilter } from './MultiSelectFilter'
 
 interface ArchiveViewProps {
   applications: Application[]
@@ -44,54 +46,17 @@ function sortApplications(applications: Application[], sortBy: SortBy): Applicat
   }
 }
 
-function ReasonFilter({
-  selected,
-  onToggle,
-}: {
-  selected: Set<ArchiveReason>
-  onToggle: (reason: ArchiveReason) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [open])
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="border border-slate-300 rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400"
-      >
-        Reasons ({selected.size})
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg py-1 w-40 z-10">
-          {ARCHIVE_REASONS.map(({ value, label }) => (
-            <label
-              key={value}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(value)}
-                onChange={() => onToggle(value)}
-                className="rounded border-slate-300"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+// Shared by all three filters below: deselecting the last remaining option
+// would silently hide everything with no way back except re-checking a box
+// that no longer looks checked, so at least one must stay selected.
+function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
+  if (set.has(value)) {
+    if (set.size === 1) return set
+    const next = new Set(set)
+    next.delete(value)
+    return next
+  }
+  return new Set(set).add(value)
 }
 
 function ArchiveRow({
@@ -139,25 +104,27 @@ export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnar
   const [groupByTracker, setGroupByTracker] = useState(true)
   const [sortBy, setSortBy] = useState<SortBy>('date_archived')
   const [selectedReasons, setSelectedReasons] = useState<Set<ArchiveReason>>(() => new Set(ALL_REASONS))
+  const [selectedEmploymentTypes, setSelectedEmploymentTypes] = useState<Set<EmploymentType>>(
+    () => new Set(EMPLOYMENT_TYPES.map((o) => o.value)),
+  )
+  const [selectedWorkModes, setSelectedWorkModes] = useState<Set<WorkMode>>(
+    () => new Set(WORK_MODES.map((o) => o.value)),
+  )
 
-  function toggleReason(reason: ArchiveReason) {
-    setSelectedReasons((prev) => {
-      if (prev.has(reason)) {
-        // At least one reason must stay selected -- deselecting the last
-        // one would silently hide everything with no way back except
-        // re-checking a box that no longer looks checked.
-        if (prev.size === 1) return prev
-        const next = new Set(prev)
-        next.delete(reason)
-        return next
-      }
-      return new Set(prev).add(reason)
-    })
-  }
-
+  // Applications with no value for a given field (employment_type/work_mode
+  // are optional; archive_reason should always be set but this stays
+  // defensive) are unaffected by that field's filter -- narrowing by type
+  // hides only the applications actually tagged with an unselected type, not
+  // ones that were never tagged at all.
   const filteredApplications = useMemo(
-    () => applications.filter((app) => !app.archive_reason || selectedReasons.has(app.archive_reason)),
-    [applications, selectedReasons],
+    () =>
+      applications.filter(
+        (app) =>
+          (!app.archive_reason || selectedReasons.has(app.archive_reason)) &&
+          (!app.employment_type || selectedEmploymentTypes.has(app.employment_type)) &&
+          (!app.work_mode || selectedWorkModes.has(app.work_mode)),
+      ),
+    [applications, selectedReasons, selectedEmploymentTypes, selectedWorkModes],
   )
 
   const trackerNameById = useMemo(() => new Map(trackers.map((t) => [t.id, t.name])), [trackers])
@@ -213,7 +180,24 @@ export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnar
                 ))}
               </select>
             </label>
-            <ReasonFilter selected={selectedReasons} onToggle={toggleReason} />
+            <MultiSelectFilter
+              label="Reasons"
+              options={ARCHIVE_REASONS}
+              selected={selectedReasons}
+              onToggle={(reason) => setSelectedReasons((prev) => toggleSetValue(prev, reason))}
+            />
+            <MultiSelectFilter
+              label="Employment"
+              options={EMPLOYMENT_TYPES}
+              selected={selectedEmploymentTypes}
+              onToggle={(type) => setSelectedEmploymentTypes((prev) => toggleSetValue(prev, type))}
+            />
+            <MultiSelectFilter
+              label="Work mode"
+              options={WORK_MODES}
+              selected={selectedWorkModes}
+              onToggle={(mode) => setSelectedWorkModes((prev) => toggleSetValue(prev, mode))}
+            />
           </div>
         )}
       </div>
@@ -221,7 +205,7 @@ export function ArchiveView({ applications, trackers, onBack, onCardOpen, onUnar
       {applications.length === 0 ? (
         <p className="text-sm text-slate-400">No archived applications yet.</p>
       ) : filteredApplications.length === 0 ? (
-        <p className="text-sm text-slate-400">No archived applications match the selected reasons.</p>
+        <p className="text-sm text-slate-400">No archived applications match the selected filters.</p>
       ) : groupByTracker ? (
         <div className="max-w-2xl space-y-6">
           {groups.map(({ tracker, applications: trackerApps }) => (
