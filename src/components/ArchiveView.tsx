@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Application, ArchiveReason, EmploymentType, Tracker, WorkMode } from '../types/application'
 import { formatDate } from '../lib/format'
 import { ARCHIVE_REASON_LABELS, ARCHIVE_REASONS } from '../lib/archive'
-import { EMPLOYMENT_TYPES, WORK_MODES } from '../lib/employment'
+import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { NoteIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
 
@@ -83,10 +83,15 @@ function ArchiveRow({
         </div>
         <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
         <div className="text-slate-400 text-xs mt-1">
-          {application.archive_reason ? ARCHIVE_REASON_LABELS[application.archive_reason] : ''}
-          {' · '}
-          {formatDate(application.date_applied)}
-          {showTracker && trackerName ? ` · ${trackerName}` : ''}
+          {[
+            application.archive_reason ? ARCHIVE_REASON_LABELS[application.archive_reason] : null,
+            formatDate(application.date_applied),
+            application.employment_type ? EMPLOYMENT_TYPE_LABELS[application.employment_type] : null,
+            application.work_mode ? WORK_MODE_LABELS[application.work_mode] : null,
+            showTracker && trackerName ? trackerName : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </div>
       </button>
       <button
