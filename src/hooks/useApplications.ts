@@ -126,12 +126,19 @@ export function useApplications(userId: string | null) {
       // refresh() that would otherwise be the only thing updating state) is
       // still in flight -- visible as a glitch on drop.
       setApplications((prev) => prev.map((app) => (app.id === id ? updated : app)))
-      await persistApplication(updated, userId)
-      await persistStageHistoryEntry(
-        { id: crypto.randomUUID(), application_id: id, stage: newStage, entered_at: now },
-        userId,
-      )
-      await refresh()
+      try {
+        await persistApplication(updated, userId)
+        await persistStageHistoryEntry(
+          { id: crypto.randomUUID(), application_id: id, stage: newStage, entered_at: now },
+          userId,
+        )
+        await refresh()
+      } catch (err) {
+        // The write didn't actually happen -- revert the optimistic move so
+        // the UI stops claiming a stage change that never saved.
+        setApplications((prev) => prev.map((app) => (app.id === id ? existing : app)))
+        throw err
+      }
     },
     [applications, userId, refresh],
   )

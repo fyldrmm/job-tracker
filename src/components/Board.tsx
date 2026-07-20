@@ -25,6 +25,7 @@ import { CardDetail } from './CardDetail'
 import { CardVisual } from './CardVisual'
 import { ArchiveView } from './ArchiveView'
 import { UndoToast } from './UndoToast'
+import { ErrorToast } from './ErrorToast'
 import { AuthModal } from './AuthModal'
 import { SetNewPasswordModal } from './SetNewPasswordModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
@@ -43,6 +44,7 @@ type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; appl
 type View = 'board' | 'archive' | 'privacy'
 
 const UNDO_WINDOW_MS = 10000
+const ERROR_WINDOW_MS = 8000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 
 export function Board() {
@@ -78,6 +80,8 @@ export function Board() {
   const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [undoState, setUndoState] = useState<{ id: string; company: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
+  const [errorToast, setErrorToast] = useState<string | null>(null)
+  const errorTimerRef = useRef<number | null>(null)
   const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
   const [bannerDismissed, setBannerDismissed] = useState(
     () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === 'true',
@@ -133,12 +137,35 @@ export function Board() {
     }
   }
 
+  function clearErrorTimer() {
+    if (errorTimerRef.current !== null) {
+      window.clearTimeout(errorTimerRef.current)
+      errorTimerRef.current = null
+    }
+  }
+
+  // Every fire-and-forget async action below routes failures through this
+  // instead of letting them fail silently -- previously a failed drag/
+  // archive/undo/delete left no trace beyond a console.error, so the UI
+  // could look like it saved something that never actually persisted.
+  function showError(err: unknown, fallback: string) {
+    console.error(fallback, err)
+    clearErrorTimer()
+    setErrorToast(err instanceof Error ? err.message : fallback)
+    errorTimerRef.current = window.setTimeout(() => setErrorToast(null), ERROR_WINDOW_MS)
+  }
+
   async function handleArchive(application: Application, reason: ArchiveReason) {
     // Await so `applications` (and the unarchiveApplication closure derived
     // from it) is fresh before undoState triggers the keydown effect to
     // resubscribe -- otherwise Ctrl/Cmd+Z can silently no-op against a
     // pre-archive snapshot that still thinks the row isn't archived.
-    await archiveApplication(application.id, reason)
+    try {
+      await archiveApplication(application.id, reason)
+    } catch (err) {
+      showError(err, 'Could not archive the application. Please try again.')
+      return
+    }
     setDetailApplication(null)
     clearUndoTimer()
     setUndoState({ id: application.id, company: application.company })
@@ -147,13 +174,17 @@ export function Board() {
 
   function handleUndo() {
     if (!undoState) return
-    unarchiveApplication(undoState.id)
+    unarchiveApplication(undoState.id).catch((err) =>
+      showError(err, 'Could not undo the archive. Please try again.'),
+    )
     clearUndoTimer()
     setUndoState(null)
   }
 
   function handleUnarchive(application: Application) {
-    unarchiveApplication(application.id)
+    unarchiveApplication(application.id).catch((err) =>
+      showError(err, 'Could not un-archive the application. Please try again.'),
+    )
     if (undoState?.id === application.id) {
       clearUndoTimer()
       setUndoState(null)
@@ -174,6 +205,7 @@ export function Board() {
   }, [undoState])
 
   useEffect(() => clearUndoTimer, [])
+  useEffect(() => clearErrorTimer, [])
 
   // Whenever a session becomes active, check LIVE for local guest data
   // (trackers/applications with no user_id) rather than trusting a
@@ -255,7 +287,9 @@ export function Board() {
     const { active, over } = event
     setActiveId(null)
     if (!over) return
-    moveApplicationStage(String(active.id), over.id as ApplicationStage)
+    moveApplicationStage(String(active.id), over.id as ApplicationStage).catch((err) =>
+      showError(err, 'Could not move the application. Please try again.'),
+    )
   }
 
   function handleDragCancel() {
@@ -264,12 +298,20 @@ export function Board() {
 
   function handleCardAdvance(application: Application) {
     const next = nextStage(application.current_stage)
-    if (next) moveApplicationStage(application.id, next)
+    if (next) {
+      moveApplicationStage(application.id, next).catch((err) =>
+        showError(err, 'Could not move the application. Please try again.'),
+      )
+    }
   }
 
   function handleCardRetreat(application: Application) {
     const prev = prevStage(application.current_stage)
-    if (prev) moveApplicationStage(application.id, prev)
+    if (prev) {
+      moveApplicationStage(application.id, prev).catch((err) =>
+        showError(err, 'Could not move the application. Please try again.'),
+      )
+    }
   }
 
   async function handleSignOut() {
@@ -296,27 +338,45 @@ export function Board() {
 
   async function handleConfirmDeleteTracker() {
     if (!deleteTrackerTarget) return
-    await removeTracker(deleteTrackerTarget.id)
+    try {
+      await removeTracker(deleteTrackerTarget.id)
+    } catch (err) {
+      showError(err, 'Could not delete the tracker. Please try again.')
+      return
+    }
     if (activeTrackerId === deleteTrackerTarget.id) setActiveTrackerId(null)
     setDeleteTrackerTarget(null)
   }
 
   async function handleConfirmDeleteApplication() {
     if (!deleteApplicationTarget) return
-    await deleteApplication(deleteApplicationTarget.id)
+    try {
+      await deleteApplication(deleteApplicationTarget.id)
+    } catch (err) {
+      showError(err, 'Could not delete the application. Please try again.')
+      return
+    }
     if (detailApplication?.id === deleteApplicationTarget.id) setDetailApplication(null)
     setDeleteApplicationTarget(null)
   }
 
   async function handleCreateFirstTracker() {
-    const tracker = await createTracker('My Applications')
-    setActiveTrackerId(tracker.id)
+    try {
+      const tracker = await createTracker('My Applications')
+      setActiveTrackerId(tracker.id)
+    } catch (err) {
+      showError(err, 'Could not create the tracker. Please try again.')
+    }
   }
 
   async function handleExport() {
-    const data = await buildExportData(user?.id ?? null)
-    const date = new Date().toISOString().slice(0, 10)
-    downloadJSON(data, `job-tracker-export-${date}.json`)
+    try {
+      const data = await buildExportData(user?.id ?? null)
+      const date = new Date().toISOString().slice(0, 10)
+      downloadJSON(data, `job-tracker-export-${date}.json`)
+    } catch (err) {
+      showError(err, 'Could not export your data. Please try again.')
+    }
   }
 
   async function handleDeleteAccount(password: string) {
@@ -519,6 +579,16 @@ export function Board() {
 
       {undoState && (
         <UndoToast message={`Archived ${undoState.company}`} onUndo={handleUndo} />
+      )}
+
+      {errorToast && (
+        <ErrorToast
+          message={errorToast}
+          onDismiss={() => {
+            clearErrorTimer()
+            setErrorToast(null)
+          }}
+        />
       )}
 
       {authModalMode && (

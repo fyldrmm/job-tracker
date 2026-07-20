@@ -29,6 +29,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
   const [workMode, setWorkMode] = useState<WorkMode | ''>(initial?.work_mode ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -80,6 +81,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
     if (!company.trim() || !roleTitle.trim() || !dateApplied) return
 
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await onSubmit({
         company: company.trim(),
@@ -94,6 +96,8 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
         notes: notes.trim() || null,
       })
       onClose()
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not save. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -261,6 +265,8 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
             />
           </div>
+
+          {submitError && <p className="text-sm text-rose-600">{submitError}</p>}
 
           <div className="flex justify-end gap-2 pt-2">
             <button
