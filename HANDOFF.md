@@ -87,7 +87,9 @@ git status --short
 # 3. Everything pushed — expect EMPTY
 git log origin/main..HEAD --oneline
 
-# 4. Latest commit — expect: 6b21841 Track per-extraction Anthropic token usage
+# 4. Latest commit — expect: d379509 /handoff: record audit remediation in
+#    PLAN.md, refresh HANDOFF.md  (the docs commit written by this handoff;
+#    6b21841 below it is the last code commit)
 git log --oneline -1
 
 # 5. Run locally
