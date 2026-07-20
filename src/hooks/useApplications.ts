@@ -12,6 +12,7 @@ import {
   getAllRemoteApplications,
   putRemoteApplication,
 } from '../lib/remoteStore'
+import { byCreatedAt } from '../lib/sort'
 import type {
   Application,
   ApplicationStage,
@@ -69,12 +70,12 @@ export function useApplications(userId: string | null) {
       } catch (err) {
         console.warn('Falling back to local cache -- could not reach Supabase.', err)
         const cached = await getAllApplications()
-        setApplications(cached.filter((app) => app.user_id === userId))
+        setApplications(cached.filter((app) => app.user_id === userId).sort(byCreatedAt))
         return
       }
     }
     const local = await getAllApplications()
-    setApplications(local)
+    setApplications(local.sort(byCreatedAt))
   }, [userId])
 
   useEffect(() => {

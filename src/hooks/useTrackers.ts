@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { getAllTrackers, putTracker, deleteTracker, backfillDefaultTracker, pruneRemovedTrackers } from '../lib/localStore'
 import { getAllRemoteTrackers, putRemoteTracker, deleteRemoteTracker } from '../lib/remoteStore'
+import { byCreatedAt } from '../lib/sort'
 import type { Tracker } from '../types/application'
 
 export function useTrackers(userId: string | null) {
@@ -19,7 +20,7 @@ export function useTrackers(userId: string | null) {
       } catch (err) {
         console.warn('Falling back to local tracker cache -- could not reach Supabase.', err)
         const cached = await getAllTrackers()
-        list = cached.filter((t) => t.user_id === userId)
+        list = cached.filter((t) => t.user_id === userId).sort(byCreatedAt)
       }
     } else {
       // backfillDefaultTracker only creates a tracker if pre-existing guest
@@ -27,7 +28,7 @@ export function useTrackers(userId: string | null) {
       // tracker for a brand-new guest with zero data. An empty list here is
       // a legitimate state; the user creates their first tracker explicitly.
       await backfillDefaultTracker()
-      list = await getAllTrackers()
+      list = (await getAllTrackers()).sort(byCreatedAt)
     }
 
     setTrackers(list)

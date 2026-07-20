@@ -37,12 +37,26 @@ export function Card({ application, onOpenDetail, onAdvance, onRetreat }: CardPr
     }, CLICK_DELAY_MS)
   }
 
+  // Enter, not Space: Space is dnd-kit's KeyboardSensor pickup key, so
+  // binding it here would collide with keyboard drag (AUDIT.md M7).
+  // listeners.onKeyDown must still run -- it IS the keyboard drag -- so
+  // delegate to it rather than replacing it via the spread below.
+  function handleKeyDown(event: React.KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      onOpenDetail()
+      return
+    }
+    listeners?.onKeyDown?.(event)
+  }
+
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
       className={`rounded-md cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-slate-400 ${
         isDragging ? 'opacity-30' : ''
       }`}

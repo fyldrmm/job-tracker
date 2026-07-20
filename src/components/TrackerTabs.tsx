@@ -56,14 +56,21 @@ export function TrackerTabs({
         const isActive = tracker.id === activeTrackerId
         const isEditing = editingId === tracker.id
         return (
+          // Stays a div rather than becoming a button: the delete "✕" is a
+          // button inside it, and buttons cannot nest. The label and the ✕
+          // are sibling buttons instead, so both are keyboard-reachable
+          // (AUDIT.md M7).
           <div
             key={tracker.id}
-            className={`group/tab relative flex items-center rounded-t-md px-3 py-1.5 text-sm cursor-pointer shrink-0 ${
+            // Padding lives on the child buttons, not here, so the whole tab
+            // surface stays clickable now that the label is a button.
+            className={`group/tab relative flex items-center rounded-t-md text-sm shrink-0 ${
+              isEditing ? 'px-3 py-1.5' : ''
+            } ${
               isActive
                 ? 'bg-slate-50 text-slate-900 font-medium border border-b-0 border-slate-200'
                 : 'text-slate-500 hover:bg-slate-100'
             }`}
-            onClick={() => !isEditing && onSelect(tracker.id)}
             onDoubleClick={() => startEditing(tracker)}
           >
             {isEditing ? (
@@ -83,16 +90,20 @@ export function TrackerTabs({
               />
             ) : (
               <>
-                <span className="max-w-[10rem] truncate">{tracker.name}</span>
+                <button
+                  type="button"
+                  aria-current={isActive ? 'true' : undefined}
+                  onClick={() => onSelect(tracker.id)}
+                  className="max-w-[10rem] truncate px-3 py-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400 rounded-t-md"
+                >
+                  {tracker.name}
+                </button>
                 {trackers.length > 1 && (
                   <button
                     type="button"
                     aria-label={`Delete ${tracker.name}`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onDeleteRequest(tracker)
-                    }}
-                    className="ml-1.5 text-slate-300 hover:text-rose-600 opacity-0 group-hover/tab:opacity-100 transition-opacity"
+                    onClick={() => onDeleteRequest(tracker)}
+                    className="-ml-1.5 pr-3 py-1.5 text-slate-300 hover:text-rose-600 opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400 rounded-t-md transition-opacity"
                   >
                     ✕
                   </button>

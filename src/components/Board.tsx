@@ -47,6 +47,15 @@ const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 
+// True when a keyboard event came from somewhere the browser's own editing
+// shortcuts belong -- an input, a textarea, a select, or a contenteditable.
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  if (target.isContentEditable) return true
+  const tag = target.tagName
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+}
+
 export function Board() {
   const { user, displayName, passwordRecovery, signUp, signIn, signOut, updateName, resetPassword, updatePasswordAfterRecovery } =
     useAuth()
@@ -193,6 +202,10 @@ export function Board() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
+      // Never steal Cmd/Ctrl+Z from a text field -- inside notes, a tracker
+      // rename, or any other input it must undo typing, not un-archive the
+      // last application (AUDIT.md M4).
+      if (isTextEntryTarget(event.target)) return
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') {
         if (undoState) {
           event.preventDefault()

@@ -3,7 +3,11 @@ import { startOfCurrentMonthUtc } from './extraction'
 import type { Application, EmploymentType, StageHistoryEntry, Tracker, WorkMode } from '../types/application'
 
 export async function getAllRemoteApplications(userId: string): Promise<Application[]> {
-  const { data, error } = await supabase.from('applications').select('*').eq('user_id', userId)
+  const { data, error } = await supabase
+    .from('applications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
   if (error) throw error
   return data as Application[]
 }
@@ -27,7 +31,10 @@ export async function addRemoteStageHistoryEntry(entry: StageHistoryEntry): Prom
 // No .eq(user_id) needed -- RLS already scopes stage_history to rows whose
 // parent application belongs to the caller.
 export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
-  const { data, error } = await supabase.from('stage_history').select('*')
+  const { data, error } = await supabase
+    .from('stage_history')
+    .select('*')
+    .order('entered_at', { ascending: true })
   if (error) throw error
   return data as StageHistoryEntry[]
 }
@@ -80,7 +87,11 @@ export async function changePassword(currentPassword: string, newPassword: strin
 }
 
 export async function getAllRemoteTrackers(userId: string): Promise<Tracker[]> {
-  const { data, error } = await supabase.from('trackers').select('*').eq('user_id', userId)
+  const { data, error } = await supabase
+    .from('trackers')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
   if (error) throw error
   return data as Tracker[]
 }
