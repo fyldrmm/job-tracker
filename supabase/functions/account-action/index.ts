@@ -73,10 +73,13 @@ async function sendDeletionEmail(email: string) {
       body: JSON.stringify({
         from: fromEmail,
         to: email,
-        subject: 'Your Job Application Tracker account has been deleted',
+        subject: 'Your Job Application Tracker account deletion request',
+        // Sent BEFORE the delete runs (the email address is gone afterward),
+        // so it must not assert completion -- if the delete RPC then fails,
+        // an "already deleted" email would be wrong.
         text:
-          'This confirms your Job Application Tracker account and all associated data ' +
-          'have been permanently deleted. If you did not request this, please contact us immediately.',
+          'We received a request to delete your Job Application Tracker account and all ' +
+          'associated data. If you did not request this, please contact us immediately.',
       }),
     })
   } catch (err) {

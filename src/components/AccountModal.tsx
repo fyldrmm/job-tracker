@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useModalDismiss } from '../hooks/useModalDismiss'
 
 interface AccountModalProps {
   name: string
@@ -32,6 +33,9 @@ export function AccountModal({
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSaved, setPasswordSaved] = useState(false)
+  // Escape only, no backdrop-click-to-close -- avoids discarding a
+  // half-typed name/password change on a stray click.
+  useModalDismiss(onClose)
 
   const nameChanged = nameValue.trim().length > 0 && nameValue.trim() !== name
 
@@ -93,6 +97,7 @@ export function AccountModal({
             <input
               id="account-name"
               type="text"
+              maxLength={100}
               value={nameValue}
               onChange={(e) => {
                 setNameValue(e.target.value)

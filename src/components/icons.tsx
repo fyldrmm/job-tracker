@@ -29,15 +29,6 @@ export function ArchiveIcon(props: IconProps) {
   )
 }
 
-export function DownloadIcon(props: IconProps) {
-  return (
-    <svg {...base} {...props}>
-      <path d="M12 4v11m0 0 4-4m-4 4-4-4" />
-      <path d="M5 18h14" />
-    </svg>
-  )
-}
-
 export function TrashIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

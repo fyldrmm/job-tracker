@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useModalDismiss } from '../hooks/useModalDismiss'
 
 interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
@@ -18,6 +19,9 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onResetPasswo
   const [signedUp, setSignedUp] = useState(false)
   const [forgotPassword, setForgotPassword] = useState(false)
   const [resetSent, setResetSent] = useState(false)
+  // Escape only, no backdrop-click-to-close -- avoids discarding a
+  // half-typed email/password on a stray click.
+  useModalDismiss(onClose)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -185,6 +189,7 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onResetPasswo
                   id="auth-name"
                   type="text"
                   required
+                  maxLength={100}
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}

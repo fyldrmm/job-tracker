@@ -23,14 +23,30 @@ export async function deleteApplication(id: string): Promise<void> {
   await tx.done
 }
 
-export async function getStageHistory(applicationId: string): Promise<StageHistoryEntry[]> {
-  const db = await getDB()
-  return db.getAllFromIndex('stage_history', 'by-application_id', applicationId)
-}
-
 export async function getAllStageHistory(): Promise<StageHistoryEntry[]> {
   const db = await getDB()
   return db.getAll('stage_history')
+}
+
+// After a successful remote read, drop this user's locally-cached
+// applications that no longer exist remotely (deleted on another
+// device/session) -- otherwise the offline-read fallback could resurrect
+// them. Reuses deleteApplication so stage_history cascades too. Only
+// touches rows owned by userId, never guest rows (user_id === null).
+export async function pruneRemovedApplications(userId: string, keepIds: Set<string>): Promise<void> {
+  const stale = (await getAllApplications()).filter((app) => app.user_id === userId && !keepIds.has(app.id))
+  for (const app of stale) {
+    await deleteApplication(app.id)
+  }
+}
+
+// Same idea for trackers. deleteTracker cascades to its applications and
+// their stage_history locally.
+export async function pruneRemovedTrackers(userId: string, keepIds: Set<string>): Promise<void> {
+  const stale = (await getAllTrackers()).filter((t) => t.user_id === userId && !keepIds.has(t.id))
+  for (const tracker of stale) {
+    await deleteTracker(tracker.id)
+  }
 }
 
 export async function addStageHistoryEntry(entry: StageHistoryEntry): Promise<void> {

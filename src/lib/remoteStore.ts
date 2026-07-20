@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
-import type { Application, StageHistoryEntry, Tracker } from '../types/application'
+import { startOfCurrentMonthUtc } from './extraction'
+import type { Application, EmploymentType, StageHistoryEntry, Tracker, WorkMode } from '../types/application'
 
 export async function getAllRemoteApplications(userId: string): Promise<Application[]> {
   const { data, error } = await supabase.from('applications').select('*').eq('user_id', userId)
@@ -102,8 +103,8 @@ export interface ExtractedJobFields {
   salary_range: string | null
   location: string | null
   job_link: string | null
-  employment_type: 'full_time' | 'part_time' | 'freelance' | null
-  work_mode: 'on_site' | 'remote' | 'hybrid' | null
+  employment_type: EmploymentType | null
+  work_mode: WorkMode | null
 }
 
 // Calls the extract-job-details Edge Function (Claude Haiku 4.5 vision +
@@ -117,4 +118,18 @@ export async function extractJobDetails(imageBase64: string, mediaType: string):
     mediaType,
   })
   return fields
+}
+
+// How many extractions the caller has used this calendar month, for the
+// "N of 20 left" display. Relies on the extraction_events_select_own RLS
+// policy to scope the count to the caller; the actual quota enforcement
+// still happens server-side in the Edge Function.
+export async function getExtractionUsageThisMonth(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('extraction_events')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', startOfCurrentMonthUtc())
+  if (error) throw error
+  return count ?? 0
 }

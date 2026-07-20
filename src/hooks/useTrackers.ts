@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { getAllTrackers, putTracker, deleteTracker, backfillDefaultTracker } from '../lib/localStore'
+import { getAllTrackers, putTracker, deleteTracker, backfillDefaultTracker, pruneRemovedTrackers } from '../lib/localStore'
 import { getAllRemoteTrackers, putRemoteTracker, deleteRemoteTracker } from '../lib/remoteStore'
 import type { Tracker } from '../types/application'
 
@@ -13,6 +13,9 @@ export function useTrackers(userId: string | null) {
       try {
         list = await getAllRemoteTrackers(userId)
         await Promise.all(list.map((t) => putTracker(t)))
+        // Evict local trackers this user owns that are gone remotely (see
+        // the same eviction in useApplications).
+        await pruneRemovedTrackers(userId, new Set(list.map((t) => t.id)))
       } catch (err) {
         console.warn('Falling back to local tracker cache -- could not reach Supabase.', err)
         const cached = await getAllTrackers()

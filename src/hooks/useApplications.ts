@@ -3,6 +3,7 @@ import {
   addStageHistoryEntry,
   deleteApplication as deleteLocalApplication,
   getAllApplications,
+  pruneRemovedApplications,
   putApplication,
 } from '../lib/localStore'
 import {
@@ -61,6 +62,9 @@ export function useApplications(userId: string | null) {
         const remote = await getAllRemoteApplications(userId)
         setApplications(remote)
         await Promise.all(remote.map((app) => putApplication(app)))
+        // Evict local rows this user owns that are gone remotely, so the
+        // offline-read fallback can't resurrect remotely-deleted data.
+        await pruneRemovedApplications(userId, new Set(remote.map((app) => app.id)))
         return
       } catch (err) {
         console.warn('Falling back to local cache -- could not reach Supabase.', err)

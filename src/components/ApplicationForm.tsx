@@ -1,13 +1,15 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { Application, ApplicationStage, EmploymentType, WorkMode } from '../types/application'
 import type { ApplicationInput } from '../hooks/useApplications'
-import { extractJobDetails } from '../lib/remoteStore'
+import { extractJobDetails, getExtractionUsageThisMonth } from '../lib/remoteStore'
+import { PER_USER_MONTHLY_LIMIT } from '../lib/extraction'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
+import { useModalDismiss } from '../hooks/useModalDismiss'
 
 interface ApplicationFormProps {
   initial: Application | null
   defaultStage: ApplicationStage
-  isSignedIn: boolean
+  userId: string | null
   onSubmit: (input: ApplicationInput) => Promise<void>
   onClose: () => void
 }
@@ -18,7 +20,8 @@ function today(): string {
 
 const MAX_EXTRACT_IMAGE_BYTES = 5 * 1024 * 1024
 
-export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, onClose }: ApplicationFormProps) {
+export function ApplicationForm({ initial, defaultStage, userId, onSubmit, onClose }: ApplicationFormProps) {
+  const isSignedIn = userId !== null
   const [company, setCompany] = useState(initial?.company ?? '')
   const [roleTitle, setRoleTitle] = useState(initial?.role_title ?? '')
   const [dateApplied, setDateApplied] = useState(initial?.date_applied ?? today())
@@ -32,9 +35,32 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
+  const [extractionsLeft, setExtractionsLeft] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Escape closes the form; no backdrop-click-to-close, to avoid losing
+  // typed input on a stray click outside the dialog.
+  useModalDismiss(onClose)
+
   const isEdit = initial !== null
+
+  // Load remaining extraction quota when the Extract button is shown
+  // (signed-in, add mode). Best-effort -- a failure just hides the counter
+  // rather than blocking the form; the server still enforces the real cap.
+  useEffect(() => {
+    if (isEdit || !userId) return
+    let cancelled = false
+    getExtractionUsageThisMonth(userId)
+      .then((used) => {
+        if (!cancelled) setExtractionsLeft(Math.max(0, PER_USER_MONTHLY_LIMIT - used))
+      })
+      .catch(() => {
+        /* leave the counter hidden on failure */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isEdit, userId])
 
   async function handleScreenshotSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -69,6 +95,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
       if (fields.job_link) setJobLink(fields.job_link)
       if (fields.employment_type) setEmploymentType(fields.employment_type)
       if (fields.work_mode) setWorkMode(fields.work_mode)
+      setExtractionsLeft((left) => (left !== null ? Math.max(0, left - 1) : left))
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Extraction failed. Please fill in the details manually.')
     } finally {
@@ -123,11 +150,18 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={extracting}
+                disabled={extracting || extractionsLeft === 0}
                 className="text-sm font-medium text-slate-600 border border-slate-300 rounded-md px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50"
               >
                 {extracting ? 'Extracting...' : 'Extract from screenshot'}
               </button>
+              {extractionsLeft !== null && (
+                <p className="mt-1 text-xs text-slate-400">
+                  {extractionsLeft === 0
+                    ? "You've used all your free extractions this month."
+                    : `${extractionsLeft} of ${PER_USER_MONTHLY_LIMIT} free extractions left this month.`}
+                </p>
+              )}
               {extractError && <p className="mt-1 text-sm text-red-600">{extractError}</p>}
             </div>
           )}
@@ -140,6 +174,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               id="company"
               type="text"
               required
+              maxLength={200}
               value={company}
               onChange={(e) => setCompany(e.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -154,6 +189,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               id="role_title"
               type="text"
               required
+              maxLength={200}
               value={roleTitle}
               onChange={(e) => setRoleTitle(e.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -181,6 +217,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
             <input
               id="job_link"
               type="url"
+              maxLength={2000}
               value={jobLink}
               onChange={(e) => setJobLink(e.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -195,6 +232,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               <input
                 id="salary_range"
                 type="text"
+                maxLength={200}
                 value={salaryRange}
                 onChange={(e) => setSalaryRange(e.target.value)}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -207,6 +245,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
               <input
                 id="location"
                 type="text"
+                maxLength={200}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
@@ -260,6 +299,7 @@ export function ApplicationForm({ initial, defaultStage, isSignedIn, onSubmit, o
             <textarea
               id="notes"
               rows={3}
+              maxLength={5000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"

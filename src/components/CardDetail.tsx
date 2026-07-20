@@ -1,5 +1,7 @@
 import type { Application, ArchiveReason } from '../types/application'
 import { formatDate } from '../lib/format'
+import { isSafeHttpUrl } from '../lib/url'
+import { useModalDismiss } from '../hooks/useModalDismiss'
 import { STAGE_LABELS } from '../lib/stages'
 import { ARCHIVE_REASON_LABELS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
@@ -28,12 +30,12 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
     <div className="py-2">
       <dt className="text-slate-400 text-xs uppercase tracking-wide">{label}</dt>
       <dd className={`text-slate-700 mt-0.5 text-sm ${multiline ? 'whitespace-pre-wrap' : ''}`}>
-        {isLink ? (
+        {isLink && isSafeHttpUrl(value) ? (
           <a href={value} target="_blank" rel="noreferrer" className="text-slate-700 underline break-all">
             {value}
           </a>
         ) : (
-          value
+          <span className="break-all">{value}</span>
         )}
       </dd>
     </div>
@@ -48,8 +50,14 @@ export function CardDetail({
   onArchive,
   onDeleteRequest,
 }: CardDetailProps) {
+  useModalDismiss(onClose)
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+    <div
+      className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-start justify-between">
           <div>

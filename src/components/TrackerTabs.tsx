@@ -70,6 +70,7 @@ export function TrackerTabs({
               <input
                 ref={editInputRef}
                 type="text"
+                maxLength={100}
                 value={editingValue}
                 onChange={(e) => setEditingValue(e.target.value)}
                 onBlur={commitEdit}
@@ -106,6 +107,7 @@ export function TrackerTabs({
         <input
           ref={addInputRef}
           type="text"
+          maxLength={100}
           value={addingValue}
           onChange={(e) => setAddingValue(e.target.value)}
           onBlur={commitAdd}

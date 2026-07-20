@@ -62,7 +62,12 @@ export async function migrateGuestDataToAccount(userId: string): Promise<void> {
   }
 
   if (guestStageHistory.length > 0) {
-    const { error } = await supabase.from('stage_history').upsert(guestStageHistory)
+    // ignoreDuplicates -> ON CONFLICT DO NOTHING, which needs only the
+    // INSERT policy (stage_history has no UPDATE policy -- see 0001_init).
+    // stage_history is append-only, so on a retry after a partial failure
+    // there's nothing to update anyway; skipping already-inserted rows is
+    // correct and avoids a permanent RLS-violation loop.
+    const { error } = await supabase.from('stage_history').upsert(guestStageHistory, { ignoreDuplicates: true })
     if (error) throw error
   }
 

@@ -241,7 +241,7 @@ export function Board() {
         // full page reload.
         await Promise.all([refresh(), refreshTrackers()])
       } catch (err) {
-        console.error('Migration failed', err)
+        showError(err, "We couldn't finish syncing your guest data. It's still saved on this device -- reload to try again.")
       } finally {
         if (!cancelled) setMigrating(false)
       }
@@ -269,7 +269,7 @@ export function Board() {
       await migrateGuestDataToAccount(user.id)
       await Promise.all([refresh(), refreshTrackers()])
     } catch (err) {
-      console.error('Migration failed', err)
+      showError(err, "We couldn't finish syncing your guest data. It's still saved on this device -- reload to try again.")
     } finally {
       setMigrating(false)
     }
@@ -553,7 +553,7 @@ export function Board() {
         <ApplicationForm
           initial={formState.mode === 'edit' ? formState.application : null}
           defaultStage={formState.mode === 'add' ? formState.stage : 'applied'}
-          isSignedIn={!!user}
+          userId={user?.id ?? null}
           onSubmit={
             formState.mode === 'edit'
               ? (input) => updateApplication(formState.application.id, input)
