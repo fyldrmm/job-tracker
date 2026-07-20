@@ -573,10 +573,13 @@ export function Board() {
       )}
 
       {view !== 'privacy' && (
-        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center text-xs text-slate-400">
+        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center gap-4 text-xs text-slate-400">
           <button type="button" onClick={() => setView('privacy')} className="hover:text-slate-600 hover:underline">
             Privacy policy
           </button>
+          <a href="mailto:fazare@fazare.dev" className="hover:text-slate-600 hover:underline">
+            Contact
+          </a>
         </footer>
       )}
       </div>
