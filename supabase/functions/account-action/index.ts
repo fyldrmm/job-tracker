@@ -87,9 +87,13 @@ async function sendDeletionEmail(email: string) {
         // Sent BEFORE the delete runs (the email address is gone afterward),
         // so it must not assert completion -- if the delete RPC then fails,
         // an "already deleted" email would be wrong.
+        // AUDIT.md C5: this used to say "contact us immediately" with no
+        // address anywhere in the product to do that. fazare@fazare.dev
+        // (Zoho) is also linked from the privacy page and app footer.
         text:
           'We received a request to delete your Job Application Tracker account and all ' +
-          'associated data. If you did not request this, please contact us immediately.',
+          'associated data. If you did not request this, please contact us immediately at ' +
+          'fazare@fazare.dev.',
       }),
     })
   } catch (err) {
