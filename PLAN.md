@@ -243,13 +243,15 @@ Findings are referenced by ID (H1, M3, L7…) in commit messages, so `git log` m
 
 Link auto-parsing · follow-up reminders (email/push) · alternate views (table/list, sorting/filtering) · mobile-first polish · full multi-level undo · real donations integration. See brief §8.
 
+**Import/restore (AUDIT.md C2) — ruled out, not deferred.** Flagged in the original audit as "half a safety net" (export exists, nothing reads it back in), but explicitly rejected: the per-account extraction quota (`PER_USER_MONTHLY_LIMIT = 20`, see `src/lib/extraction.ts` and `supabase/functions/extract-job-details/index.ts`) is scoped to `user_id`, not to the underlying person — an import feature would let someone export their board, create a fresh account, import it back, and get another 20 free extractions, repeatably. Don't build this later without also solving that quota-reset vector (e.g. tying limits to something account-creation can't reset), not as a simple follow-up.
+
 ---
 
 ## Postponed / deferred (not forgotten, just not now)
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-- **Remaining audit findings** — none; all Mediums are code-complete. Only missing pieces C2/C4/C5 remain, plus the D-section dashboard-only questions. Details in `AUDIT.md`.
+- **Remaining audit findings** — none; all Mediums are code-complete. Missing pieces C4 (error telemetry — the error *boundary* is done via M8, but no logging/reporting service exists) and C5 (support/contact channel) remain, plus the small guest-facing extraction hint from C6's grab-bag. C2 (import/restore) is ruled out entirely — see "Out of scope" above, not deferred here. Plus the D-section dashboard-only questions. Details in `AUDIT.md`.
 - **`AUDIT.md` section D — "needs verification"** — seven dashboard-only questions I could not answer from the repo. Three are now resolved: D1 (spend cap) is moot — project is on Supabase's free plan, which has no usage-based billing to cap; the brief's §3 wallet-protection concern is satisfied by "no paid plan, no card on file" rather than a spend-cap toggle, and this needs revisiting if the project ever upgrades to a paid plan. D2 (key rotation): user created a new `sb_secret_` key and deleted the old default. D6 (Anthropic balance): still the small test credit, and token tracking now exists to inform a real budget. The rest (D3–D5, D7) are still open.
 - **Unexplained data loss in the `applications` table** — see "Decisions & notes". Investigated and unresolved; test data only, so the user chose to move on.
 
