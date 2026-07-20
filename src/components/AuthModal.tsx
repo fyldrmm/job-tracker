@@ -4,10 +4,11 @@ interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
   onSignUp: (email: string, password: string, name: string) => Promise<void>
   onSignIn: (email: string, password: string) => Promise<void>
+  onResetPassword: (email: string) => Promise<void>
   onClose: () => void
 }
 
-export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: AuthModalProps) {
+export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onResetPassword, onClose }: AuthModalProps) {
   const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -15,6 +16,8 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [signedUp, setSignedUp] = useState(false)
+  const [forgotPassword, setForgotPassword] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -45,10 +48,96 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
     }
   }
 
+  async function handleResetSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setSubmitting(true)
+    try {
+      await onResetPassword(email)
+      setResetSent(true)
+    } catch (err) {
+      console.error('Reset password error', err)
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
-        {signedUp ? (
+        {resetSent ? (
+          <div className="space-y-4">
+            <h2 className="text-lg font-medium text-slate-800">Check your email</h2>
+            <p className="text-sm text-slate-600">
+              If an account exists for <span className="font-medium">{email}</span>, we sent a link to
+              reset your password.
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        ) : forgotPassword ? (
+          <form onSubmit={handleResetSubmit} className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-slate-800">Reset your password</h2>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="text-slate-400 hover:text-slate-700 text-lg leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-sm text-slate-500">
+              Enter your email and we'll send you a link to set a new password.
+            </p>
+
+            <div>
+              <label htmlFor="forgot-email" className="block text-sm font-medium text-slate-700">
+                Email
+              </label>
+              <input
+                id="forgot-email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              />
+            </div>
+
+            {error && <p className="text-sm text-rose-600">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50"
+            >
+              Send reset link
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setForgotPassword(false)
+                setError(null)
+              }}
+              className="w-full text-sm text-slate-500 hover:text-slate-700 hover:underline"
+            >
+              Back to log in
+            </button>
+          </form>
+        ) : signedUp ? (
           <div className="space-y-4">
             <h2 className="text-lg font-medium text-slate-800">Check your email</h2>
             <p className="text-sm text-slate-600">
@@ -120,9 +209,23 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onClose }: Au
             </div>
 
             <div>
-              <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700">
+                  Password
+                </label>
+                {mode === 'log-in' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotPassword(true)
+                      setError(null)
+                    }}
+                    className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+              </div>
               <input
                 id="auth-password"
                 type="password"

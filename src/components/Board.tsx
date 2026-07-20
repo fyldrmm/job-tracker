@@ -26,6 +26,7 @@ import { CardVisual } from './CardVisual'
 import { ArchiveView } from './ArchiveView'
 import { UndoToast } from './UndoToast'
 import { AuthModal } from './AuthModal'
+import { SetNewPasswordModal } from './SetNewPasswordModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
 import { AccountModal } from './AccountModal'
 import { DeleteAccountModal } from './DeleteAccountModal'
@@ -44,7 +45,8 @@ const UNDO_WINDOW_MS = 10000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 
 export function Board() {
-  const { user, displayName, signUp, signIn, signOut, updateName } = useAuth()
+  const { user, displayName, passwordRecovery, signUp, signIn, signOut, updateName, resetPassword, updatePasswordAfterRecovery } =
+    useAuth()
   const {
     applications,
     loading,
@@ -460,9 +462,12 @@ export function Board() {
           mode={authModalMode}
           onSignUp={signUp}
           onSignIn={signIn}
+          onResetPassword={resetPassword}
           onClose={() => setAuthModalMode(null)}
         />
       )}
+
+      {passwordRecovery && <SetNewPasswordModal onConfirm={updatePasswordAfterRecovery} />}
 
       {accountModalOpen && user && (
         <AccountModal
