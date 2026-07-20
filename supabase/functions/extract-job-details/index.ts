@@ -22,6 +22,7 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { checkQuota } from './quota.ts'
 
 const PER_USER_MONTHLY_LIMIT = 20
 const GLOBAL_MONTHLY_LIMIT = 5000
@@ -143,15 +144,15 @@ Deno.serve(async (req: Request) => {
   const userCount = userCountResult.count ?? 0
   const globalCount = globalCountResult.count ?? 0
 
-  if (userCount >= PER_USER_MONTHLY_LIMIT) {
+  const quota = checkQuota(userCount, globalCount, {
+    perUserMonthlyLimit: PER_USER_MONTHLY_LIMIT,
+    globalMonthlyLimit: GLOBAL_MONTHLY_LIMIT,
+  })
+  if (!quota.allowed) {
     return jsonResponse(
-      { error: `You've used your ${PER_USER_MONTHLY_LIMIT} free extractions this month.` },
-      429,
-    )
-  }
-  if (globalCount >= GLOBAL_MONTHLY_LIMIT) {
-    return jsonResponse(
-      { error: 'Extraction is temporarily unavailable -- monthly limit reached. Try again next month.' },
+      quota.reason === 'per-user'
+        ? { error: `You've used your ${PER_USER_MONTHLY_LIMIT} free extractions this month.` }
+        : { error: 'Extraction is temporarily unavailable -- monthly limit reached. Try again next month.' },
       429,
     )
   }
