@@ -77,6 +77,36 @@ export async function deleteTracker(id: string): Promise<void> {
   await tx.done
 }
 
+// Whether this browser currently holds any unclaimed guest data (trackers
+// or applications with no user_id). Used to decide whether a newly-active
+// session should trigger a migration prompt -- checked live rather than
+// via a persisted flag, so it can't desync from clearLocalStore() the way
+// a one-time "already migrated" flag could.
+export async function hasAnyLocalGuestData(): Promise<boolean> {
+  const db = await getDB()
+  const [trackers, applications] = await Promise.all([db.getAll('trackers'), db.getAll('applications')])
+  return trackers.some((t) => t.user_id === null) || applications.some((a) => a.user_id === null)
+}
+
+// Re-stamps every local guest row (trackers/applications with no user_id)
+// with the given user_id, mirroring what migrateGuestDataToAccount just
+// uploaded to Supabase. Without this, the local copies would keep looking
+// like unclaimed guest data forever, since migration only used to stamp
+// the remote copies.
+export async function claimLocalGuestDataForUser(userId: string): Promise<void> {
+  const db = await getDB()
+  const tx = db.transaction(['trackers', 'applications'], 'readwrite')
+  const trackerStore = tx.objectStore('trackers')
+  for (const tracker of await trackerStore.getAll()) {
+    if (tracker.user_id === null) await trackerStore.put({ ...tracker, user_id: userId })
+  }
+  const appStore = tx.objectStore('applications')
+  for (const app of await appStore.getAll()) {
+    if (app.user_id === null) await appStore.put({ ...app, user_id: userId })
+  }
+  await tx.done
+}
+
 /**
  * Guest data created before trackers existed has no tracker_id. Creates a
  * default tracker and backfills every orphaned application onto it --

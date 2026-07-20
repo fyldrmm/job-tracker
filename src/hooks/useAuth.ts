@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { markPendingSignup } from '../lib/migration'
 
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null)
@@ -35,6 +36,7 @@ export function useAuth() {
       options: { data: { name: name.trim() } },
     })
     if (error) throw error
+    markPendingSignup()
   }
 
   async function signIn(email: string, password: string) {

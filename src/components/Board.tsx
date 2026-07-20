@@ -15,10 +15,10 @@ import { useApplications } from '../hooks/useApplications'
 import { useTrackers } from '../hooks/useTrackers'
 import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
-import { hasMigrated, migrateGuestDataToAccount } from '../lib/migration'
+import { consumePendingSignup, migrateGuestDataToAccount } from '../lib/migration'
 import { buildExportData, downloadJSON } from '../lib/export'
 import { deleteOwnAccount, changePassword } from '../lib/remoteStore'
-import { clearLocalStore } from '../lib/localStore'
+import { clearLocalStore, hasAnyLocalGuestData } from '../lib/localStore'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
@@ -35,6 +35,7 @@ import { Sidebar } from './Sidebar'
 import { TrackerTabs } from './TrackerTabs'
 import { DeleteTrackerModal } from './DeleteTrackerModal'
 import { DeleteApplicationModal } from './DeleteApplicationModal'
+import { MigrateGuestDataModal } from './MigrateGuestDataModal'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
@@ -82,6 +83,8 @@ export function Board() {
     () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === 'true',
   )
   const [migrating, setMigrating] = useState(false)
+  const [migratePrompt, setMigratePrompt] = useState(false)
+  const migrationCheckedForRef = useRef<string | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -172,21 +175,77 @@ export function Board() {
 
   useEffect(() => clearUndoTimer, [])
 
+  // Whenever a session becomes active, check LIVE for local guest data
+  // (trackers/applications with no user_id) rather than trusting a
+  // persisted "already migrated" flag -- the old flag-based version could
+  // desync from clearLocalStore() on sign-out and either silently drop
+  // guest data or silently merge unrelated guest data into an existing
+  // account (see AUDIT.md H1/M6). A fresh sign-up (markPendingSignup, set
+  // in useAuth.signUp) auto-migrates with no prompt, preserving the
+  // brief's zero-friction guest-to-account promise; logging into an
+  // existing account only prompts if this browser happens to hold
+  // unclaimed guest data, instead of merging it in without asking.
+  // migrationCheckedForRef guards against re-checking (and re-prompting)
+  // on every token-refresh-triggered re-run of this effect for the same
+  // signed-in user.
   useEffect(() => {
-    if (!user || hasMigrated(user.id)) return
-    setMigrating(true)
-    migrateGuestDataToAccount(user.id)
-      // Refresh both applications AND trackers once migration lands.
-      // Missing the trackers refresh here was the bug: useTrackers has its
-      // own fetch triggered independently by the userId change (same
-      // moment migration starts), which can resolve before migration's
-      // uploads finish and land on stale/empty data -- with nothing to
-      // force a second look once migration actually completes, the UI
-      // stayed stuck on that stale snapshot until a full page reload.
-      .then(() => Promise.all([refresh(), refreshTrackers()]))
-      .catch((err) => console.error('Migration failed', err))
-      .finally(() => setMigrating(false))
+    if (!user) return
+    if (migrationCheckedForRef.current === user.id) return
+    migrationCheckedForRef.current = user.id
+    const currentUser = user
+    let cancelled = false
+
+    async function runMigration() {
+      setMigrating(true)
+      try {
+        await migrateGuestDataToAccount(currentUser.id)
+        // Refresh both applications AND trackers once migration lands.
+        // Missing the trackers refresh here was the bug: useTrackers has
+        // its own fetch triggered independently by the userId change
+        // (same moment migration starts), which can resolve before
+        // migration's uploads finish and land on stale/empty data --
+        // with nothing to force a second look once migration actually
+        // completes, the UI stayed stuck on that stale snapshot until a
+        // full page reload.
+        await Promise.all([refresh(), refreshTrackers()])
+      } catch (err) {
+        console.error('Migration failed', err)
+      } finally {
+        if (!cancelled) setMigrating(false)
+      }
+    }
+
+    hasAnyLocalGuestData().then((hasGuestData) => {
+      if (cancelled || !hasGuestData) return
+      if (consumePendingSignup()) {
+        runMigration()
+      } else {
+        setMigratePrompt(true)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
   }, [user, refresh, refreshTrackers])
+
+  async function handleConfirmMigratePrompt() {
+    if (!user) return
+    setMigratePrompt(false)
+    setMigrating(true)
+    try {
+      await migrateGuestDataToAccount(user.id)
+      await Promise.all([refresh(), refreshTrackers()])
+    } catch (err) {
+      console.error('Migration failed', err)
+    } finally {
+      setMigrating(false)
+    }
+  }
+
+  function handleDeclineMigratePrompt() {
+    setMigratePrompt(false)
+  }
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
@@ -222,6 +281,11 @@ export function Board() {
     await clearLocalStore()
     setActiveTrackerId(null)
     setView('board')
+    // Without this, signing back into the SAME account later in this tab
+    // would skip the guest-data check entirely (the ref would already
+    // match that user id from before) -- exactly the H1 scenario this
+    // migration rework was meant to fix.
+    migrationCheckedForRef.current = null
     try {
       await signOut()
     } catch {
@@ -468,6 +532,10 @@ export function Board() {
       )}
 
       {passwordRecovery && <SetNewPasswordModal onConfirm={updatePasswordAfterRecovery} />}
+
+      {migratePrompt && (
+        <MigrateGuestDataModal onConfirm={handleConfirmMigratePrompt} onDecline={handleDeclineMigratePrompt} />
+      )}
 
       {accountModalOpen && user && (
         <AccountModal
