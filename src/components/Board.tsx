@@ -92,6 +92,7 @@ export function Board() {
   const [errorToast, setErrorToast] = useState<string | null>(null)
   const errorTimerRef = useRef<number | null>(null)
   const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
+  const [authModalNotice, setAuthModalNotice] = useState<string | null>(null)
   const [bannerDismissed, setBannerDismissed] = useState(
     () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === 'true',
   )
@@ -392,6 +393,24 @@ export function Board() {
     }
   }
 
+  async function handleChangePassword(currentPassword: string, newPassword: string) {
+    // changePassword throws on a wrong current password (verified
+    // server-side) -- that propagates straight to AccountModal's own catch
+    // block, which surfaces it inline and stops here, before any of the
+    // sign-out below runs.
+    await changePassword(currentPassword, newPassword)
+    // The Edge Function already revoked every session for this account,
+    // including this one (AUDIT.md M5) -- the local sign-out just cleans
+    // up this browser's client-side state to match. Reuses handleSignOut
+    // for the same reason handleDeleteAccount does: it already clears the
+    // write-through IndexedDB cache so guest mode afterward can't leak
+    // this account's data (see the H1 comment on handleSignOut above).
+    setAccountModalOpen(false)
+    await handleSignOut()
+    setAuthModalNotice('Password changed — please log in again.')
+    setAuthModalMode('log-in')
+  }
+
   async function handleDeleteAccount(password: string) {
     if (!user?.email) throw new Error('No signed-in user.')
     // Password verification happens server-side inside the account-action
@@ -607,10 +626,14 @@ export function Board() {
       {authModalMode && (
         <AuthModal
           mode={authModalMode}
+          notice={authModalNotice}
           onSignUp={signUp}
           onSignIn={signIn}
           onResetPassword={resetPassword}
-          onClose={() => setAuthModalMode(null)}
+          onClose={() => {
+            setAuthModalMode(null)
+            setAuthModalNotice(null)
+          }}
         />
       )}
 
@@ -625,7 +648,7 @@ export function Board() {
           name={displayName}
           email={user.email ?? ''}
           onUpdateName={updateName}
-          onChangePassword={changePassword}
+          onChangePassword={handleChangePassword}
           onExport={handleExport}
           onOpenDeleteAccount={() => {
             setAccountModalOpen(false)

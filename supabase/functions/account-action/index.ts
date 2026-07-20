@@ -31,16 +31,26 @@
 // hitting this exact error live. Fixed by using the admin API (service-role
 // client) for updateUserById.
 //
-// NOT doing: signing out other sessions/devices after a password change.
-// Tried this via a raw fetch to /auth/v1/logout?scope=others, but GoTrue's
-// own logout handler falls back to a FULL GLOBAL logout (every session,
-// including the current one) if it can't resolve "which session is the
-// current one" from the request -- confirmed via GoTrue's source and by
-// reproducing the exact failure live: a user's own current session got
-// silently revoked this way, then failed with "session_not_found" on
-// their very next action (deleting their account). Removed rather than
-// keep debugging a mechanism that already caused real harm once -- the
-// core password-change functionality doesn't depend on it.
+// Session revocation on password change (AUDIT.md M5, reversing the
+// decision above): an earlier attempt used scope=others, which needs
+// GoTrue to resolve "which session is the calling one" so it can exclude
+// it -- that resolution is exactly what failed and silently fell back to a
+// full global logout, killing the user's own current session along with
+// it (see PLAN.md's M7 notes for the live incident). scope=global
+// sidesteps that whole failure class rather than working around it: it
+// kills every session unconditionally, with nothing to resolve, which is
+// also exactly what M5 wants (revoke everything including the caller's
+// own session, then force a clean re-login). Verified against
+// @supabase/auth-js 2.110.6's actual source (GoTrueAdminApi.signOut just
+// POSTs /auth/v1/logout?scope=X using the given JWT as bearer) and
+// Supabase's docs before writing this -- not guessed.
+//
+// Caveat, confirmed by Supabase's docs, not assumed: this revokes refresh
+// tokens, so no future refresh or login with the old password will work,
+// but an already-issued access token stays valid until its own `exp`
+// claim (not instantly killed). The caller's own browser is forced out
+// immediately regardless, client-side, independent of that token TTL --
+// see handleChangePassword in Board.tsx.
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
@@ -161,6 +171,19 @@ Deno.serve(async (req: Request) => {
       }
       const { error } = await admin.auth.admin.updateUserById(user.id, { password: newPassword })
       if (error) return jsonResponse({ error: error.message }, 500)
+
+      // Revoke every session for this user, including the caller's own --
+      // see the comment above this switch for why scope=global and not
+      // scope=others. Best-effort: the password change itself already
+      // succeeded, and a revoke failure here shouldn't be reported as the
+      // whole action failing (the client forces its own local sign-out
+      // regardless -- see Board.tsx).
+      const callerToken = authHeader.replace(/^Bearer\s+/i, '')
+      const { error: signOutError } = await admin.auth.admin.signOut(callerToken, 'global')
+      if (signOutError) {
+        console.error('account-action: failed to revoke sessions after password change', signOutError)
+      }
+
       return jsonResponse({ success: true })
     }
     default:

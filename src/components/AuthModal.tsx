@@ -3,13 +3,23 @@ import { useModalDismiss } from '../hooks/useModalDismiss'
 
 interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
+  // Shown above the form -- e.g. "Password changed -- please log in
+  // again." after a password change revokes every session (AUDIT.md M5).
+  notice?: string | null
   onSignUp: (email: string, password: string, name: string) => Promise<void>
   onSignIn: (email: string, password: string) => Promise<void>
   onResetPassword: (email: string) => Promise<void>
   onClose: () => void
 }
 
-export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onResetPassword, onClose }: AuthModalProps) {
+export function AuthModal({
+  mode: initialMode,
+  notice,
+  onSignUp,
+  onSignIn,
+  onResetPassword,
+  onClose,
+}: AuthModalProps) {
   const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -173,6 +183,8 @@ export function AuthModal({ mode: initialMode, onSignUp, onSignIn, onResetPasswo
                 ✕
               </button>
             </div>
+
+            {notice && <p className="text-sm text-amber-700 bg-amber-50 rounded-md px-3 py-2">{notice}</p>}
 
             {mode === 'sign-up' && (
               <p className="text-sm text-slate-500">
