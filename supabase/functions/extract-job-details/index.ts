@@ -224,9 +224,11 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Extraction returned malformed data' }, 502)
   }
 
-  const { error: insertError } = await admin
-    .from('extraction_events')
-    .insert({ user_id: user.id })
+  const { error: insertError } = await admin.from('extraction_events').insert({
+    user_id: user.id,
+    input_tokens: anthropicData.usage?.input_tokens ?? null,
+    output_tokens: anthropicData.usage?.output_tokens ?? null,
+  })
 
   if (insertError) {
     // The extraction already succeeded and cost money -- log but still
