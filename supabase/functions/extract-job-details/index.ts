@@ -2,7 +2,7 @@
 // from a screenshot using Claude Haiku 4.5, so the add-application form can
 // be pre-filled for the user to review and save.
 //
-// Signed-in only. Quota is checked BEFORE calling Anthropic -- this is the
+// Signed-in only. Quota is reserved BEFORE calling Anthropic -- this is the
 // wallet protection, so it must be server-side and must run first. Caps are
 // constants below rather than a settings table; revisit only if they need to
 // change without a redeploy.
@@ -14,6 +14,14 @@
 // so that balance is the real backstop -- GLOBAL_MONTHLY_LIMIT is a
 // forward-looking ceiling, not the current practical limit.
 //
+// Quota enforcement (AUDIT.md M2): the reserve_extraction() Postgres
+// function (0008_reserve_extraction.sql) atomically checks both counts and
+// inserts the event row in one transaction, serialized by an advisory lock
+// -- a read-then-insert here would let concurrent requests all pass the
+// check before any row lands. If anything fails after the reservation, the
+// reserved row is deleted so a failed call doesn't burn quota it never
+// actually spent.
+//
 // Deployed via the Supabase dashboard's Edge Functions editor (no CLI link
 // set up), same as account-action and delete-account. SUPABASE_URL,
 // SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY are injected by the
@@ -22,7 +30,6 @@
 //
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { checkQuota } from './quota.ts'
 
 const PER_USER_MONTHLY_LIMIT = 20
 const GLOBAL_MONTHLY_LIMIT = 5000
@@ -125,36 +132,34 @@ Deno.serve(async (req: Request) => {
 
   const monthStart = startOfCurrentMonthUtc()
 
-  const [userCountResult, globalCountResult] = await Promise.all([
-    admin
-      .from('extraction_events')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .gte('created_at', monthStart),
-    admin
-      .from('extraction_events')
-      .select('id', { count: 'exact', head: true })
-      .gte('created_at', monthStart),
-  ])
+  const { data: reservation, error: reserveError } = await admin.rpc('reserve_extraction', {
+    p_user_id: user.id,
+    p_per_user_limit: PER_USER_MONTHLY_LIMIT,
+    p_global_limit: GLOBAL_MONTHLY_LIMIT,
+    p_month_start: monthStart,
+  })
 
-  if (userCountResult.error || globalCountResult.error) {
+  if (reserveError) {
     return jsonResponse({ error: 'Failed to check extraction quota' }, 500)
   }
-
-  const userCount = userCountResult.count ?? 0
-  const globalCount = globalCountResult.count ?? 0
-
-  const quota = checkQuota(userCount, globalCount, {
-    perUserMonthlyLimit: PER_USER_MONTHLY_LIMIT,
-    globalMonthlyLimit: GLOBAL_MONTHLY_LIMIT,
-  })
-  if (!quota.allowed) {
+  if (reservation.status === 'per_user') {
+    return jsonResponse({ error: `You've used your ${PER_USER_MONTHLY_LIMIT} free extractions this month.` }, 429)
+  }
+  if (reservation.status === 'global') {
     return jsonResponse(
-      quota.reason === 'per-user'
-        ? { error: `You've used your ${PER_USER_MONTHLY_LIMIT} free extractions this month.` }
-        : { error: 'Extraction is temporarily unavailable -- monthly limit reached. Try again next month.' },
+      { error: 'Extraction is temporarily unavailable -- monthly limit reached. Try again next month.' },
       429,
     )
+  }
+
+  const eventId = reservation.event_id as string
+
+  // Any failure past this point already reserved a slot that was never
+  // spent -- release it so the user isn't charged quota for a call that
+  // didn't succeed.
+  async function releaseReservation() {
+    const { error } = await admin.from('extraction_events').delete().eq('id', eventId)
+    if (error) console.error('extract-job-details: failed to release reservation', eventId, error)
   }
 
   let anthropicResponse: Response
@@ -196,23 +201,27 @@ Deno.serve(async (req: Request) => {
     })
   } catch (err) {
     console.error('extract-job-details: Anthropic request failed', err)
+    await releaseReservation()
     return jsonResponse({ error: 'Failed to reach the extraction service' }, 502)
   }
 
   if (!anthropicResponse.ok) {
     const errBody = await anthropicResponse.text()
     console.error('extract-job-details: Anthropic API error', anthropicResponse.status, errBody)
+    await releaseReservation()
     return jsonResponse({ error: 'Extraction failed' }, 502)
   }
 
   const anthropicData = await anthropicResponse.json()
 
   if (anthropicData.stop_reason === 'refusal') {
+    await releaseReservation()
     return jsonResponse({ error: 'Could not extract details from this image' }, 422)
   }
 
   const jsonBlock = (anthropicData.content ?? []).find((b: any) => b.type === 'text')
   if (!jsonBlock) {
+    await releaseReservation()
     return jsonResponse({ error: 'Extraction returned no content' }, 502)
   }
 
@@ -221,19 +230,24 @@ Deno.serve(async (req: Request) => {
     extracted = JSON.parse(jsonBlock.text)
   } catch (err) {
     console.error('extract-job-details: failed to parse model output', err, jsonBlock.text)
+    await releaseReservation()
     return jsonResponse({ error: 'Extraction returned malformed data' }, 502)
   }
 
-  const { error: insertError } = await admin.from('extraction_events').insert({
-    user_id: user.id,
-    input_tokens: anthropicData.usage?.input_tokens ?? null,
-    output_tokens: anthropicData.usage?.output_tokens ?? null,
-  })
+  // The reservation already inserted the row (tokens null) -- fill in the
+  // usage now that the call succeeded, rather than inserting a second row.
+  const { error: updateError } = await admin
+    .from('extraction_events')
+    .update({
+      input_tokens: anthropicData.usage?.input_tokens ?? null,
+      output_tokens: anthropicData.usage?.output_tokens ?? null,
+    })
+    .eq('id', eventId)
 
-  if (insertError) {
+  if (updateError) {
     // The extraction already succeeded and cost money -- log but still
     // return the result rather than discarding a paid-for result.
-    console.error('extract-job-details: failed to record extraction_event', insertError)
+    console.error('extract-job-details: failed to record token usage', eventId, updateError)
   }
 
   return jsonResponse({ success: true, fields: extracted })
