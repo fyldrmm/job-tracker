@@ -154,11 +154,34 @@ export function AuthModal({
         ) : signedUp ? (
           <div className="space-y-4">
             <h2 className="text-lg font-medium text-slate-800">Check your email</h2>
+            {/* Supabase's signUp() returns success (no error) even when the
+                email is already registered, to avoid leaking which emails
+                have accounts -- so this can't assert a link was sent. It
+                previously did, unconditionally, which was a dead end for
+                anyone signing up with an email they'd already used
+                (AUDIT.md D4). Phrased conditionally like the password-reset
+                panel above, which already got this right. */}
             <p className="text-sm text-slate-600">
-              We sent a confirmation link to <span className="font-medium">{email}</span>. Click it to
-              finish creating your account — your local data will transfer over automatically.
+              If this email is new to us, we've sent a confirmation link to{' '}
+              <span className="font-medium">{email}</span> — click it to finish creating your
+              account, and your local data will transfer over automatically.
             </p>
-            <div className="flex justify-end">
+            <p className="text-sm text-slate-500">
+              Already have an account with this email? Log in instead — nothing will have been
+              sent.
+            </p>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => {
+                  setSignedUp(false)
+                  setMode('log-in')
+                  setPassword('')
+                }}
+                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+              >
+                Log in instead
+              </button>
               <button
                 type="button"
                 onClick={onClose}
