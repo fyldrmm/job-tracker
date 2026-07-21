@@ -19,6 +19,7 @@ import { consumePendingSignup, migrateGuestDataToAccount } from '../lib/migratio
 import { buildExportData, downloadJSON } from '../lib/export'
 import { deleteOwnAccount, changePassword } from '../lib/remoteStore'
 import { clearLocalStore, hasAnyLocalGuestData } from '../lib/localStore'
+import { subscribeToGlobalErrors } from '../lib/globalErrors'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
@@ -91,6 +92,13 @@ export function Board() {
   const undoTimerRef = useRef<number | null>(null)
   const [errorToast, setErrorToast] = useState<string | null>(null)
   const errorTimerRef = useRef<number | null>(null)
+  // Mirrors errorToast for the global-error subscription below, so that
+  // effect can read the current toast without depending on errorToast
+  // itself (which would resubscribe on every toast change).
+  const errorToastRef = useRef<string | null>(null)
+  useEffect(() => {
+    errorToastRef.current = errorToast
+  }, [errorToast])
   const [authModalMode, setAuthModalMode] = useState<'sign-up' | 'log-in' | null>(null)
   const [authModalNotice, setAuthModalNotice] = useState<string | null>(null)
   const [bannerDismissed, setBannerDismissed] = useState(
@@ -220,6 +228,21 @@ export function Board() {
 
   useEffect(() => clearUndoTimer, [])
   useEffect(() => clearErrorTimer, [])
+
+  // Routes window-level uncaught errors/rejections into the SAME toast as
+  // every other failure (AUDIT.md C4) -- not a second, parallel one. A
+  // ref (not errorToast itself) is the dep so this subscribes exactly
+  // once; a specific, actionable message already on screen ("Could not
+  // archive...") must not be clobbered by the generic global one, since
+  // ErrorToast has no queue.
+  useEffect(() => {
+    return subscribeToGlobalErrors((message) => {
+      if (errorToastRef.current !== null) return
+      clearErrorTimer()
+      setErrorToast(message)
+      errorTimerRef.current = window.setTimeout(() => setErrorToast(null), ERROR_WINDOW_MS)
+    })
+  }, [])
 
   // Whenever a session becomes active, check LIVE for local guest data
   // (trackers/applications with no user_id) rather than trusting a
