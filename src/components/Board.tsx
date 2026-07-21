@@ -594,6 +594,8 @@ export function Board() {
                   onCardOpen={setDetailApplication}
                   onCardAdvance={handleCardAdvance}
                   onCardRetreat={handleCardRetreat}
+                  onCardArchive={(application) => handleArchive(application, 'rejected')}
+                  onCardDeleteRequest={setDeleteApplicationTarget}
                 />
               ))}
             </div>

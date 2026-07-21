@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { cleanup, render, screen, waitFor, fireEvent, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { resetIndexedDb } from '../test/dbHelpers'
 import { installGlobalErrorHandlers, resetGlobalErrorsForTest } from '../lib/globalErrors'
@@ -63,6 +63,70 @@ describe('Board archive/undo (guest mode)', () => {
     fireEvent.keyDown(window, { key: 'z', ctrlKey: true })
 
     await waitFor(() => expect(screen.getByText('Globex Inc')).toBeInTheDocument())
+  })
+})
+
+describe('Board card context menu', () => {
+  beforeEach(async () => {
+    await resetIndexedDb()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  async function addApplication(user: ReturnType<typeof userEvent.setup>, company: string) {
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+    await user.click(await screen.findByRole('button', { name: '+ Add your first application' }))
+    await user.type(screen.getByLabelText(/company/i), company)
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText(company)
+  }
+
+  it('moves a card to the next stage via "Move to Applied"', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addApplication(user, 'Acme Corp')
+
+    const card = screen.getByText('Acme Corp').closest('div[role="button"]') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to Interview' }))
+
+    await screen.findByRole('heading', { name: 'Interview 1' })
+    expect(screen.getByRole('heading', { name: 'Applied 0' })).toBeInTheDocument()
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+  })
+
+  // Regression test: the menu is rendered inside the card's own DOM subtree
+  // (fixed-positioned, not a portal), so a menu item click that doesn't
+  // stop propagation bubbles to the card's onClick and re-triggers its
+  // click-count debounce, silently reopening the detail view ~250ms after
+  // an action was chosen.
+  it('does not reopen the detail view after choosing a context menu action', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addApplication(user, 'Acme Corp')
+
+    const card = screen.getByText('Acme Corp').closest('div[role="button"]') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to Interview' }))
+
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+  })
+
+  it('routes Delete through the confirm modal instead of deleting immediately', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addApplication(user, 'Acme Corp')
+
+    const card = screen.getByText('Acme Corp').closest('div[role="button"]') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+
+    expect(await screen.findByText('Delete "Acme Corp"?')).toBeInTheDocument()
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument()
   })
 })
 

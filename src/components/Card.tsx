@@ -1,23 +1,60 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
 import type { Application } from '../types/application'
+import { nextStage, prevStage, STAGE_LABELS } from '../lib/stages'
+import { isSafeHttpUrl } from '../lib/url'
 import { CardVisual } from './CardVisual'
+import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 
 interface CardProps {
   application: Application
   onOpenDetail: () => void
   onAdvance: () => void
   onRetreat: () => void
+  onArchive: () => void
+  onDeleteRequest: () => void
 }
 
 const CLICK_DELAY_MS = 250
 
-export function Card({ application, onOpenDetail, onAdvance, onRetreat }: CardProps) {
+export function Card({ application, onOpenDetail, onAdvance, onRetreat, onArchive, onDeleteRequest }: CardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: application.id,
   })
   const clickTimer = useRef<number | null>(null)
   const clickCount = useRef(0)
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
+
+  // Same action set the mouse already reaches via right-click/double/triple
+  // click and the detail panel -- this is a second entry point to those,
+  // not new capability, so nothing here needs new data-layer wiring.
+  function buildMenuItems(): ContextMenuItem[] {
+    const items: ContextMenuItem[] = [{ label: 'Open', onSelect: onOpenDetail }]
+    const next = nextStage(application.current_stage)
+    if (next) items.push({ label: `Move to ${STAGE_LABELS[next]}`, onSelect: onAdvance })
+    const prev = prevStage(application.current_stage)
+    if (prev) items.push({ label: `Move back to ${STAGE_LABELS[prev]}`, onSelect: onRetreat })
+    if (application.job_link && isSafeHttpUrl(application.job_link)) {
+      items.push({
+        label: 'Open job link',
+        onSelect: () => window.open(application.job_link!, '_blank', 'noopener,noreferrer'),
+      })
+    }
+    items.push({ label: 'Archive', onSelect: onArchive })
+    items.push({ label: 'Delete', onSelect: onDeleteRequest, danger: true })
+    return items
+  }
+
+  function handleContextMenu(event: React.MouseEvent) {
+    event.preventDefault()
+    setMenuAnchor({ x: event.clientX, y: event.clientY })
+  }
+
+  function handleMenuButtonClick(event: React.MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    setMenuAnchor({ x: rect.left, y: rect.bottom + 4 })
+  }
 
   // Debounce clicks so we can tell single/double/triple apart: single opens
   // the detail view, double advances a stage (mirrors a forward drag),
@@ -57,11 +94,28 @@ export function Card({ application, onOpenDetail, onAdvance, onRetreat }: CardPr
       {...listeners}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`rounded-md cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-slate-400 ${
+      onContextMenu={handleContextMenu}
+      className={`group relative rounded-md cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-slate-400 ${
         isDragging ? 'opacity-30' : ''
       }`}
     >
       <CardVisual application={application} />
+      {/* Keyboard/touch-reachable trigger for the same menu right-click
+          opens -- right-click alone would be a mouse-only path to Archive/
+          Delete, which the brief rules out for anything critical. */}
+      <button
+        type="button"
+        aria-label="More actions"
+        aria-haspopup="menu"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={handleMenuButtonClick}
+        className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded text-slate-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+      >
+        ⋮
+      </button>
+      {menuAnchor && (
+        <ContextMenu x={menuAnchor.x} y={menuAnchor.y} items={buildMenuItems()} onClose={() => setMenuAnchor(null)} />
+      )}
     </div>
   )
 }

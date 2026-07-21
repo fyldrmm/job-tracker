@@ -10,6 +10,8 @@ interface ColumnProps {
   onCardOpen: (application: Application) => void
   onCardAdvance: (application: Application) => void
   onCardRetreat: (application: Application) => void
+  onCardArchive: (application: Application) => void
+  onCardDeleteRequest: (application: Application) => void
 }
 
 export function Column({
@@ -20,6 +22,8 @@ export function Column({
   onCardOpen,
   onCardAdvance,
   onCardRetreat,
+  onCardArchive,
+  onCardDeleteRequest,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
 
@@ -54,6 +58,8 @@ export function Column({
             onOpenDetail={() => onCardOpen(application)}
             onAdvance={() => onCardAdvance(application)}
             onRetreat={() => onCardRetreat(application)}
+            onArchive={() => onCardArchive(application)}
+            onDeleteRequest={() => onCardDeleteRequest(application)}
           />
         ))}
       </div>
