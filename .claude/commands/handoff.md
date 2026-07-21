@@ -12,12 +12,13 @@ I am about to /clear. Persist all state to disk. Durable project knowledge belon
 
 ## Step 2 — Update the persistent layer
 
-If anything this session changed the project's durable truth, amend `PLAN.md` rather than describing it only in the handoff. This project keeps everything durable in one file — there is no separate architecture.md/DECISIONS.md/CLAUDE.md:
+If anything this session changed the project's durable truth, record it rather than describing it only in the handoff. Durable knowledge is split across two files: `PLAN.md` holds current status + the active milestone; `PLAN-ARCHIVE.md` holds completed milestones and the full decisions/gotchas log. There is no separate architecture.md/DECISIONS.md/CLAUDE.md.
 
-- A decision with lasting consequences (library choice, schema, pattern, tradeoff accepted) → append to `PLAN.md`'s "Decisions & notes" section, with the choice, the alternatives rejected, and why.
-- New convention, gotcha, or setup step that applies beyond this task → also `PLAN.md`, placed near the relevant milestone section.
+- A decision from the *active* milestone (library choice, schema, pattern, tradeoff accepted) → append to `PLAN.md`'s "Decisions & notes" stub for now, with the choice, the alternatives rejected, and why.
+- New convention, gotcha, or setup step that applies beyond this task → also `PLAN.md`, near the active milestone section.
+- **When a milestone is finished**, move its milestone section and its decision bullets out of `PLAN.md` into `PLAN-ARCHIVE.md` (append under the relevant heading), and leave a one-line entry in `PLAN.md`'s milestone index. This is what keeps `PLAN.md` light — it is re-sent in full every turn.
 
-State explicitly which parts of `PLAN.md` you updated, or that none needed updating.
+State explicitly which parts of `PLAN.md` / `PLAN-ARCHIVE.md` you updated, or that none needed updating.
 
 ## Step 3 — Update the task plan
 

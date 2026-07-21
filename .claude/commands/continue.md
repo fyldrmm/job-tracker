@@ -5,7 +5,8 @@ description: Re-prime a fresh session from the persistent docs and the last hand
 Resume the previous session's work. Read in this order, and do not start editing until all of it is loaded:
 
 1. `job-tracker-mvp-brief.md` — original spec and project conventions (skip if not doing brand-new-feature work).
-2. `PLAN.md` — read the "Working protocol" section at the top, "Current status", the most recent milestone section(s), and "Decisions & notes" at the bottom. This project keeps decisions inline in PLAN.md rather than in a separate DECISIONS.md.
+2. `PLAN.md` — read "Working protocol" at the top, "Current status", the recent/active milestone section(s), and the "Decisions & notes" stub at the bottom. This file is kept intentionally light because it is re-sent in full on every session turn.
+2b. `PLAN-ARCHIVE.md` — completed milestones (M1–M7 + post-MVP) and the full decisions/gotchas log live here. Do **not** read it wholesale; consult the specific entry only when the current task touches an area it covers.
 3. `HANDOFF.md` — the last session's delta and exact stopping point.
 4. `git log --oneline -15` and `git status` — confirm the repo matches what HANDOFF.md claims.
 
