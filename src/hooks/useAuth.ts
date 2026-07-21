@@ -36,7 +36,7 @@ export function useAuth() {
       options: { data: { name: name.trim() } },
     })
     if (error) throw error
-    markPendingSignup()
+    markPendingSignup(email)
   }
 
   async function signIn(email: string, password: string) {

@@ -256,7 +256,12 @@ export function Board() {
   // unclaimed guest data, instead of merging it in without asking.
   // migrationCheckedForRef guards against re-checking (and re-prompting)
   // on every token-refresh-triggered re-run of this effect for the same
-  // signed-in user.
+  // signed-in user. consumePendingSignup validates the flag against the
+  // arriving session (email + created_at) and is ALWAYS called, even with
+  // no guest data present -- otherwise a flag left by a signup that never
+  // produced a session (e.g. an already-registered email, which Supabase
+  // reports as success) lingers forever and can mislabel a later,
+  // unrelated login as "from this signup" (M6 reproduced a second way).
   useEffect(() => {
     if (!user) return
     if (migrationCheckedForRef.current === user.id) return
@@ -285,8 +290,10 @@ export function Board() {
     }
 
     hasAnyLocalGuestData().then((hasGuestData) => {
-      if (cancelled || !hasGuestData) return
-      if (consumePendingSignup()) {
+      if (cancelled) return
+      const fromThisSignUp = consumePendingSignup(currentUser)
+      if (!hasGuestData) return
+      if (fromThisSignUp) {
         runMigration()
       } else {
         setMigratePrompt(true)

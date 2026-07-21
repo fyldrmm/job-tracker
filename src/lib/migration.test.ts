@@ -124,11 +124,65 @@ describe('migration', () => {
     expect(await hasAnyLocalGuestData()).toBe(true)
   })
 
-  it('markPendingSignup/consumePendingSignup act as a one-time flag', () => {
-    expect(consumePendingSignup()).toBe(false)
+  describe('markPendingSignup / consumePendingSignup', () => {
+    // markPendingSignup stamps the REAL system clock (Date.now()), so any
+    // "matching" fixture needs a created_at that's actually fresh relative
+    // to whenever the test runs -- a hardcoded past date fails the
+    // freshness check for the wrong reason. matchingUser() is a function,
+    // not a constant, precisely so each call gets a genuinely current
+    // timestamp rather than one fixed at describe-block setup time.
+    function matchingUser() {
+      return { email: 'ada@example.com', created_at: new Date().toISOString() }
+    }
 
-    markPendingSignup()
-    expect(consumePendingSignup()).toBe(true)
-    expect(consumePendingSignup()).toBe(false)
+    it('is a one-time flag: true on first consume with a matching user, false after', () => {
+      expect(consumePendingSignup(matchingUser())).toBe(false)
+
+      markPendingSignup('ada@example.com')
+      expect(consumePendingSignup(matchingUser())).toBe(true)
+      expect(consumePendingSignup(matchingUser())).toBe(false)
+    })
+
+    it('matches email case-insensitively both ways', () => {
+      markPendingSignup('Ada@Example.com')
+      expect(consumePendingSignup(matchingUser())).toBe(true)
+    })
+
+    it('rejects a different email -- guards against a later login to an unrelated account', () => {
+      markPendingSignup('ada@example.com')
+      expect(consumePendingSignup({ ...matchingUser(), email: 'someone-else@example.com' })).toBe(false)
+    })
+
+    it('rejects when user.email is undefined', () => {
+      markPendingSignup('ada@example.com')
+      expect(consumePendingSignup({ ...matchingUser(), email: undefined })).toBe(false)
+    })
+
+    it('rejects a matching email whose account predates the signup attempt -- the already-registered-email case', () => {
+      markPendingSignup('ada@example.com')
+      // Simulates Supabase's anti-enumeration success response for an
+      // email that already has an account: the email matches, but that
+      // account was created long before this "signup" attempt.
+      expect(
+        consumePendingSignup({ email: 'ada@example.com', created_at: '2020-01-01T00:00:00.000Z' }),
+      ).toBe(false)
+    })
+
+    it('always clears the flag, even when the consuming check fails', () => {
+      markPendingSignup('ada@example.com')
+      consumePendingSignup({ ...matchingUser(), email: 'someone-else@example.com' })
+      // Second consume finds nothing left, regardless of who asks.
+      expect(consumePendingSignup(matchingUser())).toBe(false)
+    })
+
+    it('treats a legacy bare "true" value (pre-validation flag) as absent', () => {
+      localStorage.setItem('job-tracker:pending-signup', 'true')
+      expect(consumePendingSignup(matchingUser())).toBe(false)
+      expect(localStorage.getItem('job-tracker:pending-signup')).toBeNull()
+    })
+
+    it('returns false with no flag set at all', () => {
+      expect(consumePendingSignup(matchingUser())).toBe(false)
+    })
   })
 })
