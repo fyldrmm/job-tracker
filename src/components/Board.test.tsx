@@ -136,15 +136,17 @@ describe('Board extraction discovery (guest mode)', () => {
     cleanup()
   })
 
-  it('promotes extraction on the first empty state, before any tracker exists', async () => {
+  // Not shown on the "create your first tracker" screen -- extraction
+  // isn't actionable until a tracker exists to add into.
+  it('does not promote extraction before any tracker exists', async () => {
     render(<Board />)
 
     await screen.findByRole('button', { name: '+ Create tracker' })
-    expect(screen.getByText(/skip the typing/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: PROMO_CTA })).toBeInTheDocument()
+    expect(screen.queryByText(/skip the typing/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: PROMO_CTA })).not.toBeInTheDocument()
   })
 
-  it('still promotes extraction on the empty-board state, after a tracker exists', async () => {
+  it('promotes extraction on the empty-board state, once a tracker exists', async () => {
     const user = userEvent.setup()
     render(<Board />)
 
@@ -158,6 +160,7 @@ describe('Board extraction discovery (guest mode)', () => {
     const user = userEvent.setup()
     render(<Board />)
 
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
     await user.click(await screen.findByRole('button', { name: PROMO_CTA }))
 
     expect(await screen.findByRole('heading', { name: 'Create an account' })).toBeInTheDocument()

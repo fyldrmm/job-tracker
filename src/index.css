@@ -3,3 +3,27 @@
 body {
   margin: 0;
 }
+
+/* ExtractionDemoAnimation (AUDIT.md C6): fields fill in over ~5s, hold the
+   complete state for 2s, then reset -- one 7s loop. Percentages below are
+   that 7s duration, not round numbers (e.g. 71.43% = 5s). Only referenced
+   via the motion-safe: variant in the component -- prefers-reduced-motion
+   gets the plain "complete" look with no animation at all, since these
+   keyframes all start from an empty (opacity/scale 0) state that would
+   otherwise be the only thing a reduced-motion user ever saw. */
+@keyframes extraction-demo-arrow {
+  0%, 8% { opacity: 0; }
+  14%, 100% { opacity: 1; }
+}
+@keyframes extraction-demo-field-1 {
+  0%, 14% { opacity: 0; transform: scaleX(0); }
+  24%, 100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes extraction-demo-field-2 {
+  0%, 30% { opacity: 0; transform: scaleX(0); }
+  40%, 100% { opacity: 1; transform: scaleX(1); }
+}
+@keyframes extraction-demo-field-3 {
+  0%, 55% { opacity: 0; transform: scaleX(0); }
+  65%, 100% { opacity: 1; transform: scaleX(1); }
+}

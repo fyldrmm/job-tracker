@@ -9,7 +9,10 @@ interface ExtractionPromoProps {
 // on being signed in (ApplicationForm.tsx) -- so without this the feature
 // is invisible to exactly the people arriving from an ad for it.
 //
-// Rendered only on the two empty states, so it needs no dismiss button and
+// Rendered only on the "nothing here yet" empty state (once a tracker
+// exists but has no applications), not the earlier "create your first
+// tracker" screen -- extraction isn't actionable until there's a tracker
+// to add into. So it needs no dismiss button and
 // no persisted "dismissed" flag: an empty board IS the dismissal
 // condition, and the card disappears for good the moment a guest adds
 // anything. That's deliberate -- a promo the user has to dismiss every

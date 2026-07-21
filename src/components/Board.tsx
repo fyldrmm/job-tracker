@@ -555,7 +555,6 @@ export function Board() {
             >
               + Create tracker
             </button>
-            {!user && <ExtractionPromo onSignUp={() => setAuthModalMode('sign-up')} />}
           </div>
         </div>
       ) : !activeTrackerHasApplications ? (
