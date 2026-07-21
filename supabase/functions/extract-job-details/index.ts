@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Failed to check extraction quota' }, 500)
   }
   if (reservation.status === 'per_user') {
-    return jsonResponse({ error: `You've used your ${PER_USER_MONTHLY_LIMIT} free extractions this month.` }, 429)
+    return jsonResponse({ error: `You've used your ${PER_USER_MONTHLY_LIMIT} free AI extractions this month.` }, 429)
   }
   if (reservation.status === 'global') {
     return jsonResponse(

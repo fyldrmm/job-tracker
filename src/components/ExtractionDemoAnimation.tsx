@@ -24,7 +24,7 @@ export function ExtractionDemoAnimation() {
       // them made this image's accessible label collide with the real
       // form's field labels whenever the form opened over an empty board,
       // so label-based navigation (and getByLabelText) matched two things.
-      aria-label="Illustration: a job posting on the left, its details filled into form fields on the right."
+      aria-label="Illustration: AI reading a job posting on the left and filling its details into form fields on the right."
     >
       {/* Screenshot: a page of text standing in for a job posting. */}
       <rect x="8" y="14" width="72" height="68" rx="4" className="fill-white stroke-slate-300" strokeWidth="1" />

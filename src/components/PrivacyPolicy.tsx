@@ -38,7 +38,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
 
         <h3 className="font-medium text-slate-800 pt-2">AI extraction</h3>
         <p>
-          If you use "Extract from screenshot" when adding an application, the image you pick is sent
+          If you use "Extract with AI" when adding an application, the image you pick is sent
           to Anthropic's API so the job details can be read out of it and used to pre-fill the form.
           This only happens when you explicitly choose a screenshot — nothing is sent otherwise. We
           don't store the screenshot itself; we record only the time of each extraction and how many

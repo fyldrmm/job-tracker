@@ -5,7 +5,7 @@ interface ExtractionPromoProps {
 }
 
 // Guest-only discovery card for AI screenshot extraction (AUDIT.md C6).
-// Guests never see the real "Extract from screenshot" button -- it's gated
+// Guests never see the real "Extract with AI" button -- it's gated
 // on being signed in (ApplicationForm.tsx) -- so without this the feature
 // is invisible to exactly the people arriving from an ad for it.
 //
@@ -29,14 +29,14 @@ export function ExtractionPromo({ onSignUp }: ExtractionPromoProps) {
       </div>
       <h3 className="mt-3 text-sm font-medium text-slate-800">Skip the typing</h3>
       <p className="mt-1 text-sm text-slate-500">
-        Screenshot a job posting and we'll fill in the details. Free with an account.
+        Screenshot a job posting and our AI fills in the details. Free with an account.
       </p>
       <button
         type="button"
         onClick={onSignUp}
         className="mt-3 text-sm font-medium text-slate-700 underline decoration-slate-300 hover:decoration-slate-600"
       >
-        Extract from screenshot
+        Extract with AI
       </button>
     </div>
   )

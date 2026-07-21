@@ -126,7 +126,7 @@ describe('Board global error surfacing (AUDIT.md C4)', () => {
 // only way they learn it exists is these prompts -- and they're the exact
 // traffic an ad for the feature would send. See AUDIT.md C6.
 describe('Board extraction discovery (guest mode)', () => {
-  const PROMO_CTA = 'Extract from screenshot'
+  const PROMO_CTA = 'Extract with AI'
 
   beforeEach(async () => {
     await resetIndexedDb()

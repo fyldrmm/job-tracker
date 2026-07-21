@@ -161,13 +161,13 @@ export function ApplicationForm({
                 disabled={extracting || extractionsLeft === 0}
                 className="text-sm font-medium text-slate-600 border border-slate-300 rounded-md px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50"
               >
-                {extracting ? 'Extracting...' : 'Extract from screenshot'}
+                {extracting ? 'Extracting...' : 'Extract with AI'}
               </button>
               {extractionsLeft !== null && (
                 <p className="mt-1 text-xs text-slate-400">
                   {extractionsLeft === 0
-                    ? "You've used all your free extractions this month."
-                    : `${extractionsLeft} of ${PER_USER_MONTHLY_LIMIT} free extractions left this month.`}
+                    ? "You've used all your free AI extractions this month."
+                    : `${extractionsLeft} of ${PER_USER_MONTHLY_LIMIT} free AI extractions left this month.`}
                 </p>
               )}
               {extractError && <p className="mt-1 text-sm text-red-600">{extractError}</p>}
@@ -181,7 +181,7 @@ export function ApplicationForm({
               empty board; this covers everyone else. */}
           {!isEdit && !isSignedIn && (
             <p className="text-xs text-slate-400">
-              Skip the typing — screenshot a job posting and we'll fill in the details.{' '}
+              Skip the typing — screenshot a job posting and our AI will fill in the details.{' '}
               <button
                 type="button"
                 onClick={onRequestSignUp}
