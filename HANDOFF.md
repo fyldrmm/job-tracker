@@ -13,6 +13,10 @@ Closed out the remainder of `AUDIT.md`: section C (missing pieces), section D (n
 ## Commits this session
 
 ```
+f4e6bbd Add audit findings, session prompt log, and repo-setup notes
+238594b Split PLAN.md into active status + PLAN-ARCHIVE.md for completed history
+ac938a0 Remove 10 unused skills to cut per-turn token overhead
+6d8a25d /handoff: session delta -- audit closeout + C6 discoverability
 7238d88 Record C6 discoverability as done in PLAN.md; refresh status
 d415b34 Mention AI wherever extraction is mentioned to users
 ba17a71 Move the extraction promo to the empty-board state only; animate the demo
@@ -32,7 +36,7 @@ bd014e9 Fix the privacy policy (H2 from AUDIT.md) -- never actually shipped
 a5b8f86 Resolve D1 (Supabase spend cap): moot on the free plan
 ```
 
-All pushed (`git log origin/main..HEAD` empty). Nothing stashed, no scratch branches. Working tree clean apart from the three deliberately-untracked files: `AUDIT.md`, `claude-code-prompts.md`, `repo-setup.md`.
+All pushed (`git log origin/main..HEAD` empty). Nothing stashed, no scratch branches. Working tree fully clean — `AUDIT.md`, `claude-code-prompts.md`, `repo-setup.md` are now committed (`f4e6bbd`), not untracked. Session continued past the first `/handoff` (`6d8a25d`) to also prune 10 unused skills (`ac938a0`) and split `PLAN.md`/`PLAN-ARCHIVE.md` (`238594b`).
 
 ---
 
@@ -89,18 +93,15 @@ npx tsc -b --noEmit
 npx oxlint
 npm test                      # expect: 6 files, 39 tests, all passing
 
-# 2. Working tree -- expect ONLY the three untracked files
+# 2. Working tree -- expect clean, nothing untracked
 git status --short
-#   ?? AUDIT.md
-#   ?? claude-code-prompts.md
-#   ?? repo-setup.md
 
 # 3. Everything pushed -- expect EMPTY
 git log origin/main..HEAD --oneline
 
-# 4. Most recent commit -- expect 7238d88 (docs), with d415b34
+# 4. Most recent commit -- expect f4e6bbd (docs), with d415b34
 #    "Mention AI wherever extraction is mentioned to users" as the most
-#    recent CODE commit beneath it.
+#    recent CODE commit further back.
 git log --oneline -3
 
 # 5. Run locally
