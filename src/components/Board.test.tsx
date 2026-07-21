@@ -121,3 +121,78 @@ describe('Board global error surfacing (AUDIT.md C4)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
+
+// Guests can't use screenshot extraction (the quota is per-account), so the
+// only way they learn it exists is these prompts -- and they're the exact
+// traffic an ad for the feature would send. See AUDIT.md C6.
+describe('Board extraction discovery (guest mode)', () => {
+  const PROMO_CTA = 'Extract from screenshot'
+
+  beforeEach(async () => {
+    await resetIndexedDb()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('promotes extraction on the first empty state, before any tracker exists', async () => {
+    render(<Board />)
+
+    await screen.findByRole('button', { name: '+ Create tracker' })
+    expect(screen.getByText(/skip the typing/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: PROMO_CTA })).toBeInTheDocument()
+  })
+
+  it('still promotes extraction on the empty-board state, after a tracker exists', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+
+    await screen.findByRole('button', { name: '+ Add your first application' })
+    expect(screen.getByRole('button', { name: PROMO_CTA })).toBeInTheDocument()
+  })
+
+  it('opens sign-up from the promo, since extraction needs an account', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+
+    await user.click(await screen.findByRole('button', { name: PROMO_CTA }))
+
+    expect(await screen.findByRole('heading', { name: 'Create an account' })).toBeInTheDocument()
+  })
+
+  // The card has no dismiss button on purpose -- an empty board IS the
+  // dismissal condition. If it ever leaked onto a populated board it would
+  // become a permanent nag, which is the thing this design avoids.
+  it('disappears once the board has an application', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+    await user.click(await screen.findByRole('button', { name: '+ Add your first application' }))
+    await user.type(screen.getByLabelText(/company/i), 'Acme Corp')
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText('Acme Corp')
+
+    expect(screen.queryByText(/skip the typing/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: PROMO_CTA })).not.toBeInTheDocument()
+  })
+
+  // A guest who already has applications never sees the empty-state card,
+  // so the in-form hint is their only path to discovering the feature.
+  it('hints at extraction inside the add form, where the real button is hidden', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+    await user.click(await screen.findByRole('button', { name: '+ Add your first application' }))
+
+    const hint = await screen.findByRole('button', { name: 'Free with an account' })
+    await user.click(hint)
+
+    expect(await screen.findByRole('heading', { name: 'Create an account' })).toBeInTheDocument()
+  })
+})

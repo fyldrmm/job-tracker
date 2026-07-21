@@ -38,6 +38,7 @@ import { TrackerTabs } from './TrackerTabs'
 import { DeleteTrackerModal } from './DeleteTrackerModal'
 import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { MigrateGuestDataModal } from './MigrateGuestDataModal'
+import { ExtractionPromo } from './ExtractionPromo'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
@@ -542,7 +543,7 @@ export function Board() {
         <PrivacyPolicy onBack={() => setView('board')} />
       ) : trackers.length === 0 || !activeTrackerId ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-sm">
+          <div className="text-center max-w-sm flex flex-col items-center">
             <h2 className="text-lg font-medium text-slate-800">Create your first tracker</h2>
             <p className="mt-2 text-sm text-slate-500">
               A tracker is its own board -- handy if you're job hunting in more than one place at once.
@@ -554,11 +555,12 @@ export function Board() {
             >
               + Create tracker
             </button>
+            {!user && <ExtractionPromo onSignUp={() => setAuthModalMode('sign-up')} />}
           </div>
         </div>
       ) : !activeTrackerHasApplications ? (
         <div className="flex-1 flex items-center justify-center">
-          <div className="text-center max-w-sm">
+          <div className="text-center max-w-sm flex flex-col items-center">
             <h2 className="text-lg font-medium text-slate-800">Nothing here yet</h2>
             <p className="mt-2 text-sm text-slate-500">
               Add the first job you're eyeing, applying to, or already interviewing for.
@@ -570,6 +572,7 @@ export function Board() {
             >
               + Add your first application
             </button>
+            {!user && <ExtractionPromo onSignUp={() => setAuthModalMode('sign-up')} />}
           </div>
         </div>
       ) : (
@@ -624,6 +627,12 @@ export function Board() {
               ? (input) => updateApplication(formState.application.id, input)
               : (input) => createApplication(input, activeTrackerId)
           }
+          // Deliberately leaves the form mounted underneath rather than
+          // closing it -- this form opts out of backdrop-dismiss precisely
+          // so a stray click can't discard typed input, and silently
+          // discarding it here would contradict that. AuthModal renders
+          // after this in the tree, so it stacks on top.
+          onRequestSignUp={() => setAuthModalMode('sign-up')}
           onClose={() => setFormState(null)}
         />
       )}

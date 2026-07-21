@@ -11,6 +11,7 @@ interface ApplicationFormProps {
   defaultStage: ApplicationStage
   userId: string | null
   onSubmit: (input: ApplicationInput) => Promise<void>
+  onRequestSignUp: () => void
   onClose: () => void
 }
 
@@ -20,7 +21,14 @@ function today(): string {
 
 const MAX_EXTRACT_IMAGE_BYTES = 5 * 1024 * 1024
 
-export function ApplicationForm({ initial, defaultStage, userId, onSubmit, onClose }: ApplicationFormProps) {
+export function ApplicationForm({
+  initial,
+  defaultStage,
+  userId,
+  onSubmit,
+  onRequestSignUp,
+  onClose,
+}: ApplicationFormProps) {
   const isSignedIn = userId !== null
   const [company, setCompany] = useState(initial?.company ?? '')
   const [roleTitle, setRoleTitle] = useState(initial?.role_title ?? '')
@@ -164,6 +172,25 @@ export function ApplicationForm({ initial, defaultStage, userId, onSubmit, onClo
               )}
               {extractError && <p className="mt-1 text-sm text-red-600">{extractError}</p>}
             </div>
+          )}
+
+          {/* Guests can't extract -- the monthly quota is per-account -- but
+              without this the feature is completely invisible to them, since
+              the button above is gated on being signed in (AUDIT.md C6). The
+              empty-state ExtractionPromo card only reaches guests with an
+              empty board; this covers everyone else. */}
+          {!isEdit && !isSignedIn && (
+            <p className="text-xs text-slate-400">
+              Skip the typing — screenshot a job posting and we'll fill in the details.{' '}
+              <button
+                type="button"
+                onClick={onRequestSignUp}
+                className="font-medium underline hover:no-underline"
+              >
+                Free with an account
+              </button>
+              .
+            </p>
           )}
 
           <div>
