@@ -35,9 +35,18 @@ const PER_USER_MONTHLY_LIMIT = 20
 const GLOBAL_MONTHLY_LIMIT = 5000
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
+// BUMP THIS ON EVERY DASHBOARD DEPLOY. Deploys are manual pastes with no
+// CLI link, so nothing else can tell you which build is actually live
+// (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
+// Caveat: this only detects drift if it actually gets bumped.
+const FUNCTION_VERSION = 'extract-job-details@2026-07-21.1'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Not a CORS header -- rides along here so every response (including
+  // OPTIONS) carries it. See jsonResponse() below.
+  'x-function-version': FUNCTION_VERSION,
 }
 
 function jsonResponse(body: unknown, status = 200) {

@@ -55,9 +55,22 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
+// BUMP THIS ON EVERY DASHBOARD DEPLOY. Deploys are manual pastes with no
+// CLI link, so nothing else can tell you which build is actually live --
+// before this, every unauthenticated response from both functions was
+// byte-identical and a deploy that silently never happened was invisible
+// (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
+// Caveat: this only detects drift if it actually gets bumped. Forgetting
+// to bump is the same class of mistake as forgetting to deploy.
+const FUNCTION_VERSION = 'account-action@2026-07-21.1'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Not a CORS header -- it rides along here because this object is
+  // already spread into both jsonResponse() and the OPTIONS reply, so
+  // every response carries the marker, including unauthenticated ones.
+  'x-function-version': FUNCTION_VERSION,
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -157,6 +170,13 @@ Deno.serve(async (req: Request) => {
     password,
   })
   if (passwordError) {
+    // Was completely silent before this (AUDIT.md D5) -- no attempt
+    // counter, no lockout, no logging anywhere on this path, so a stolen
+    // session token could be used to guess a password against this
+    // endpoint with zero trace in the function logs. user.id + action
+    // only; NEVER log the password, and not the email either (keep PII
+    // out of logs beyond what's already unavoidable elsewhere).
+    console.error('account-action: password verification failed', { userId: user.id, action })
     return jsonResponse({ error: 'Incorrect password.' }, 401)
   }
 
