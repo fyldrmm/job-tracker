@@ -6,83 +6,66 @@
 
 ## Session scope
 
-Built and shipped M11: mobile-first polish, the last item in PLAN.md's "Candidate next milestones." Scoped to three concrete gaps found by reading the code (not a redesign), got user approval before writing code, then verified live in both the browser preview and the iOS Simulator.
+Added real JobTracker branding (logo mark + favicon), replacing the leftover placeholder purple-thunder favicon and the plain "Job Application Tracker" header text. Not a numbered milestone — a small branding task the user handed over via a Claude-Design export. User's very next ask (explicitly deferred to next session): reskin the UI's colors to a smoother, more dark-green palette, structure/layout unchanged ("like changing clothes, body should stay the same").
 
 ---
 
 ## Commits this session
 
 ```
-91fc842 Add M11: tap-to-expand sidebar for touch devices
-6c2dd0a Fix touch drag-and-drop on board cards (M11 follow-up)
+9e01005 Add JobTracker logo/favicon branding
 ```
 
-Both pushed to `origin/main` (`git log origin/main..HEAD` empty, confirmed after each push). Nothing stashed, no scratch branches. Working tree clean except this HANDOFF.md/PLAN.md update, about to be committed.
+Pushed to `origin/main`, confirmed live on production (`jobtracker.fazare.dev`, Cloudflare auto-deploys `main` on push). Working tree clean, nothing stashed, no scratch branches.
 
 ---
 
 ## Exact stopping point
 
-**M11 is complete and pushed.** Typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — same as every prior session, see Verify below), tested (75/75 passing, no new tests added — this was CSS/markup only, no new logic to unit-test), and verified live twice: once in the browser preview (sidebar tap-to-expand, confirmed via accessibility tree in a 375×812 viewport), and once in the iOS Simulator on a real touch device (drag-and-drop, both the bug and the fix).
+**Branding task is complete, pushed, and live-verified.** Nothing in progress, nothing stubbed.
 
 Files touched this session:
-- `src/components/icons.tsx` — new `MenuIcon` (three-line hamburger glyph), same `base` SVG props pattern as the other icons.
-- `src/components/Sidebar.tsx` — added `useState` for an explicit `expanded` boolean; new toggle button (`MenuIcon`, `aria-expanded`) at the top of the nav; `NavItem` now takes an `expanded` prop and applies `!opacity-100` to override the `opacity-0 group-hover:opacity-100` label classes when expanded is true, so tap-to-expand works independently of `:hover`. Every `NavItem` call site and the two bare `<span>` section labels ("Tracker", "Account") got the same `expanded` wiring.
-- `src/components/Card.tsx` — added `touch-none` to the draggable card's className. This was the actual bug fix: cards had no `touch-action` CSS, so touch-dragging a card lost the race to the browser's native scroll gesture before dnd-kit's `PointerSensor` could activate the drag, scrolling the board instead of moving the card. `touch-none` is dnd-kit's own documented fix for PointerSensor + touch.
-- `PLAN.md` — new M11 entry in "Current status"; "Candidate next milestones" trimmed (mobile-first polish done, nothing left in that list).
+- `src/components/Logo.tsx` — **new file.** Exports `LogoMark(props: SVGProps<SVGSVGElement>)`, a `viewBox="0 0 240 240"` SVG: dark forest-green circle (`#1c3a27`), white rounded-rect "folder" body, two light-gray lines + one green line (`#1fa04e`) suggesting text, green circle badge with a white checkmark path. Colors are hex, not the design source's OKLCH — see "Learned this session" for why and the exact values.
+- `public/favicon.svg` — replaced entirely (was an unrelated purple/violet abstract mark, presumably a Vite/template default never actually matching this app). Now the 32px favicon variant of the same mark: circle + folder + green check-badge only, no internal text lines (simplifies cleanly at tab-icon size, per the original design file's own note).
+- `index.html` — added `<link rel="apple-touch-icon" href="/favicon.svg" />` alongside the existing `rel="icon"` line. `<title>` unchanged ("Job Application Tracker").
+- `src/components/Sidebar.tsx` — the top toggle button (`Sidebar.tsx:88-105`-ish, the one that used to show `MenuIcon` + literal text "Tracker") now renders `<LogoMark className="w-full h-full" />` in a `w-5 h-5` slot plus a `JobTracker` wordmark span that fades in on hover/expanded exactly like the other nav labels did. `MenuIcon` import was removed from this file (no longer used here) — **note: `MenuIcon` itself still exists in `icons.tsx`, just unreferenced by Sidebar now; not deleted, in case it's wanted elsewhere.**
+- `src/components/Board.tsx` — `pageTitle` local var (previously always "Job Application Tracker" for board/table) now only takes a value for `archive`/`privacy` views (`'Archive'` / `'Privacy policy'`), else `null`. The header's left side is unconditionally `LogoMark` (`w-6 h-6`) + "JobTracker" `<h1>`, with a light `/ {pageTitle}` suffix (`text-slate-300` slash, `text-slate-500` label) appended only when `pageTitle` is non-null. So: board/table header reads just "JobTracker"; Archive reads "JobTracker / Archive"; Privacy policy reads "JobTracker / Privacy policy".
 
-No Supabase manual steps needed — M11 is entirely client-side CSS/markup, no schema or Edge Function changes.
+No new tests (markup/branding only, nothing to unit-test). `tsc --noEmit` clean after every edit round this session.
 
 ---
 
 ## Next action
 
-**No user-agreed next task — PLAN.md's "Candidate next milestones" list is now empty.** The only thing still flagged anywhere in PLAN.md is the unresolved "unexplained data loss in the applications table" investigation (see "Postponed / deferred"), which the user previously chose to move on from (test data only, not blocking). Next session should ask the user what they want to work on rather than assume.
+User wants a color-only reskin next: smoother, darker-green-based palette across the UI, no structural changes. **Do not start until the user explicitly says go** — they were clear about wanting this deferred past the `/clear`. When it does start:
+- Treat it like any other milestone: propose a plan (which colors/tokens change, roughly which files) and get approval before editing, per the "Working protocol" in `PLAN.md`.
+- The two logo variants from the original design zip are relevant here: `v2` (the green one, `#1c3a27` dark / `#1fa04e` accent — what's live now) and the unused navy variant, both still sitting in `/Users/burak2/Downloads/JobTracker logo design.zip` (not copied into the repo) in case the user wants to eyeball alternate accent shades from the same source.
+- Likely surfaces to touch: `Sidebar.tsx`'s active-nav-item state (currently `slate-900`/`slate-100`), the primary buttons (currently `slate-800`/`slate-700`, e.g. "+ Add application" in `Board.tsx`), and wherever `slate-*` is used as the de facto "ink" color — a repo-wide `grep -rn "slate-" src --include="*.tsx"` is the fastest way to inventory every spot before touching any of them.
 
 ---
 
 ## Learned this session
 
-- **The iOS Simulator is the right tool for verifying real touch behavior — the browser-preview tool's drag simulation cannot exercise dnd-kit at all, mouse or touch.** `left_click_drag` (single-shot mouse move, no intermediate events) never generates enough pointer events for dnd-kit's `PointerSensor` (`activationConstraint: distance: 8`) to register a drag — confirmed this on both the pre-fix and (implicitly) unfixed-for-mouse code, so it's a tool limitation, not something this session's changes touched. If a future session needs to verify any drag-and-drop change, use the iOS Simulator's `touch_path` action (multi-point, with `dt_ms` between points), not the browser preview's `left_click_drag`.
-- **The iOS Simulator's `control` tool coordinate space is confusing and worth budgeting extra turns for.** The tool reports "coordinate space for tap/swipe: 402x874 points" but screenshots come back at roughly 918×2000 (a ~2.28x scale). In practice, `tap`/`swipe`/`touch_path` coordinates need to be the **screenshot pixel coordinates divided by ~2.28** (i.e. real ≈ image × 0.4378) — not the raw screenshot-pixel values, and not a re-derived scale from any single "successful-looking" tap (a tap can appear to land correctly by coincidence, e.g. hitting a large button, while actually being off for smaller targets). Calibrate once early with a known element (e.g. a full-width button) and stick to the ratio; don't re-guess per tap. Also: the OS accessory bar in Safari (keyboard's up/down/checkmark row) is NOT part of the page content and its exact tap target can be finicky — an errant tap there can trigger Safari's pinch-zoom or pan state, which persists across screenshots until you navigate/reload. If the layout looks unexpectedly zoomed or shifted, don't fight it — just re-`open_url` the same page; guest data in IndexedDB survives the reload.
-- **The iOS Simulator panel can crash mid-session** ("Claude Code iOS Simulator is restarting after a crash" → eventually "has stopped retrying after repeated crashes"). When that happens, retrying `attach` in a loop does not help — it explicitly says so. The fix is the user reopening the panel on their end; simply wait for them to say so, then retry `attach` once.
-- **Confirmed via code reading, not just assumption, that the two other candidate mobile issues didn't need fixes**: `Column.tsx` already had `w-72 shrink-0` (fixed-width, scrollable columns) and the add-application/edit modals already had `w-full max-w-md` (responsive). Only the sidebar and the card drag turned out to be real gaps. Worth remembering: read the code before assuming a "PC-first" app has N mobile problems — it may have fewer than the milestone brief implies.
+- **The Claude Design share link (`claude.ai/design/p/...`) requires an authenticated session** — `WebFetch` gets a hard 403, and the sandboxed Browser pane tool isn't logged in as the user (hit its Google/email sign-in wall). Neither is fixable from this side (signing in on the user's behalf is out of scope). The workaround that actually worked: user downloaded the Design project as a zip and gave a local path; `unzip` + `Read` on the extracted `.dc.html` files exposed the raw SVG markup directly, no auth needed. **If a Design-project link comes up again, ask for the zip/export up front instead of attempting to fetch the share URL** — saves a round-trip.
+- **Converting the design's OKLCH colors to hex without guessing:** rather than eyeballing or hand-computing OKLCH→sRGB, opened the extracted local HTML in the Browser pane and ran a small `javascript_tool` snippet that draws each `oklch(...)` string into a 1×1 canvas via `ctx.fillStyle` and reads back the resulting RGBA byte values — the browser's own color engine does the conversion, guaranteed correct, no external library or manual math needed. Reusable trick for any future "design gives me a CSS color function, I need a hex/rgb equivalent for somewhere that can't parse it directly (an SVG favicon file, etc.)" situation.
+- **Browser favicon caching is separate from normal page/asset caching and survives a plain reload.** After deploying the new `favicon.svg`, both `curl localhost:5173/favicon.svg` and `curl https://jobtracker.fazare.dev/favicon.svg` immediately showed the new SVG content — the deploy was correct and fast — but the user's browser tab kept showing the old purple icon until a hard refresh / fresh tab. Worth remembering so a future "the file's right but the browser shows the old thing" report gets diagnosed as favicon-cache first, rather than re-checking the deploy pipeline.
+- **No deploy config lives in this repo** — `.github/workflows/ci.yml` only runs typecheck/lint/test on push, no build/deploy step. Production hosting (`jobtracker.fazare.dev`) is Cloudflare Pages (or similar) connected directly to the GitHub repo outside of any file here, auto-building on push to `main`. This was already noted in `HANDOFF.md`'s history (see the git-archived versions) but is easy to forget mid-session since there's nothing to `grep` for it in the repo itself.
 
 ---
 
 ## Open questions
 
-- **What's next?** No queued milestone. Ask the user.
-- **Unexplained data loss in the `applications` table** — still unresolved, still not blocking (test data only), still not being actively investigated. Carried forward unchanged from prior sessions.
-- **Duplicate stale local clone at `/Users/burak2/Documents/GitHub/job-tracker`, 29 commits behind `origin/main`** (flagged by a prior session, `/Users/burak2/Desktop/Claude` is confirmed still the correct up-to-date clone) — still not asked about or acted on. Worth raising with the user at some point: intentional second checkout, or leftover cruft to delete?
+- **Exact target palette for the upcoming reskin isn't specified yet** — user said "smoother and more dark green based colors" but gave no specific hex values, contrast requirements, or which of the two logo-derived greens (`#1c3a27` dark / `#1fa04e` accent) should anchor it. First step of that session should be proposing 2-3 concrete swatches (or asking) before touching any Tailwind classes, not guessing.
+- Whether to eventually delete the now-unreferenced `MenuIcon` from `icons.tsx` (Sidebar no longer uses it) — left in place this session on the "don't delete things that might still be wanted" side of caution; flagging in case a future cleanup pass wants to sweep it.
 
 ---
 
 ## Verify
 
 ```bash
-# 1. Typecheck (strict), lint, tests -- expect clean; oxlint prints ONE
-#    pre-existing warning about a missing 'handleUndo' dep in Board.tsx
-#    (present since before this session, unrelated to M11).
-npx tsc -b --noEmit
-npx oxlint
-npm test                      # expect: 11 files, 75 tests, all passing (unchanged from M10)
-
-# 2. Working tree -- expect clean, nothing untracked
-git status --short
-
-# 3. Everything pushed -- expect EMPTY
-git log origin/main..HEAD --oneline
-
-# 4. Most recent commits -- expect 6c2dd0a then 91fc842 (M11 drag fix, then M11 sidebar)
-git log --oneline -5
-
-# 5. Run locally on a real touch device (phone/tablet) or the iOS Simulator,
-#    then: (a) confirm the sidebar expands on tap without needing hover,
-#    (b) drag a card between board columns and confirm it moves the card
-#    rather than scrolling the page.
-npm run dev
+npx tsc --noEmit -p tsconfig.app.json   # expect: "TypeScript: No errors found"
+git log --oneline -3                     # expect 9e01005 at top, origin/main matching (git status shows clean, ahead/behind nothing)
+curl -s https://jobtracker.fazare.dev/favicon.svg   # expect the new SVG (circle #1c3a27, checkmark badge #1fa04e), not the old purple one
 ```
 
-- **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`) — this session's two pushes have not been separately re-checked against production; the Actions tab is worth a glance if anything looks off.
-- **Already verified, don't redo:** Sidebar tap-to-expand/collapse confirmed via accessibility tree in a 375×812 browser-preview viewport (independent of mouse hover). Touch drag-and-drop confirmed live in the iOS Simulator (iPhone 17, Safari) both before the fix (card drag scrolled the board instead of moving) and after (card correctly moved from "Applied" to "Eyes on" via a real multi-point touch gesture).
+Visual check: open `https://jobtracker.fazare.dev` in a fresh/incognito tab — sidebar top-left shows the green folder+check mark plus "JobTracker" on hover-expand; page header (top of board view) shows the same mark + "JobTracker" with no separate page title; Archive view header reads "JobTracker / Archive".
