@@ -80,7 +80,7 @@ export function Sidebar({
 
   return (
     <nav
-      className={`group h-screen sticky top-0 shrink-0 hover:w-56 transition-[width] duration-150 bg-white border-r border-ink-200 flex flex-col overflow-hidden py-3 gap-1 ${
+      className={`group h-screen sticky top-0 shrink-0 hover:w-56 transition-[width] duration-150 bg-ink-200 border-r border-ink-300 flex flex-col overflow-hidden py-3 gap-1 ${
         expanded ? 'w-56' : 'w-14'
       }`}
     >
