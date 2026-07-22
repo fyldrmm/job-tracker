@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Job Tracker — Extract Job Details",
+  "version": "0.1.0",
+  "description": "Send the job posting you're viewing to Job Tracker so AI can pre-fill the add-application form.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Send to Job Tracker"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": [
+    "https://jobtracker.fazare.dev/*",
+    "http://localhost:5173/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://jobtracker.fazare.dev/*", "http://localhost:5173/*"],
+      "js": ["content-bridge.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
