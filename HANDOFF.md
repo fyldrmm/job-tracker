@@ -6,81 +6,82 @@
 
 ## Session scope
 
-Closed out the remainder of `AUDIT.md`: section C (missing pieces), section D (needs-verification), the M6-regression bug that section D surfaced, and then built C6 (guest extraction discoverability) properly once the user revealed the feature is going into ad campaigns. Ended with a "mention AI everywhere" copy pass.
+Fixed a stale `HANDOFF.md` left by the prior session, then built and shipped all 4 of the user's proposed features end-to-end: a right-click context menu (idea 3), a manual "most wanted" priority flag (idea 1), and a browser extension for job-detail extraction (idea 2, split into B1 receive-path + B2 the extension itself) — idea 4 (rename trackers) was already shipped pre-session. Closed with an archive pass moving finished milestones out of `PLAN.md` into `PLAN-ARCHIVE.md`.
 
 ---
 
 ## Commits this session
 
 ```
-f4e6bbd Add audit findings, session prompt log, and repo-setup notes
-238594b Split PLAN.md into active status + PLAN-ARCHIVE.md for completed history
-ac938a0 Remove 10 unused skills to cut per-turn token overhead
-6d8a25d /handoff: session delta -- audit closeout + C6 discoverability
-7238d88 Record C6 discoverability as done in PLAN.md; refresh status
-d415b34 Mention AI wherever extraction is mentioned to users
-ba17a71 Move the extraction promo to the empty-board state only; animate the demo
-744b492 Make screenshot extraction discoverable to guests (C6)
-48e7ca1 Record the M6-regression fix in PLAN.md; close it out in status/postponed
-5311696 Fix stale pending-signup flag: reopened M6, found during D4
-7989052 Refresh the stale Postponed/deferred section to match the closed audit
-3245087 Record live confirmation of all D-section fixes (D3, D4, D5, D7)
-b818d7c Record Section D closeout in PLAN.md, log the M6-reproduction bug
-f2734cb Fix sign-up dead end for an already-registered email (D4)
-f20e641 Add a deploy version marker and log failed password checks (D3/D5)
-81e97ab Update PLAN.md: correct the false H2 claim, record Section C closeout
-d2db730 Add global error handlers, routed through the existing toast (C4)
-80e92f2 Add a real contact address to the account-deletion email (C5)
-bd014e9 Fix the privacy policy (H2 from AUDIT.md) -- never actually shipped
-80160dc Rule out C2 (import/restore): would let users reset the extraction quota
-a5b8f86 Resolve D1 (Supabase spend cap): moot on the free plan
+c233a5d Archive finished milestones: permanent-delete + four user-proposed features
+ef1bac9 Record B2 as live-verified in PLAN.md: user confirmed end-to-end in fresh Chrome
+c57ca07 Add browser extension for job-detail extraction (B2)
+9dacb7d Record B1 (extension receive path) as done in PLAN.md
+f2f7ab7 Add browser-extension receive path: text extraction + sign-in wall (B1)
+febc817 Record most-wanted priority flag (idea 1) as done in PLAN.md
+81e51ed Add manual "most wanted" priority flag with accent color (idea 1)
+b70878c Record right-click context menu (idea 3) as done in PLAN.md
+a6b3c16 Add right-click context menu for fast card actions (idea 3)
+9c3aea5 Fix HANDOFF.md to match actual repo state after session continued past prior /handoff
 ```
 
-All pushed (`git log origin/main..HEAD` empty). Nothing stashed, no scratch branches. Working tree fully clean — `AUDIT.md`, `claude-code-prompts.md`, `repo-setup.md` are now committed (`f4e6bbd`), not untracked. Session continued past the first `/handoff` (`6d8a25d`) to also prune 10 unused skills (`ac938a0`) and split `PLAN.md`/`PLAN-ARCHIVE.md` (`238594b`).
+All pushed (`git log origin/main..HEAD` empty, confirmed after the final commit). Nothing stashed, no scratch branches. Working tree fully clean.
 
 ---
 
 ## Exact stopping point
 
-**Nothing is in progress, stubbed, broken, or half-migrated.** Every commit above is complete, typechecked, linted, tested, pushed, and CI-green. This is a clean boundary.
+**Nothing is in progress, stubbed, broken, or half-migrated.** Every commit above is complete, typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — see Verify below), tested (61/61 passing), pushed, and — for everything that could be — live-verified by the user. This is a clean boundary with no queued work.
 
-Test suite is now **39 tests across 6 files, all passing** (was 34 at the start of the C6 work; C6 added 5 in `Board.test.tsx`). `src/components/Board.migration.test.tsx` (the repo's first signed-in test coverage, added by the earlier `5311696` M6 fix) is included in that count.
+Both Supabase manual steps this session required are **done and user-confirmed**: `0009_priority.sql` run in the dashboard, and `extract-job-details` redeployed with the text-extraction branch (confirmed this session via `curl -sI -X OPTIONS https://fjlmyaamarnjlthbhycx.functions.supabase.co/extract-job-details` returning `x-function-version: extract-job-details@2026-07-22.1`).
 
-All Supabase dashboard steps this session required are **done and user-confirmed**: both Edge Functions redeployed for D3/D5 (`f20e641`), and `extract-job-details` redeployed again for the `d415b34` quota-message wording. There are **no outstanding manual steps.**
+The browser extension's manual QA checklist (`extension/README.md`) is also done — user loaded it unpacked in a **fresh** Chrome install (not a pre-configured one) and confirmed a real job posting correctly pre-filled the add-application form end-to-end.
 
-Files touched by the C6 work, for orientation:
-- `src/components/ExtractionPromo.tsx` (new) — guest-only card, rendered at `Board.tsx:574` inside the `!activeTrackerHasApplications` empty-state branch, guarded `{!user && ...}`.
-- `src/components/ExtractionDemoAnimation.tsx` (new) — inline animated SVG; keyframes are in `src/index.css` (`extraction-demo-arrow`, `-field-1/2/3`).
-- `src/components/ApplicationForm.tsx` — new `onRequestSignUp` prop; guest in-form hint fills the `{!isEdit && !isSignedIn}` slot (~line 182); real button relabeled "Extract with AI".
-- `src/components/Board.tsx` — imports/renders `ExtractionPromo`; passes `onRequestSignUp={() => setAuthModalMode('sign-up')}` to `ApplicationForm`.
-- `src/components/PrivacyPolicy.tsx` — button-label quote kept in sync with the "Extract with AI" rename.
-- `supabase/functions/extract-job-details/index.ts` — 429 quota message reworded to "free AI extractions" (redeployed).
+Files/dirs touched this session, for orientation:
+- `src/components/ContextMenu.tsx` (new) — generic fixed-position popup menu; right-click or a card's kebab (⋮) button opens it.
+- `src/components/Card.tsx` — right-click handler, kebab button, `buildMenuItems()`.
+- `src/components/Column.tsx`, `src/components/Board.tsx` — threaded `onArchive`/`onDeleteRequest`/`onTogglePriority` down to `Card`.
+- `src/hooks/useApplications.ts` — new `togglePriority(id)`, `is_priority: false` default on create.
+- `src/types/application.ts` — `is_priority: boolean` added to `Application`.
+- `src/components/CardVisual.tsx` — amber left-border + star icon accent when `is_priority`.
+- `src/components/CardDetail.tsx` — star toggle button in the header.
+- `src/components/icons.tsx` — new `StarIcon`.
+- `supabase/migrations/0009_priority.sql` (new) — `is_priority boolean not null default false`.
+- `supabase/functions/extract-job-details/index.ts` — new `{text, sourceUrl}` branch alongside the existing `{imageBase64,mediaType}` one; `FUNCTION_VERSION` bumped to `2026-07-22.1`.
+- `src/lib/extensionHandoff.ts` (new) — the `window.postMessage` wire contract, origin+source validated.
+- `src/lib/remoteStore.ts` — `extractJobDetailsFromText()`.
+- `src/components/ApplicationForm.tsx` — optional `prefill` prop for add-mode.
+- `src/components/Board.tsx` — `message` listener, sign-in wall + `sessionStorage`-held payload + `migrationSettled`-gated auto-resume.
+- `extension/` (new dir) — `manifest.json`, `popup.html`/`popup.js`, `background.js`, `content-bridge.js`, `README.md`. Chrome MV3, vanilla JS, no build step.
+- `PLAN.md` / `PLAN-ARCHIVE.md` — "Permanently delete an application" and "Four user-proposed features" milestones moved from the former into the latter (both were already done before this session's archive pass, except the four-features one which this session finished).
 
 ---
 
 ## Next action
 
-No queued work. `AUDIT.md` is fully closed, C6 shipped, working tree clean. The next session picks a new milestone or product direction — there is no obvious forced next step. Candidate loose threads, none blocking, are in `PLAN.md` "Postponed / deferred" (notably **D6** — the Anthropic balance/auto-reload decision, still genuinely unmade, worth revisiting once real extraction volume exists).
+No queued work. All 4 user-proposed features are shipped and live-verified. `PLAN.md`'s "Current status" → "Next action" line says the same: pick the next milestone or product direction. Two loose threads exist, neither blocking (see `PLAN.md` "Postponed / deferred"):
+- **D6 — Anthropic account balance / auto-reload decision**, still genuinely unmade, more relevant now that the extension may raise extraction volume.
+- **The "M1, M2, M3, M4, M5, M7 remaining Mediums" / "C2, C4, C5 remaining missing pieces" checklist items under "Codebase audit + remediation"** (`PLAN.md` line ~86-87) — these show as unchecked but `PLAN.md`'s "Current status" text (lines 23-24) claims all of them are done via named batches/commits. This contradiction predates this session (flagged, not investigated, deliberately left alone as out-of-scope for this session's work) — worth a `git log --grep` completeness check against `AUDIT.md`'s finding IDs before trusting either claim.
 
 ---
 
 ## Learned this session
 
-Durable findings already went into `PLAN.md`'s "Decisions & notes" (H2's process-failure story, the C2→guest-export chain, C4's `window`-identity bug + jsdom `ErrorEvent` trivia, the full C6 design rationale incl. the SVG/reduced-motion pattern and the `aria-label` collision). Not repeated here. What's left that fits nowhere else:
-
-- **The `x-function-version` marker (D3) only works if you bump the constant on every deploy.** It's in `FUNCTION_VERSION` in both functions, ridden out on `CORS_HEADERS`. Forgetting to bump is the *same* failure mode as forgetting to deploy, so it's a cheaper check, not a guarantee. The real one-time drift answer for *this* session was the user's manual dashboard-vs-repo diff (no drift found). Verify a deploy with `curl -sI -X OPTIONS <function-url>` and read `x-function-version`.
-- **A live UI check right after a Cloudflare deploy can show a false *negative* from a cached page**, not just the false-positive direction you'd expect. During D4 verification the user first saw the *old* copy; a hard refresh showed the correct new copy. Budget for a hard-refresh step before concluding "the deploy didn't take."
-- **D5's rate-limit is almost certainly project-wide, not per-attacker.** The password check runs *inside* the Edge Function, so GoTrue sees the function's own egress IP, and the governing setting ("Rate limit for sign-ups and sign-ins", 30/5min per IP) is therefore shared across every user's password checks. This is recorded in `PLAN.md` but bears repeating: it throttles a sustained guessing attack but a burst of legitimate traffic could also trip it — a genuine tradeoff, not a "turn it up" fix.
-- **This environment cannot generate a real GIF/bitmap.** When the user asked for a GIF, the honest answer was an animated SVG instead (better here on every axis, and it's what shipped). Flag this upfront rather than attempting a fake.
-- **Live-auth flows still can't be driven end-to-end from inside this environment** (unchanged all session). Everything touching a real Supabase session — the D3/D5 redeploys, the D4 already-registered-email test, the D5 log-line check, the D7 enum query — was handed to the user for live QA and confirmed by them. Plan for that split.
+- **A ContextMenu (or any popup) rendered inside a draggable/clickable card's own DOM subtree still bubbles clicks to the card's handlers, even when visually repositioned via `position: fixed`.** `ContextMenu`'s menu-item clicks weren't calling `stopPropagation()` at first, so selecting a menu item re-triggered `Card`'s click-count debounce and silently reopened the detail view ~250ms later. Fixed with `event.stopPropagation()` in the item's `onClick`. Caught only by manually verifying in the actual browser (ref-based clicks via the Browser pane's `read_page`/`computer` tools) — the original unit tests didn't catch it because they never modeled the DOM-nesting relationship. A regression test now exists (`Board.test.tsx`, "does not reopen the detail view after choosing a context menu action").
+- **`Board.tsx`'s `detailApplication` was a one-time snapshot, not derived state.** It was set once when `CardDetail` opened and never updated again, so any mutation applied while the panel stayed open (a stage move via the new context menu, or the new priority toggle) didn't show until the panel was closed and reopened — e.g. moving a card to "Offer" from the context menu while its detail panel was open still showed "Interview" in the panel. Fixed by storing just the id (`detailApplicationId`) and deriving the live object from `applications` by id on every render. This was a real pre-existing bug the new features exposed, not something the features themselves introduced.
+- **The Browser pane's `computer` tool coordinate space doesn't reliably match `read_page`'s reported viewport (1280×720) or the screenshot's labeled size (800×450) 1:1** — literal pixel-guessed clicks from a screenshot missed their targets more than once this session (e.g. clicking "Close" or a menu item by eyeballed coordinates). Ref-based clicks (`computer{action, ref}` using a `ref_N` from a fresh `read_page`) were reliable every time; coordinate-guessed clicks were not. Prefer refs going forward, and re-run `read_page` after any DOM change rather than reusing refs across screenshots.
+- **A macOS full-disk-access/TCC hiccup can transiently break `ls`/`git` on the whole `~/Desktop` tree**, not just the repo — happened mid-session (all Bash commands returned "Operation not permitted" even for `ls /Users/burak2/Desktop/`), unrelated to anything in this repo. User confirmed the permission grant looked correct in System Settings and a restart of the app hosting the session fixed it. Not a repo issue; if it recurs, restart first before assuming disk corruption or a repo problem.
+- **MV3 extension icons must be raster PNGs** — this environment can't reliably produce a bitmap image, so `extension/` ships with no `icons` key in `manifest.json` and Chrome shows its default icon. Documented as a known, non-blocking limitation in `extension/README.md` rather than attempted with a fake/placeholder asset.
+- **Chrome extension APIs (`chrome.scripting`, `chrome.tabs`, `chrome.storage`, cross-tab `postMessage`) have no jsdom equivalent**, unlike B1's receive-path code (which does have full unit/integration coverage via a synthetic `message` event, same pattern as the existing C4 global-error test). B2's manual QA checklist in `extension/README.md` was the only way to verify it, and needed a real Chrome browser this environment doesn't have — entirely the user's to run, and it passed on the first try in a fresh Chrome install.
 
 ---
 
 ## Open questions
 
-- **D6 — Anthropic balance / auto-reload.** The only genuinely open decision. Deferred pending real extraction volume; see `PLAN.md`.
-- **C6 effectiveness is unmeasured.** The discoverability work is built and correct, but whether it actually converts ad traffic is an empirical question the code can't answer — worth watching once ads run. No instrumentation exists for it (and C4 added error telemetry, not analytics — there's no event tracking anywhere in the app).
-- **Should `AUDIT.md` be committed?** Still untracked by the user's earlier choice. It's load-bearing (commit messages reference its IDs) but survives only on disk, not in a fresh clone. Unchanged from prior handoffs; user hasn't decided.
+- **D6 — Anthropic balance / auto-reload.** Still unmade; see "Next action" above.
+- **The audit-checklist contradiction** noted above under "Next action" — needs a `git log --grep` pass against `AUDIT.md`'s finding IDs to resolve, not investigated this session.
+- **No custom extension icon.** Not required for function, but cosmetic polish the user may want eventually — see `extension/README.md`'s "Known limitation" section for exactly what to drop in (`icon16.png`/`icon48.png`/`icon128.png` + an `"icons"` block in `manifest.json`).
+- **Generic-scrape-only extraction (no per-site LinkedIn/Indeed parsers).** Explicitly agreed as MVP scope with the user, to extend later if the generic `document.body.innerText` approach proves insufficient on any particular site.
 
 ---
 
@@ -91,7 +92,7 @@ Durable findings already went into `PLAN.md`'s "Decisions & notes" (H2's process
 #    pre-existing warning about a missing 'handleUndo' dep in Board.tsx
 npx tsc -b --noEmit
 npx oxlint
-npm test                      # expect: 6 files, 39 tests, all passing
+npm test                      # expect: 8 files, 61 tests, all passing
 
 # 2. Working tree -- expect clean, nothing untracked
 git status --short
@@ -99,15 +100,19 @@ git status --short
 # 3. Everything pushed -- expect EMPTY
 git log origin/main..HEAD --oneline
 
-# 4. Most recent commit -- expect f4e6bbd (docs), with d415b34
-#    "Mention AI wherever extraction is mentioned to users" as the most
+# 4. Most recent commit -- expect c233a5d (docs/archive), with c57ca07
+#    "Add browser extension for job-detail extraction (B2)" as the most
 #    recent CODE commit further back.
 git log --oneline -3
 
-# 5. Run locally
+# 5. Confirm the Edge Function redeploy is still live
+curl -sI -X OPTIONS https://fjlmyaamarnjlthbhycx.functions.supabase.co/extract-job-details | grep -i x-function-version
+#   expect: x-function-version: extract-job-details@2026-07-22.1
+
+# 6. Run locally
 npm run dev
 ```
 
 - **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`).
-- **Deployed Edge Functions match repo:** `curl -sI -X OPTIONS https://fjlmyaamarnjlthbhycx.functions.supabase.co/account-action` (and `.../extract-job-details`) should return `x-function-version` matching the `FUNCTION_VERSION` constants in the repo.
-- **Already verified, don't redo:** all of section D live (user-confirmed), the C6 empty-state promo + in-form hint + animation + reduced-motion wiring (verified live in the preview browser, guest data restored after), and the "mention AI" copy across promo/hint/privacy page.
+- **Browser extension:** `extension/` — load unpacked via `chrome://extensions` → Developer mode → Load unpacked. See `extension/README.md` for the full manual QA checklist (already run once, passing, by the user this session).
+- **Already verified, don't redo:** everything under "Session scope" above — the context menu (right-click + kebab, all actions), the priority flag (both toggle paths, board/detail-panel sync), and the full extension flow (guest sign-in-wall + auto-resume, signed-in direct prefill, already-open-tab focus) were all confirmed live this session, either by Claude in the preview browser or by the user in a real Chrome install.
