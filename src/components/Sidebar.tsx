@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   BoardIcon,
   ArchiveIcon,
@@ -9,6 +9,7 @@ import {
   UserPlusIcon,
   CoffeeIcon,
   BellIcon,
+  MenuIcon,
 } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
@@ -33,9 +34,10 @@ interface NavItemProps {
   badge?: number
   active?: boolean
   onClick: () => void
+  expanded: boolean
 }
 
-function NavItem({ icon, label, badge, active, onClick }: NavItemProps) {
+function NavItem({ icon, label, badge, active, onClick, expanded }: NavItemProps) {
   return (
     <button
       type="button"
@@ -46,7 +48,11 @@ function NavItem({ icon, label, badge, active, onClick }: NavItemProps) {
       }`}
     >
       <span className="shrink-0 w-5 h-5">{icon}</span>
-      <span className="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-1.5 overflow-hidden">
+      <span
+        className={`opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-1.5 overflow-hidden ${
+          expanded ? '!opacity-100' : ''
+        }`}
+      >
         {label}
         {badge !== undefined && badge > 0 && (
           <span className="text-xs text-slate-400 font-normal">{badge}</span>
@@ -70,24 +76,45 @@ export function Sidebar({
   remindersBlocked,
   onToggleReminders,
 }: SidebarProps) {
+  const [expanded, setExpanded] = useState(false)
+
   return (
-    <nav className="group h-screen sticky top-0 shrink-0 w-14 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1">
-      <div className="px-4 py-2 mb-1">
-        <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+    <nav
+      className={`group h-screen sticky top-0 shrink-0 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1 ${
+        expanded ? 'w-56' : 'w-14'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        aria-expanded={expanded}
+        className="flex items-center gap-3 w-full px-4 py-2 mb-1 text-slate-400 hover:text-slate-600 rounded-md"
+      >
+        <span className="shrink-0 w-5 h-5">
+          <MenuIcon />
+        </span>
+        <span
+          className={`text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+            expanded ? '!opacity-100' : ''
+          }`}
+        >
           Tracker
         </span>
-      </div>
+      </button>
       <NavItem
         icon={<BoardIcon />}
         label="Job Tracker"
         active={view === 'board'}
         onClick={() => onNavigate('board')}
+        expanded={expanded}
       />
       <NavItem
         icon={<ListIcon />}
         label="Table"
         active={view === 'table'}
         onClick={() => onNavigate('table')}
+        expanded={expanded}
       />
       <NavItem
         icon={<ArchiveIcon />}
@@ -95,6 +122,7 @@ export function Sidebar({
         badge={archivedCount}
         active={view === 'archive'}
         onClick={() => onNavigate('archive')}
+        expanded={expanded}
       />
 
       <div className="flex-1" />
@@ -105,6 +133,7 @@ export function Sidebar({
         icon={<CoffeeIcon />}
         label="Support this project"
         onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
+        expanded={expanded}
       />
 
       <button
@@ -119,7 +148,11 @@ export function Sidebar({
         <span className="shrink-0 w-5 h-5">
           <BellIcon />
         </span>
-        <span className="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-1.5 overflow-hidden">
+        <span
+          className={`opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-1.5 overflow-hidden ${
+            expanded ? '!opacity-100' : ''
+          }`}
+        >
           {remindersBlocked ? 'Reminders blocked' : remindersEnabled ? 'Reminders on' : 'Reminders off'}
         </span>
       </button>
@@ -127,19 +160,23 @@ export function Sidebar({
       <div className="border-t border-slate-200 my-2" />
 
       <div className="px-4 py-2 mb-1">
-        <span className="text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+        <span
+          className={`text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+            expanded ? '!opacity-100' : ''
+          }`}
+        >
           Account
         </span>
       </div>
       {isSignedIn ? (
         <>
-          <NavItem icon={<UserIcon />} label={displayName} onClick={onOpenAccount} />
-          <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} />
+          <NavItem icon={<UserIcon />} label={displayName} onClick={onOpenAccount} expanded={expanded} />
+          <NavItem icon={<LogoutIcon />} label="Sign out" onClick={onSignOut} expanded={expanded} />
         </>
       ) : (
         <>
-          <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} />
-          <NavItem icon={<LoginIcon />} label="Log in" onClick={onLogIn} />
+          <NavItem icon={<UserPlusIcon />} label="Sign up" onClick={onSignUp} expanded={expanded} />
+          <NavItem icon={<LoginIcon />} label="Log in" onClick={onLogIn} expanded={expanded} />
         </>
       )}
     </nav>
