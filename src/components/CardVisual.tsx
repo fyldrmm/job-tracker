@@ -1,5 +1,6 @@
 import type { Application } from '../types/application'
 import { formatDate } from '../lib/format'
+import { StarIcon } from './icons'
 
 interface CardVisualProps {
   application: Application
@@ -16,12 +17,23 @@ function isStale(application: Application): boolean {
 export function CardVisual({ application, dragging }: CardVisualProps) {
   return (
     <div
-      className={`w-full text-left bg-white rounded-md border border-slate-200 p-3 transition select-none ${
-        dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-slate-300'
-      }`}
+      className={`w-full text-left bg-white rounded-md border p-3 transition select-none ${
+        application.is_priority ? 'border-l-4 border-l-amber-400 border-slate-200' : 'border-slate-200'
+      } ${dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-slate-300'}`}
     >
-      <div className="font-medium text-slate-800 text-sm truncate">{application.company}</div>
-      <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
+      <div className="flex items-start gap-1">
+        {application.is_priority && (
+          <StarIcon
+            role="img"
+            aria-label="Most wanted"
+            className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-400 fill-amber-400"
+          />
+        )}
+        <div className="min-w-0">
+          <div className="font-medium text-slate-800 text-sm truncate">{application.company}</div>
+          <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
+        </div>
+      </div>
       <div className="flex items-center justify-between mt-1">
         <span className="text-slate-400 text-xs">{formatDate(application.date_applied)}</span>
         {isStale(application) && (

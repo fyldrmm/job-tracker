@@ -80,6 +80,14 @@ export function NoteIcon(props: IconProps) {
   )
 }
 
+export function StarIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.15 1 5.85L12 16.9l-5.25 2.8 1-5.85L3.5 9.7l5.9-.9z" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function CoffeeIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

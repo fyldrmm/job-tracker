@@ -6,7 +6,7 @@ import { STAGE_LABELS } from '../lib/stages'
 import { ARCHIVE_REASON_LABELS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { ArchiveSplitButton } from './ArchiveSplitButton'
-import { TrashIcon } from './icons'
+import { TrashIcon, StarIcon } from './icons'
 
 interface CardDetailProps {
   application: Application
@@ -15,6 +15,7 @@ interface CardDetailProps {
   onClose: () => void
   onArchive: (reason: ArchiveReason) => void
   onDeleteRequest: (application: Application) => void
+  onTogglePriority: () => void
 }
 
 interface FieldProps {
@@ -49,6 +50,7 @@ export function CardDetail({
   onClose,
   onArchive,
   onDeleteRequest,
+  onTogglePriority,
 }: CardDetailProps) {
   useModalDismiss(onClose)
   return (
@@ -67,14 +69,27 @@ export function CardDetail({
             <h2 className="text-lg font-medium text-slate-800">{application.company}</h2>
             <p className="text-slate-600 text-sm">{application.role_title}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="text-slate-400 hover:text-slate-700 text-lg leading-none"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={onTogglePriority}
+              aria-pressed={application.is_priority}
+              aria-label={application.is_priority ? 'Remove from most wanted' : 'Mark as most wanted'}
+              className={`p-1.5 rounded-md hover:bg-slate-100 ${
+                application.is_priority ? 'text-amber-400' : 'text-slate-300 hover:text-slate-500'
+              }`}
+            >
+              <StarIcon className={`w-5 h-5 ${application.is_priority ? 'fill-amber-400' : ''}`} />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="text-slate-400 hover:text-slate-700 text-lg leading-none px-1"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <dl className="divide-y divide-slate-100 mt-2">

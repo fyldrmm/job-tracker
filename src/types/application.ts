@@ -28,6 +28,7 @@ export interface Application {
   employment_type: EmploymentType | null
   work_mode: WorkMode | null
   notes: string | null
+  is_priority: boolean
   is_archived: boolean
   archive_reason: ArchiveReason | null
   archived_at: string | null

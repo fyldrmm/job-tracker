@@ -67,6 +67,7 @@ export function Board() {
     createApplication,
     updateApplication,
     moveApplicationStage,
+    togglePriority,
     archiveApplication,
     unarchiveApplication,
     deleteApplication,
@@ -84,7 +85,15 @@ export function Board() {
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
   const [deleteApplicationTarget, setDeleteApplicationTarget] = useState<Application | null>(null)
   const [formState, setFormState] = useState<FormState>(null)
-  const [detailApplication, setDetailApplication] = useState<Application | null>(null)
+  // Stores an id, not a snapshot -- CardDetail must reflect live state (e.g.
+  // a stage move or priority toggle applied while it's open), not the
+  // object as it looked the moment it was opened. detailApplication below
+  // is derived fresh from `applications` on every render.
+  const [detailApplicationId, setDetailApplicationId] = useState<string | null>(null)
+  const detailApplication = applications.find((app) => app.id === detailApplicationId) ?? null
+  function setDetailApplication(application: Application | null) {
+    setDetailApplicationId(application?.id ?? null)
+  }
   const [activeId, setActiveId] = useState<string | null>(null)
   const [view, setView] = useState<View>('board')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
@@ -359,6 +368,12 @@ export function Board() {
     }
   }
 
+  function handleTogglePriority(application: Application) {
+    togglePriority(application.id).catch((err) =>
+      showError(err, 'Could not update the application. Please try again.'),
+    )
+  }
+
   async function handleSignOut() {
     // The local IndexedDB store is a write-through cache of whatever
     // account is signed in (see useApplications/useTrackers). Without
@@ -596,6 +611,7 @@ export function Board() {
                   onCardRetreat={handleCardRetreat}
                   onCardArchive={(application) => handleArchive(application, 'rejected')}
                   onCardDeleteRequest={setDeleteApplicationTarget}
+                  onCardTogglePriority={handleTogglePriority}
                 />
               ))}
             </div>
@@ -649,6 +665,7 @@ export function Board() {
           onClose={() => setDetailApplication(null)}
           onArchive={(reason) => handleArchive(detailApplication, reason)}
           onDeleteRequest={setDeleteApplicationTarget}
+          onTogglePriority={() => handleTogglePriority(detailApplication)}
         />
       )}
 

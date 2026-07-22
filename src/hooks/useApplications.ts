@@ -91,6 +91,7 @@ export function useApplications(userId: string | null) {
         user_id: userId,
         tracker_id: trackerId,
         ...input,
+        is_priority: false,
         is_archived: false,
         archive_reason: null,
         archived_at: null,
@@ -166,6 +167,27 @@ export function useApplications(userId: string | null) {
     [applications, userId, refresh],
   )
 
+  // Deliberately doesn't touch updated_at -- it's a metadata flag, not
+  // activity on the application, and the "stale" indicator (CardVisual.tsx)
+  // watches updated_at to mean "no real activity in N days." Bumping it
+  // here would let starring a card silently clear its stale badge.
+  const togglePriority = useCallback(
+    async (id: string) => {
+      const existing = applications.find((app) => app.id === id)
+      if (!existing) return
+      const updated: Application = { ...existing, is_priority: !existing.is_priority }
+      setApplications((prev) => prev.map((app) => (app.id === id ? updated : app)))
+      try {
+        await persistApplication(updated, userId)
+        await refresh()
+      } catch (err) {
+        setApplications((prev) => prev.map((app) => (app.id === id ? existing : app)))
+        throw err
+      }
+    },
+    [applications, userId, refresh],
+  )
+
   const unarchiveApplication = useCallback(
     async (id: string) => {
       const existing = applications.find((app) => app.id === id)
@@ -203,6 +225,7 @@ export function useApplications(userId: string | null) {
     createApplication,
     updateApplication,
     moveApplicationStage,
+    togglePriority,
     archiveApplication,
     unarchiveApplication,
     deleteApplication,

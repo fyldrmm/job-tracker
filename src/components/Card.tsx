@@ -13,11 +13,20 @@ interface CardProps {
   onRetreat: () => void
   onArchive: () => void
   onDeleteRequest: () => void
+  onTogglePriority: () => void
 }
 
 const CLICK_DELAY_MS = 250
 
-export function Card({ application, onOpenDetail, onAdvance, onRetreat, onArchive, onDeleteRequest }: CardProps) {
+export function Card({
+  application,
+  onOpenDetail,
+  onAdvance,
+  onRetreat,
+  onArchive,
+  onDeleteRequest,
+  onTogglePriority,
+}: CardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: application.id,
   })
@@ -40,6 +49,10 @@ export function Card({ application, onOpenDetail, onAdvance, onRetreat, onArchiv
         onSelect: () => window.open(application.job_link!, '_blank', 'noopener,noreferrer'),
       })
     }
+    items.push({
+      label: application.is_priority ? 'Remove from most wanted' : 'Mark as most wanted',
+      onSelect: onTogglePriority,
+    })
     items.push({ label: 'Archive', onSelect: onArchive })
     items.push({ label: 'Delete', onSelect: onDeleteRequest, danger: true })
     return items

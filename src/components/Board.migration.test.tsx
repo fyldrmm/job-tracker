@@ -84,6 +84,7 @@ function makeGuestApplication(trackerId: string, overrides: Partial<Application>
     employment_type: null,
     work_mode: null,
     notes: null,
+    is_priority: false,
     is_archived: false,
     archive_reason: null,
     archived_at: null,

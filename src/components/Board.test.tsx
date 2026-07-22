@@ -128,6 +128,35 @@ describe('Board card context menu', () => {
     expect(await screen.findByText('Delete "Acme Corp"?')).toBeInTheDocument()
     expect(screen.getByText('Acme Corp')).toBeInTheDocument()
   })
+
+  it('marks a card as most wanted from the context menu, and can unmark it again', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addApplication(user, 'Acme Corp')
+
+    const card = screen.getByText('Acme Corp').closest('div[role="button"]') as HTMLElement
+    await user.click(within(card).getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Mark as most wanted' }))
+
+    await screen.findByLabelText('Most wanted')
+
+    await user.click(within(card).getByRole('button', { name: 'More actions' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove from most wanted' }))
+
+    await waitFor(() => expect(screen.queryByLabelText('Most wanted')).not.toBeInTheDocument())
+  })
+
+  it('toggles most-wanted from the card detail panel too', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addApplication(user, 'Acme Corp')
+
+    await user.click(screen.getByText('Acme Corp'))
+    const toggle = await screen.findByRole('button', { name: 'Mark as most wanted' })
+    await user.click(toggle)
+
+    expect(await screen.findByRole('button', { name: 'Remove from most wanted' })).toBeInTheDocument()
+  })
 })
 
 describe('Board global error surfacing (AUDIT.md C4)', () => {
