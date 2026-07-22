@@ -114,6 +114,14 @@ export function BellIcon(props: IconProps) {
   )
 }
 
+export function ChartIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 20V10M12 20V4M20 20v-7" />
+    </svg>
+  )
+}
+
 export function CoffeeIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>

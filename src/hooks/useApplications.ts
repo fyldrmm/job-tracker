@@ -99,6 +99,22 @@ export function useApplications(userId: string | null) {
         updated_at: now,
       }
       await persistApplication(application, userId)
+      // Record the stage the card was created into as its first stage_history
+      // row, so "which stages did this application actually occupy" is
+      // answerable from history alone (see src/lib/insights.ts). Without this,
+      // a card created into a stage and never dragged leaves no trace of that
+      // starting stage, and a card dragged straight past a stage looks like it
+      // was never anywhere before its destination. Written after the
+      // application row so the remote FK (stage_history.application_id) resolves.
+      await persistStageHistoryEntry(
+        {
+          id: crypto.randomUUID(),
+          application_id: application.id,
+          stage: application.current_stage,
+          entered_at: now,
+        },
+        userId,
+      )
       await refresh()
     },
     [userId, refresh],

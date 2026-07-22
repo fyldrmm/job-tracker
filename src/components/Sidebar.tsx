@@ -3,6 +3,7 @@ import {
   BoardIcon,
   ArchiveIcon,
   ListIcon,
+  ChartIcon,
   LogoutIcon,
   LoginIcon,
   UserIcon,
@@ -14,8 +15,8 @@ import { LogoMark } from './Logo'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
-  view: 'board' | 'archive' | 'table' | 'privacy'
-  onNavigate: (view: 'board' | 'archive' | 'table') => void
+  view: 'board' | 'archive' | 'table' | 'insights' | 'privacy'
+  onNavigate: (view: 'board' | 'archive' | 'table' | 'insights') => void
   archivedCount: number
   isSignedIn: boolean
   displayName: string
@@ -122,6 +123,13 @@ export function Sidebar({
         badge={archivedCount}
         active={view === 'archive'}
         onClick={() => onNavigate('archive')}
+        expanded={expanded}
+      />
+      <NavItem
+        icon={<ChartIcon />}
+        label="Insights"
+        active={view === 'insights'}
+        onClick={() => onNavigate('insights')}
         expanded={expanded}
       />
 

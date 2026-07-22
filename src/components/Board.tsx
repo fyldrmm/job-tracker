@@ -13,6 +13,7 @@ import {
 import type { Application, ApplicationStage, ArchiveReason, Tracker } from '../types/application'
 import { useApplications } from '../hooks/useApplications'
 import { useTrackers } from '../hooks/useTrackers'
+import { useStageHistory } from '../hooks/useStageHistory'
 import { useAuth } from '../hooks/useAuth'
 import { useStaleReminders } from '../hooks/useStaleReminders'
 import { getRemindersEnabled, setRemindersEnabled } from '../lib/reminders'
@@ -40,6 +41,7 @@ import { CardDetail } from './CardDetail'
 import { CardVisual } from './CardVisual'
 import { ArchiveView } from './ArchiveView'
 import { TableView } from './TableView'
+import { InsightsView } from './InsightsView'
 import { UndoToast } from './UndoToast'
 import { ErrorToast } from './ErrorToast'
 import { AuthModal } from './AuthModal'
@@ -61,7 +63,7 @@ type FormState =
   | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
   | { mode: 'edit'; application: Application }
   | null
-type View = 'board' | 'archive' | 'table' | 'privacy'
+type View = 'board' | 'archive' | 'table' | 'insights' | 'privacy'
 
 const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
@@ -99,6 +101,7 @@ export function Board() {
     removeTracker,
     refresh: refreshTrackers,
   } = useTrackers(user?.id ?? null)
+  const { stageHistory, refresh: refreshStageHistory } = useStageHistory(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
   const [deleteApplicationTarget, setDeleteApplicationTarget] = useState<Application | null>(null)
@@ -146,6 +149,14 @@ export function Board() {
     typeof Notification === 'undefined' ? 'denied' : Notification.permission,
   )
   useStaleReminders(applications, remindersEnabled && notificationPermission === 'granted')
+
+  // stage_history is otherwise only loaded once on mount -- refetch on every
+  // visit to Insights so a drag made earlier in the session (which appends a
+  // row via moveApplicationStage but doesn't touch this hook) shows up
+  // without needing a full page reload.
+  useEffect(() => {
+    if (view === 'insights') refreshStageHistory()
+  }, [view, refreshStageHistory])
 
   async function handleToggleReminders() {
     if (remindersEnabled) {
@@ -648,7 +659,7 @@ export function Board() {
   }
 
   const pageTitle =
-    view === 'archive' ? 'Archive' : view === 'privacy' ? 'Privacy policy' : null
+    view === 'archive' ? 'Archive' : view === 'insights' ? 'Insights' : view === 'privacy' ? 'Privacy policy' : null
 
   return (
     <div className="h-screen bg-ink-50 flex">
@@ -738,6 +749,8 @@ export function Board() {
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
+      ) : view === 'insights' ? (
+        <InsightsView applications={applications} stageHistory={stageHistory} trackers={trackers} />
       ) : trackers.length === 0 || !activeTrackerId ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm flex flex-col items-center">
