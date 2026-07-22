@@ -6,57 +6,55 @@
 
 ## Session scope
 
-Built and shipped M10: a new sortable/filterable Table view alongside the Kanban board, per the user-approved plan from `PLAN.md`'s "Candidate next milestones."
+Built and shipped M11: mobile-first polish, the last item in PLAN.md's "Candidate next milestones." Scoped to three concrete gaps found by reading the code (not a redesign), got user approval before writing code, then verified live in both the browser preview and the iOS Simulator.
 
 ---
 
 ## Commits this session
 
 ```
-75ece18 Add M10: sortable/filterable Table view alongside the Kanban board
+91fc842 Add M11: tap-to-expand sidebar for touch devices
+6c2dd0a Fix touch drag-and-drop on board cards (M11 follow-up)
 ```
 
-Pushed to `origin/main` (`git log origin/main..HEAD` empty, confirmed after push). Nothing stashed, no scratch branches. Working tree clean.
+Both pushed to `origin/main` (`git log origin/main..HEAD` empty, confirmed after each push). Nothing stashed, no scratch branches. Working tree clean except this HANDOFF.md/PLAN.md update, about to be committed.
 
 ---
 
 ## Exact stopping point
 
-**Nothing is in progress, stubbed, broken, or half-migrated.** M10 is complete, typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — see Verify below), tested (75/75 passing, up from 70 — 5 new tests in `src/lib/tableView.test.ts`), pushed, and I verified it live in this session's own browser preview (not handed off to the user this time — see "Learned this session"). This is a clean boundary with no queued work.
+**M11 is complete and pushed.** Typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — same as every prior session, see Verify below), tested (75/75 passing, no new tests added — this was CSS/markup only, no new logic to unit-test), and verified live twice: once in the browser preview (sidebar tap-to-expand, confirmed via accessibility tree in a 375×812 viewport), and once in the iOS Simulator on a real touch device (drag-and-drop, both the bug and the fix).
 
-No Supabase manual steps needed — M10 is entirely client-side (new component + one pure sort helper), no schema changes, no Edge Function changes.
+Files touched this session:
+- `src/components/icons.tsx` — new `MenuIcon` (three-line hamburger glyph), same `base` SVG props pattern as the other icons.
+- `src/components/Sidebar.tsx` — added `useState` for an explicit `expanded` boolean; new toggle button (`MenuIcon`, `aria-expanded`) at the top of the nav; `NavItem` now takes an `expanded` prop and applies `!opacity-100` to override the `opacity-0 group-hover:opacity-100` label classes when expanded is true, so tap-to-expand works independently of `:hover`. Every `NavItem` call site and the two bare `<span>` section labels ("Tracker", "Account") got the same `expanded` wiring.
+- `src/components/Card.tsx` — added `touch-none` to the draggable card's className. This was the actual bug fix: cards had no `touch-action` CSS, so touch-dragging a card lost the race to the browser's native scroll gesture before dnd-kit's `PointerSensor` could activate the drag, scrolling the board instead of moving the card. `touch-none` is dnd-kit's own documented fix for PointerSensor + touch.
+- `PLAN.md` — new M11 entry in "Current status"; "Candidate next milestones" trimmed (mobile-first polish done, nothing left in that list).
 
-Files/dirs touched this session, for orientation:
-- `src/lib/tableView.ts` (new) — `TableSortKey`/`SortDirection` types and `sortApplicationsForTable()`, a pure function so sort logic (including "stage sorts by pipeline order via `STAGE_ORDER.indexOf`, not alphabetically") is unit-testable without rendering the component.
-- `src/lib/tableView.test.ts` (new) — 5 tests: company asc/desc, date_applied asc, stage-by-pipeline-order, and a no-mutation check on the input array.
-- `src/components/TableView.tsx` (new) — the table itself. Columns: priority star, Company (+ notes icon), Role, Stage (a `<select>` writing through `onStageChange`), Date applied, Salary, Location, Employment, Work mode. Click a column header to sort by it (toggles asc/desc on repeat click). Three `MultiSelectFilter` instances (Stage/Employment/Work mode) reusing the exact component `ArchiveView.tsx` already uses, including its "don't let the last selection disappear" `toggleSetValue` helper (duplicated here, not extracted — see "Learned this session"). Row click opens `CardDetail` via `onCardOpen`.
-- `src/components/icons.tsx` — new `ListIcon` (simple list/table glyph) for the sidebar nav item.
-- `src/components/Sidebar.tsx` — `view`/`onNavigate` prop types extended to include `'table'`; new `NavItem` for "Table" inserted between "Job Tracker" and "Archived".
-- `src/components/Board.tsx` — `View` type extended to `'board' | 'archive' | 'table' | 'privacy'`; new `activeApplications` memo (non-archived, scoped to `activeTrackerId` — same scope as `byStage`, just flat instead of grouped); new `handleStageChange()` handler (thin wrapper around the existing `moveApplicationStage`, same error-toast pattern as `handleCardAdvance`/`handleCardRetreat`); render branch for `view === 'table'` inserted between the "nothing here yet" empty state and the board's `<main>` (so both share the same "create a tracker" / "no applications yet" empty states); `pageTitle`, the tracker-tabs visibility condition, and the "+ Add application" button visibility condition all extended from `view === 'board'` to `view === 'board' || view === 'table'`.
-- `PLAN.md` — new M10 entry in "Current status" (full detail there, not repeated here); "Candidate next milestones" trimmed to the 1 remaining (mobile-first polish).
+No Supabase manual steps needed — M11 is entirely client-side CSS/markup, no schema or Edge Function changes.
 
 ---
 
 ## Next action
 
-No user-agreed next task. The only remaining item in `PLAN.md`'s "Candidate next milestones" is **mobile-first polish** (brief §8: "PC-first; keep mobile functional but basic" was the MVP call — this would be the first real investment beyond that). Per the working protocol, propose a concrete scope and get approval before touching code, same as M10's planning step. No design work has started on this.
+**No user-agreed next task — PLAN.md's "Candidate next milestones" list is now empty.** The only thing still flagged anywhere in PLAN.md is the unresolved "unexplained data loss in the applications table" investigation (see "Postponed / deferred"), which the user previously chose to move on from (test data only, not blocking). Next session should ask the user what they want to work on rather than assume.
 
 ---
 
 ## Learned this session
 
-- **This session's own browser-preview tab already had the user's `npm run dev` open with real guest data in it** (two applications, LinkTest Co / Acme Corp) — unlike M9's HANDOFF note, which said the preview browser couldn't verify things needing a real desktop/notification permission. Table view has no such restriction (no `Notification` API involved), so I verified nav-item rendering, live sort-by-company (confirmed the ▲ arrow and correct row order), and the Stage `MultiSelectFilter` dropdown opening directly in this session's own preview pane, not handed off. Don't assume every UI feature needs user hand-off the way M9's push notifications did — check whether the feature actually depends on something the sandbox can't do before deferring verification.
-- **`preview_start` failed once** with "Port 5173 is in use by node (PID 7174)" because the user's own `npm run dev` was already running from outside this session. Fix was simply calling `preview_start` again with `{url: "http://localhost:5173"}` instead of `{name: "job-tracker-dev"}` — it attaches to the already-running server rather than trying to start a second one. Worth trying that fallback first if `{name}` fails with a port-in-use error, rather than assuming the dev server needs to be killed/restarted.
-- **The `toggleSetValue<T>` helper is now duplicated verbatim in both `ArchiveView.tsx` and `TableView.tsx`.** Deliberate, not an oversight: it's a 9-line closure-free pure function, and extracting it to a shared module for two call sites felt like premature abstraction for this session. Worth revisiting if a third `MultiSelectFilter`-driven view shows up.
-- **This session began with a real /continue contradiction worth remembering the shape of, not the content:** the `/continue` skill's stated repo (found via a blind `find` for `PLAN.md`) resolved to `/Users/burak2/Documents/GitHub/job-tracker`, a stale second clone 29 commits behind `origin/main`. The actual working directory for this session (`/Users/burak2/Desktop/Claude`, per the environment block) was a *different* local clone of the same GitHub repo, already at `origin/main` HEAD. Lesson for any future session: if `job-tracker-mvp-brief.md`/`PLAN.md` reads as wildly inconsistent with the git log a prior HANDOFF.md described, check whether you're even in the right clone before assuming the docs are stale — `git remote -v` and comparing `HEAD` against what the environment block's own "Recent commits" list shows is the fast way to catch it.
+- **The iOS Simulator is the right tool for verifying real touch behavior — the browser-preview tool's drag simulation cannot exercise dnd-kit at all, mouse or touch.** `left_click_drag` (single-shot mouse move, no intermediate events) never generates enough pointer events for dnd-kit's `PointerSensor` (`activationConstraint: distance: 8`) to register a drag — confirmed this on both the pre-fix and (implicitly) unfixed-for-mouse code, so it's a tool limitation, not something this session's changes touched. If a future session needs to verify any drag-and-drop change, use the iOS Simulator's `touch_path` action (multi-point, with `dt_ms` between points), not the browser preview's `left_click_drag`.
+- **The iOS Simulator's `control` tool coordinate space is confusing and worth budgeting extra turns for.** The tool reports "coordinate space for tap/swipe: 402x874 points" but screenshots come back at roughly 918×2000 (a ~2.28x scale). In practice, `tap`/`swipe`/`touch_path` coordinates need to be the **screenshot pixel coordinates divided by ~2.28** (i.e. real ≈ image × 0.4378) — not the raw screenshot-pixel values, and not a re-derived scale from any single "successful-looking" tap (a tap can appear to land correctly by coincidence, e.g. hitting a large button, while actually being off for smaller targets). Calibrate once early with a known element (e.g. a full-width button) and stick to the ratio; don't re-guess per tap. Also: the OS accessory bar in Safari (keyboard's up/down/checkmark row) is NOT part of the page content and its exact tap target can be finicky — an errant tap there can trigger Safari's pinch-zoom or pan state, which persists across screenshots until you navigate/reload. If the layout looks unexpectedly zoomed or shifted, don't fight it — just re-`open_url` the same page; guest data in IndexedDB survives the reload.
+- **The iOS Simulator panel can crash mid-session** ("Claude Code iOS Simulator is restarting after a crash" → eventually "has stopped retrying after repeated crashes"). When that happens, retrying `attach` in a loop does not help — it explicitly says so. The fix is the user reopening the panel on their end; simply wait for them to say so, then retry `attach` once.
+- **Confirmed via code reading, not just assumption, that the two other candidate mobile issues didn't need fixes**: `Column.tsx` already had `w-72 shrink-0` (fixed-width, scrollable columns) and the add-application/edit modals already had `w-full max-w-md` (responsive). Only the sidebar and the card drag turned out to be real gaps. Worth remembering: read the code before assuming a "PC-first" app has N mobile problems — it may have fewer than the milestone brief implies.
 
 ---
 
 ## Open questions
 
-- **Mobile-first polish scope** — not yet designed, see "Next action" above. No urgency expressed by the user either way.
-- **Should archiving be reachable from the Table view?** Deliberately left out of M10 (archiving stays board/detail-modal only) and noted in `PLAN.md` as a possible follow-on, not decided either way.
-- **Duplicate stale local clone at `/Users/burak2/Documents/GitHub/job-tracker`, 29 commits behind `origin/main`** — flagged to the user mid-session as a heads-up, not yet acted on. Not touched this session (all work happened in the correct up-to-date clone at `/Users/burak2/Desktop/Claude`). Worth asking the user whether that second clone is intentional (e.g. a deliberate second checkout) or leftover cruft to delete.
+- **What's next?** No queued milestone. Ask the user.
+- **Unexplained data loss in the `applications` table** — still unresolved, still not blocking (test data only), still not being actively investigated. Carried forward unchanged from prior sessions.
+- **Duplicate stale local clone at `/Users/burak2/Documents/GitHub/job-tracker`, 29 commits behind `origin/main`** (flagged by a prior session, `/Users/burak2/Desktop/Claude` is confirmed still the correct up-to-date clone) — still not asked about or acted on. Worth raising with the user at some point: intentional second checkout, or leftover cruft to delete?
 
 ---
 
@@ -64,10 +62,11 @@ No user-agreed next task. The only remaining item in `PLAN.md`'s "Candidate next
 
 ```bash
 # 1. Typecheck (strict), lint, tests -- expect clean; oxlint prints ONE
-#    pre-existing warning about a missing 'handleUndo' dep in Board.tsx.
+#    pre-existing warning about a missing 'handleUndo' dep in Board.tsx
+#    (present since before this session, unrelated to M11).
 npx tsc -b --noEmit
 npx oxlint
-npm test                      # expect: 11 files, 75 tests, all passing
+npm test                      # expect: 11 files, 75 tests, all passing (unchanged from M10)
 
 # 2. Working tree -- expect clean, nothing untracked
 git status --short
@@ -75,13 +74,15 @@ git status --short
 # 3. Everything pushed -- expect EMPTY
 git log origin/main..HEAD --oneline
 
-# 4. Most recent commit -- expect 75ece18 (M10 Table view)
-git log --oneline -3
+# 4. Most recent commits -- expect 6c2dd0a then 91fc842 (M11 drag fix, then M11 sidebar)
+git log --oneline -5
 
-# 5. Run locally, then click "Table" in the sidebar (list icon, between
-#    the board icon and the archive icon)
+# 5. Run locally on a real touch device (phone/tablet) or the iOS Simulator,
+#    then: (a) confirm the sidebar expands on tap without needing hover,
+#    (b) drag a card between board columns and confirm it moves the card
+#    rather than scrolling the page.
 npm run dev
 ```
 
-- **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`) — this session's push has not been separately re-checked against production by either me or the user; the Actions tab is worth a glance if anything looks off.
-- **Already verified, don't redo:** Table nav item appears and is clickable; the table renders real guest-mode application data with correct columns; clicking the "Company" header sorts ascending (▲ shown, correct row order) and toggles direction on re-click; the "Stage" `MultiSelectFilter` opens with checkboxes reflecting all 4 stages selected. **Also now verified (2026-07-22, follow-up check):** the per-row stage `<select>` actually writes through `moveApplicationStage` — changed LinkTest Co from Applied to Offer via the Table dropdown, confirmed the card moved to the Offer column on the Board view (counts updated: Applied 0, Offer 1), and confirmed via a direct IndexedDB read (`stage_history` object store) that a fresh row was appended (`stage: "offer"`, `entered_at` timestamped at the moment of the change) — not just a `current_stage` update with no history trail. Reverted back to Applied afterward to restore the original guest data. M10 is now fully verified end-to-end; no outstanding verification gap.
+- **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`) — this session's two pushes have not been separately re-checked against production; the Actions tab is worth a glance if anything looks off.
+- **Already verified, don't redo:** Sidebar tap-to-expand/collapse confirmed via accessibility tree in a 375×812 browser-preview viewport (independent of mouse hover). Touch drag-and-drop confirmed live in the iOS Simulator (iPhone 17, Safari) both before the fix (card drag scrolled the board instead of moving) and after (card correctly moved from "Applied" to "Eyes on" via a real multi-point touch gesture).
