@@ -1,17 +1,11 @@
 import type { Application } from '../types/application'
 import { formatDate } from '../lib/format'
+import { isStale, STALE_THRESHOLD_DAYS } from '../lib/stale'
 import { StarIcon } from './icons'
 
 interface CardVisualProps {
   application: Application
   dragging?: boolean
-}
-
-const STALE_THRESHOLD_DAYS = 14
-
-function isStale(application: Application): boolean {
-  const daysSinceUpdate = (Date.now() - new Date(application.updated_at).getTime()) / (1000 * 60 * 60 * 24)
-  return daysSinceUpdate > STALE_THRESHOLD_DAYS
 }
 
 export function CardVisual({ application, dragging }: CardVisualProps) {

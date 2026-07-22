@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { BoardIcon, ArchiveIcon, LogoutIcon, LoginIcon, UserIcon, UserPlusIcon, CoffeeIcon } from './icons'
+import { BoardIcon, ArchiveIcon, LogoutIcon, LoginIcon, UserIcon, UserPlusIcon, CoffeeIcon, BellIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
@@ -12,6 +12,9 @@ interface SidebarProps {
   onSignOut: () => void
   onSignUp: () => void
   onLogIn: () => void
+  remindersEnabled: boolean
+  remindersBlocked: boolean
+  onToggleReminders: () => void
 }
 
 interface NavItemProps {
@@ -53,6 +56,9 @@ export function Sidebar({
   onSignOut,
   onSignUp,
   onLogIn,
+  remindersEnabled,
+  remindersBlocked,
+  onToggleReminders,
 }: SidebarProps) {
   return (
     <nav className="group h-screen sticky top-0 shrink-0 w-14 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1">
@@ -84,6 +90,23 @@ export function Sidebar({
         label="Support this project"
         onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
       />
+
+      <button
+        type="button"
+        onClick={onToggleReminders}
+        aria-pressed={remindersEnabled}
+        title={remindersBlocked ? 'Notifications are blocked in your browser settings' : undefined}
+        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-md transition-colors ${
+          remindersEnabled ? 'text-slate-900 bg-slate-100 font-medium' : 'text-slate-600 hover:bg-slate-100'
+        }`}
+      >
+        <span className="shrink-0 w-5 h-5">
+          <BellIcon />
+        </span>
+        <span className="opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap flex items-center gap-1.5 overflow-hidden">
+          {remindersBlocked ? 'Reminders blocked' : remindersEnabled ? 'Reminders on' : 'Reminders off'}
+        </span>
+      </button>
 
       <div className="border-t border-slate-200 my-2" />
 

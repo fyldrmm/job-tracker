@@ -14,6 +14,8 @@ import type { Application, ApplicationStage, ArchiveReason, Tracker } from '../t
 import { useApplications } from '../hooks/useApplications'
 import { useTrackers } from '../hooks/useTrackers'
 import { useAuth } from '../hooks/useAuth'
+import { useStaleReminders } from '../hooks/useStaleReminders'
+import { getRemindersEnabled, setRemindersEnabled } from '../lib/reminders'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { consumePendingSignup, migrateGuestDataToAccount } from '../lib/migration'
 import { buildExportData, downloadJSON } from '../lib/export'
@@ -137,6 +139,26 @@ export function Board() {
   // and land an extracted application in a stale/about-to-change tracker.
   const [migrationSettled, setMigrationSettled] = useState(false)
   const [extractingFromExtension, setExtractingFromExtension] = useState(false)
+  const [remindersEnabled, setRemindersEnabledState] = useState(() => getRemindersEnabled())
+  const [notificationPermission, setNotificationPermission] = useState(() =>
+    typeof Notification === 'undefined' ? 'denied' : Notification.permission,
+  )
+  useStaleReminders(applications, remindersEnabled && notificationPermission === 'granted')
+
+  async function handleToggleReminders() {
+    if (remindersEnabled) {
+      setRemindersEnabledState(false)
+      setRemindersEnabled(false)
+      return
+    }
+    if (typeof Notification === 'undefined') return
+    const permission = Notification.permission === 'default' ? await Notification.requestPermission() : Notification.permission
+    setNotificationPermission(permission)
+    if (permission === 'granted') {
+      setRemindersEnabledState(true)
+      setRemindersEnabled(true)
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -624,6 +646,9 @@ export function Board() {
         onSignOut={handleSignOut}
         onSignUp={() => setAuthModalMode('sign-up')}
         onLogIn={() => setAuthModalMode('log-in')}
+        remindersEnabled={remindersEnabled && notificationPermission === 'granted'}
+        remindersBlocked={notificationPermission === 'denied'}
+        onToggleReminders={handleToggleReminders}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
