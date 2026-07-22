@@ -21,7 +21,7 @@ Full spec: see `job-tracker-mvp-brief.md` in the repo root.
 ## Current status
 
 - **`AUDIT.md` — fully closed 2026-07-22, by explicit user decision not to be revisited.** Every High/Medium/Low finding, every missing-piece and needs-verification item, is fixed and live-confirmed — including a final `git log --grep` completeness check that resolved two checklist items that *looked* outstanding but were actually stale checkboxes (see "Codebase audit + remediation (AUDIT.md)" in [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md) for the full record, including the D6 Anthropic-balance decision).
-- **Next action:** none outstanding. All 4 user-proposed features are shipped and live-verified: (4) rename trackers, (3) right-click context menu, (1) most-wanted priority, (2) the browser extension — user loaded it unpacked in a fresh Chrome install and confirmed a real job posting's page pre-filled the add-application form correctly end-to-end. Pick the next milestone.
+- **Next action:** nothing forced, but the user flagged 3 candidates to review next session (2026-07-22) — see "Candidate next milestones" under "Postponed / deferred" below for scope on each. All 4 user-proposed features from before that are shipped and live-verified: (4) rename trackers, (3) right-click context menu, (1) most-wanted priority, (2) the browser extension — user loaded it unpacked in a fresh Chrome install and confirmed a real job posting's page pre-filled the add-application form correctly end-to-end.
 - **Last completed before M8:** M7 — compulsory name at sign-up, a single Account panel (name/email/password/export/delete/sign-out), and a unified `account-action` Edge Function covering both delete and change-password. Verified live end-to-end by the user on real accounts, including catching and fixing a real bug where changing your password silently revoked your own current session (see "M7 — Account panel + names" below for the full story: a first attempt reverted entirely, rebuilt with each Edge Function action curl-tested standalone, then a second bug found live during QA itself and fixed by removing the risky feature rather than continuing to patch it).
 - **App runs?** yes — both locally (`npm run dev`) and live in production
 - **Resend domain verified:** user bought `fazare.dev` on Cloudflare, verified it in Resend, and updated Supabase's custom SMTP to send from it — the sandbox "only sends to the account owner's own email" restriction is gone. Confirmed working live (bogus-login test hit Supabase's real Auth API from the deployed site).
@@ -83,10 +83,18 @@ Link auto-parsing · follow-up reminders (email/push) · alternate views (table/
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-~~`AUDIT.md`~~ — **fully closed, 2026-07-22** (moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md), see "Current status" above) — not deferred, not to be revisited.
-~~D6 — Anthropic account balance / auto-reload decision~~ — **decided, 2026-07-22**: leave as-is; see the "D6 decision" note in PLAN-ARCHIVE.md.
+### Candidate next milestones (user flagged 2026-07-22, for review at the start of next session)
+
+None of these are started or committed to yet — the user picked these three out of the brief's §8 "out of scope for MVP, but design for" list as what to look at next, but hasn't chosen which one (or whether to do more than one). **Start of next session: ask which to tackle, then follow the usual protocol (plan → approval → build) for that one milestone.**
+
+- **Follow-up reminders** (email/push). Brief §8: "the optional in-app 'stale' indicator... is the only nod to this in MVP; real reminders come later once the backend is in place." The backend (Supabase + Edge Functions) now exists, so this is buildable — needs a design decision on trigger (time-since-stage-change? explicit user-set date?), delivery (email via the existing Resend/SMTP setup is the natural fit; push would need a service worker + browser permission flow, a bigger lift), and whether it's opt-in per-application or a global setting.
+- **Alternate views** (sortable/filterable table or list, beyond the Kanban board). Brief §8: "Build the board as one *rendering* of the data model so other views are just new renderings, not a refactor" — worth confirming that's still true of the current `Board.tsx`/`useApplications` split before scoping this, since a lot has been built since the brief was written (trackers, priority flag, employment/work-mode fields). The Archive view's existing `MultiSelectFilter` pattern is a likely reusable piece.
+- **Mobile-first polish.** Brief §8: "PC-first; keep mobile functional but basic" was the MVP call — this would be the first real investment in that gap. dnd-kit's drag interactions, the sidebar layout, and modal sizing (`CardDetail`, `ApplicationForm`, etc.) are the areas most likely to need touch-specific work; the existing right-click/kebab-menu pattern from milestone A already has a touch-reachable trigger as precedent to follow.
+
 - **Unexplained data loss in the `applications` table** — see "Decisions & notes". Investigated and unresolved; test data only, so the user chose to move on.
 
+~~`AUDIT.md`~~ — **fully closed, 2026-07-22** (moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md), see "Current status" above) — not deferred, not to be revisited.
+~~D6 — Anthropic account balance / auto-reload decision~~ — **decided, 2026-07-22**: leave as-is; see the "D6 decision" note in PLAN-ARCHIVE.md.
 ~~Employment type / work mode filter UI~~ — **done**, see "M8 — AI job extraction from a screenshot" below.
 ~~Hosting~~ — **done**, see "Post-MVP — Hosting" below.
 ~~Deletion-confirmation email~~ — **done**, folded into M7's unified `account-action` function — see "M7 — Account panel + names" below.
