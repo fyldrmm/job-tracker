@@ -181,9 +181,13 @@ function daysBetween(fromIso: string, toIso: string): number {
 // "Time in stage" in the strict sense (how long an app sat in a stage before
 // moving on) isn't reconstructible from the data model: StageHistoryEntry
 // only records the stage moved *into* and when, not what stage preceded it.
-// What IS well-defined from created_at + stage_history is "average days from
-// creating the card to first reaching stage X" -- a cleaner and equally
-// useful velocity metric, computed here instead.
+// What IS well-defined from date_applied + stage_history is "average days
+// from applying to first reaching stage X" -- a cleaner and equally useful
+// velocity metric, computed here instead. Anchored on date_applied rather
+// than created_at because date_applied is the field the user actually edits
+// to reflect reality (e.g. logging a job they applied to two weeks ago, or
+// backdating a card) -- created_at is just when the row happened to be
+// inserted, which for a backdated card can be arbitrarily wrong.
 export function computeStageTiming(applications: Application[], stageHistory: StageHistoryEntry[]): StageTiming[] {
   const historyByApp = groupHistoryByApplication(stageHistory)
   return STAGE_ORDER.map((stage, idx) => {
@@ -197,7 +201,14 @@ export function computeStageTiming(applications: Application[], stageHistory: St
       // average toward zero.
       const entries = trustedEntries(app, historyByApp).filter((entry) => entry.stage === stage)
       if (entries.length > 0) {
-        deltas.push(daysBetween(app.created_at, entries[0].entered_at))
+        const delta = daysBetween(app.date_applied, entries[0].entered_at)
+        // date_applied is user-editable and can be changed after a stage was
+        // already recorded (backdated further, or edited to something later
+        // than a move that already happened) -- either produces a delta that
+        // doesn't mean anything as "days to reach this stage." Drop it from
+        // the sample rather than let a negative or NaN value corrupt the
+        // average; Number.isFinite also rejects NaN from a malformed date.
+        if (Number.isFinite(delta) && delta >= 0) deltas.push(delta)
       } else if (STAGE_ORDER.indexOf(app.current_stage) === idx) {
         // Legacy fallback: a row created directly into this stage *before* we
         // started recording an initial stage_history row (see

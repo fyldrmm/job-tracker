@@ -228,8 +228,8 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
                 </BarChart>
               </ResponsiveContainer>
               <p className="text-xs text-ink-400 mt-2">
-                Measured from when the card was created, since stage_history doesn't record how long an app sat
-                in a stage before moving on.
+                Measured from the date you applied, since stage_history doesn't record how long an app sat in a
+                stage before moving on.
               </p>
             </ChartCard>
 

@@ -203,14 +203,55 @@ describe('computeStageTiming', () => {
     expect(computeStageTiming(apps, [])[0].avgDaysToReach).toBe(0)
   })
 
-  it('computes days from created_at to the earliest history entry for a stage', () => {
-    const apps = [makeApplication({ id: 'a', current_stage: 'interview', created_at: '2026-01-01T00:00:00.000Z' })]
+  it('computes days from date_applied to the earliest history entry for a stage', () => {
+    const apps = [makeApplication({ id: 'a', current_stage: 'interview', date_applied: '2026-01-01' })]
     const history = [
       makeHistoryEntry({ application_id: 'a', stage: 'interview', entered_at: '2026-01-06T00:00:00.000Z' }),
     ]
     const timing = computeStageTiming(apps, history)
     expect(timing.find((t) => t.stage === 'interview')?.avgDaysToReach).toBe(5)
     expect(timing.find((t) => t.stage === 'offer')?.avgDaysToReach).toBeNull()
+  })
+
+  it('anchors on date_applied, not created_at, when the two differ (a backdated card)', () => {
+    // Logged today (created_at) as an application actually made two weeks
+    // ago (date_applied) -- the honest "days to reach interview" is measured
+    // from when the user says they applied, not when the row was inserted.
+    const apps = [
+      makeApplication({
+        id: 'a',
+        current_stage: 'interview',
+        date_applied: '2025-12-18',
+        created_at: '2026-01-01T00:00:00.000Z',
+      }),
+    ]
+    const history = [
+      makeHistoryEntry({ application_id: 'a', stage: 'interview', entered_at: '2026-01-01T00:00:00.000Z' }),
+    ]
+    const timing = computeStageTiming(apps, history)
+    expect(timing.find((t) => t.stage === 'interview')?.avgDaysToReach).toBe(14)
+  })
+
+  it('drops a negative delta (date_applied edited to land after the stage was already recorded)', () => {
+    const apps = [makeApplication({ id: 'a', current_stage: 'interview', date_applied: '2026-01-10' })]
+    const history = [
+      makeHistoryEntry({ application_id: 'a', stage: 'interview', entered_at: '2026-01-05T00:00:00.000Z' }),
+    ]
+    const timing = computeStageTiming(apps, history)
+    const interview = timing.find((t) => t.stage === 'interview')
+    expect(interview?.avgDaysToReach).toBeNull()
+    expect(interview?.sampleSize).toBe(0)
+  })
+
+  it('drops a NaN delta from a malformed date_applied instead of corrupting the average', () => {
+    const apps = [makeApplication({ id: 'a', current_stage: 'interview', date_applied: '' })]
+    const history = [
+      makeHistoryEntry({ application_id: 'a', stage: 'interview', entered_at: '2026-01-06T00:00:00.000Z' }),
+    ]
+    const timing = computeStageTiming(apps, history)
+    const interview = timing.find((t) => t.stage === 'interview')
+    expect(interview?.avgDaysToReach).toBeNull()
+    expect(interview?.sampleSize).toBe(0)
   })
 
   it('treats a legacy app created directly into a stage (no history) as zero days, not unreached', () => {
