@@ -6,63 +6,57 @@
 
 ## Session scope
 
-Built and shipped M9: follow-up reminders via browser push notifications (auto-triggered on the existing 14-day stale threshold), plus a mid-session follow-on the user requested — a per-card dismiss control for the badge, and a rename of the badge text from "Stale" to "OUTDATED". User live-tested it themselves in their own `npm run dev` and explicitly confirmed "yes it worked".
+Built and shipped M10: a new sortable/filterable Table view alongside the Kanban board, per the user-approved plan from `PLAN.md`'s "Candidate next milestones."
 
 ---
 
 ## Commits this session
 
 ```
-465ab3d Record M9 dismiss-control addition and live-test status in PLAN.md
-76d6ab8 Add per-card dismiss for the OUTDATED badge; rename Stale -> OUTDATED
-86afb73 Add M9: follow-up reminders via browser push notifications
+75ece18 Add M10: sortable/filterable Table view alongside the Kanban board
 ```
 
-All pushed (`git log origin/main..HEAD` empty, confirmed this session). Nothing stashed, no scratch branches. Working tree fully clean.
+Pushed to `origin/main` (`git log origin/main..HEAD` empty, confirmed after push). Nothing stashed, no scratch branches. Working tree clean.
 
 ---
 
 ## Exact stopping point
 
-**Nothing is in progress, stubbed, broken, or half-migrated.** M9 is complete, typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — see Verify below), tested (70/70 passing), pushed, and live-verified by the user in their own browser (not this session's sandboxed preview). This is a clean boundary with no queued work.
+**Nothing is in progress, stubbed, broken, or half-migrated.** M10 is complete, typechecked (`npx tsc -b --noEmit`, clean), linted (`npx oxlint`, one pre-existing warning only — see Verify below), tested (75/75 passing, up from 70 — 5 new tests in `src/lib/tableView.test.ts`), pushed, and I verified it live in this session's own browser preview (not handed off to the user this time — see "Learned this session"). This is a clean boundary with no queued work.
 
-No Supabase manual steps were needed this session — M9 is entirely client-side (browser `Notification` API + `localStorage`), no schema changes, no Edge Function changes.
+No Supabase manual steps needed — M10 is entirely client-side (new component + one pure sort helper), no schema changes, no Edge Function changes.
 
 Files/dirs touched this session, for orientation:
-- `src/lib/stale.ts` (new) — `STALE_THRESHOLD_DAYS` (14) and `isStale()`/`daysSinceUpdate()`, extracted out of `CardVisual.tsx` so both the badge and the reminder-checker hook share one definition.
-- `src/lib/reminders.ts` (new) — `localStorage`-backed state: `getRemindersEnabled`/`setRemindersEnabled` (the toggle preference), `getNotifiedMap`/`setNotifiedMap` (dedup so a stale app is only notified once per `updated_at`), and `getDismissedStaleMap`/`setDismissedStaleMap`/`dismissStale`/`isDismissedStale` (the per-card dismiss, added mid-session).
-- `src/hooks/useStaleReminders.ts` (new) — the polling hook (5 min interval + on-mount check), skips archived/dismissed/already-notified apps, batches multiple due apps into one `Notification`, prunes both the notified-map and dismissed-map of dead application ids.
-- `src/hooks/useStaleReminders.test.ts` (new) — 7 tests covering crossing detection, dedup, re-notify-after-real-activity, not-yet-stale, archived-skip, disabled-skip, batching. Note: the `MockNotification` class deliberately avoids TS parameter-property syntax (`constructor(public title: string...)`) — that construct fails under this project's `erasableSyntaxOnly` tsconfig flag; `tsc -b`'s incremental build silently didn't catch it on the very first run after the file was created, only on a later full run, so don't trust a single clean `tsc -b` after adding a similar class-with-constructor pattern — worth a second run if anything touches that area again.
-- `src/lib/stale.test.ts` (new) — 2 tests for `isStale()` at the threshold boundary.
-- `src/components/CardVisual.tsx` — badge renamed "Stale" → "OUTDATED"; added a dismiss ✕ button next to the badge (`onPointerDown`+`onClick` both `stopPropagation()`, same pattern as `Card.tsx`'s existing kebab-menu button, needed because the badge lives inside the draggable/clickable card's DOM subtree). Uses a local `useReducer` force-update since dismissing writes to `localStorage`, which isn't itself reactive.
-- `src/components/Sidebar.tsx` — new bell-icon toggle row (own section, not nested under Account) reflecting `remindersEnabled`/`remindersBlocked` state, calling `onToggleReminders`.
-- `src/components/icons.tsx` — new `BellIcon`.
-- `src/components/Board.tsx` — `remindersEnabled`/`notificationPermission` state, `handleToggleReminders()` (requests `Notification.requestPermission()` only from the real click, not from an effect), wires `useStaleReminders(applications, remindersEnabled && notificationPermission === 'granted')`.
-- `PLAN.md` — "Current status" M9 entry, "Out of scope for MVP" line updated (email reminders still out, push shipped), "Candidate next milestones" trimmed to the 2 remaining (alternate views, mobile-first polish).
+- `src/lib/tableView.ts` (new) — `TableSortKey`/`SortDirection` types and `sortApplicationsForTable()`, a pure function so sort logic (including "stage sorts by pipeline order via `STAGE_ORDER.indexOf`, not alphabetically") is unit-testable without rendering the component.
+- `src/lib/tableView.test.ts` (new) — 5 tests: company asc/desc, date_applied asc, stage-by-pipeline-order, and a no-mutation check on the input array.
+- `src/components/TableView.tsx` (new) — the table itself. Columns: priority star, Company (+ notes icon), Role, Stage (a `<select>` writing through `onStageChange`), Date applied, Salary, Location, Employment, Work mode. Click a column header to sort by it (toggles asc/desc on repeat click). Three `MultiSelectFilter` instances (Stage/Employment/Work mode) reusing the exact component `ArchiveView.tsx` already uses, including its "don't let the last selection disappear" `toggleSetValue` helper (duplicated here, not extracted — see "Learned this session"). Row click opens `CardDetail` via `onCardOpen`.
+- `src/components/icons.tsx` — new `ListIcon` (simple list/table glyph) for the sidebar nav item.
+- `src/components/Sidebar.tsx` — `view`/`onNavigate` prop types extended to include `'table'`; new `NavItem` for "Table" inserted between "Job Tracker" and "Archived".
+- `src/components/Board.tsx` — `View` type extended to `'board' | 'archive' | 'table' | 'privacy'`; new `activeApplications` memo (non-archived, scoped to `activeTrackerId` — same scope as `byStage`, just flat instead of grouped); new `handleStageChange()` handler (thin wrapper around the existing `moveApplicationStage`, same error-toast pattern as `handleCardAdvance`/`handleCardRetreat`); render branch for `view === 'table'` inserted between the "nothing here yet" empty state and the board's `<main>` (so both share the same "create a tracker" / "no applications yet" empty states); `pageTitle`, the tracker-tabs visibility condition, and the "+ Add application" button visibility condition all extended from `view === 'board'` to `view === 'board' || view === 'table'`.
+- `PLAN.md` — new M10 entry in "Current status" (full detail there, not repeated here); "Candidate next milestones" trimmed to the 1 remaining (mobile-first polish).
 
 ---
 
 ## Next action
 
-User said explicitly: next session tackles **alternate views** (sortable/filterable table or list alongside the Kanban board — see `PLAN.md`'s "Candidate next milestones" for the scoping notes already written, including the `MultiSelectFilter` reuse pointer). Per the working protocol: plan first, wait for approval, then build. No scope has been agreed yet beyond "alternate views" as the topic — the concrete design (which view type, what's sortable/filterable, where it's reachable from) still needs to be proposed and approved at the start of that session.
+No user-agreed next task. The only remaining item in `PLAN.md`'s "Candidate next milestones" is **mobile-first polish** (brief §8: "PC-first; keep mobile functional but basic" was the MVP call — this would be the first real investment beyond that). Per the working protocol, propose a concrete scope and get approval before touching code, same as M10's planning step. No design work has started on this.
 
 ---
 
 ## Learned this session
 
-- **`tsc -b`'s incremental build can mask a real type error on the first run after a new file is added**, then surface it on a later full run with no code change in between. Happened with `useStaleReminders.test.ts`'s original `MockNotification` class (parameter-property constructor syntax, invalid under `erasableSyntaxOnly`) — first `tsc -b --noEmit` right after creating the file reported "No errors found"; a later run (after unrelated edits elsewhere) caught it. Root-caused and fixed (see file list above), but worth a second `tsc -b` pass rather than trusting one clean run when a session adds a new file with class/constructor syntax.
-- **Lowering `STALE_THRESHOLD_DAYS` to 0 for live testing is a fast, effective way to let the user self-verify a time-based feature** without waiting real days — the on-mount `check()` in `useStaleReminders` fires immediately on toggle-on, so no need to wait for the 5-minute poll either. Two unit tests (`is false for a recently-updated application`, `does not notify for applications that are not yet stale`) predictably fail while the threshold is at 0 — that's expected, not a regression; they pass again once reverted to 14. Worth reusing this pattern for any future date/threshold-based feature that needs live QA.
-- **This session's sandboxed preview browser reports `Notification.permission: 'denied'` by default** and can't be used to see a real OS notification — only UI wiring (toggle state transitions, the permission-request call itself) was verified there, by patching `window.Notification` via `javascript_tool`. Real end-to-end notification firing needed the user's own desktop browser via their own `npm run dev`. If a future session needs to verify browser-notification behavior, plan on handing that off the same way rather than expecting the preview pane to show it.
-- **A card-front badge's dismiss/action button needs both `onPointerDown` and `onClick` `stopPropagation()`** when it lives inside `Card.tsx`'s draggable+clickable outer `div` — `onPointerDown` stops dnd-kit's drag pickup, `onClick` stops the click-count debounce that would otherwise open the detail view ~250ms later. This is the same bug class documented in a prior session's HANDOFF for `ContextMenu`; now there are two independent examples of it in this codebase (the kebab-menu button in `Card.tsx`, and the new dismiss button in `CardVisual.tsx`) — treat it as a standing rule for any future interactive element added inside a card, not a one-off fix.
+- **This session's own browser-preview tab already had the user's `npm run dev` open with real guest data in it** (two applications, LinkTest Co / Acme Corp) — unlike M9's HANDOFF note, which said the preview browser couldn't verify things needing a real desktop/notification permission. Table view has no such restriction (no `Notification` API involved), so I verified nav-item rendering, live sort-by-company (confirmed the ▲ arrow and correct row order), and the Stage `MultiSelectFilter` dropdown opening directly in this session's own preview pane, not handed off. Don't assume every UI feature needs user hand-off the way M9's push notifications did — check whether the feature actually depends on something the sandbox can't do before deferring verification.
+- **`preview_start` failed once** with "Port 5173 is in use by node (PID 7174)" because the user's own `npm run dev` was already running from outside this session. Fix was simply calling `preview_start` again with `{url: "http://localhost:5173"}` instead of `{name: "job-tracker-dev"}` — it attaches to the already-running server rather than trying to start a second one. Worth trying that fallback first if `{name}` fails with a port-in-use error, rather than assuming the dev server needs to be killed/restarted.
+- **The `toggleSetValue<T>` helper is now duplicated verbatim in both `ArchiveView.tsx` and `TableView.tsx`.** Deliberate, not an oversight: it's a 9-line closure-free pure function, and extracting it to a shared module for two call sites felt like premature abstraction for this session. Worth revisiting if a third `MultiSelectFilter`-driven view shows up.
+- **This session began with a real /continue contradiction worth remembering the shape of, not the content:** the `/continue` skill's stated repo (found via a blind `find` for `PLAN.md`) resolved to `/Users/burak2/Documents/GitHub/job-tracker`, a stale second clone 29 commits behind `origin/main`. The actual working directory for this session (`/Users/burak2/Desktop/Claude`, per the environment block) was a *different* local clone of the same GitHub repo, already at `origin/main` HEAD. Lesson for any future session: if `job-tracker-mvp-brief.md`/`PLAN.md` reads as wildly inconsistent with the git log a prior HANDOFF.md described, check whether you're even in the right clone before assuming the docs are stale — `git remote -v` and comparing `HEAD` against what the environment block's own "Recent commits" list shows is the fast way to catch it.
 
 ---
 
 ## Open questions
 
-- **Alternate views scope** — not yet designed, see "Next action" above.
-- **Mobile-first polish** — the other remaining candidate from the 3 flagged 2026-07-22, still not started, no urgency expressed either way.
-- **D6 — Anthropic account balance / auto-reload.** Decided 2026-07-22 (leave as-is, see PLAN-ARCHIVE.md) — resurfacing this only because M9's push notifications don't touch the Anthropic API at all (unlike the AI-extraction feature D6 was about), so no new relevance from this session; not a live open question, just noting it's not reopened.
-- **No custom extension icon** and **generic-scrape-only extraction** — both carried over from a prior session's open questions, untouched this session, still cosmetic/non-blocking.
+- **Mobile-first polish scope** — not yet designed, see "Next action" above. No urgency expressed by the user either way.
+- **Should archiving be reachable from the Table view?** Deliberately left out of M10 (archiving stays board/detail-modal only) and noted in `PLAN.md` as a possible follow-on, not decided either way.
+- **Duplicate stale local clone at `/Users/burak2/Documents/GitHub/job-tracker`, 29 commits behind `origin/main`** — flagged to the user mid-session as a heads-up, not yet acted on. Not touched this session (all work happened in the correct up-to-date clone at `/Users/burak2/Desktop/Claude`). Worth asking the user whether that second clone is intentional (e.g. a deliberate second checkout) or leftover cruft to delete.
 
 ---
 
@@ -71,12 +65,9 @@ User said explicitly: next session tackles **alternate views** (sortable/filtera
 ```bash
 # 1. Typecheck (strict), lint, tests -- expect clean; oxlint prints ONE
 #    pre-existing warning about a missing 'handleUndo' dep in Board.tsx.
-#    Run tsc -b TWICE if you've just added a new class/constructor -- see
-#    "Learned this session" above about incremental-build masking.
-npx tsc -b --noEmit
 npx tsc -b --noEmit
 npx oxlint
-npm test                      # expect: 10 files, 70 tests, all passing
+npm test                      # expect: 11 files, 75 tests, all passing
 
 # 2. Working tree -- expect clean, nothing untracked
 git status --short
@@ -84,14 +75,13 @@ git status --short
 # 3. Everything pushed -- expect EMPTY
 git log origin/main..HEAD --oneline
 
-# 4. Most recent commit -- expect 465ab3d (PLAN.md), with 76d6ab8
-#    (dismiss control) and 86afb73 (M9 base) further back.
+# 4. Most recent commit -- expect 75ece18 (M10 Table view)
 git log --oneline -3
 
-# 5. Run locally
+# 5. Run locally, then click "Table" in the sidebar (list icon, between
+#    the board icon and the archive icon)
 npm run dev
 ```
 
-- **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`).
-- **Already verified, don't redo:** M9 end-to-end (toggle → permission prompt → OS notification → dismiss control → badge text) confirmed live by the user in their own browser this session ("yes it worked").
-- **To manually re-test M9 quickly:** temporarily set `STALE_THRESHOLD_DAYS` in `src/lib/stale.ts` to `0`, run `npm run dev`, toggle reminders on in the sidebar, grant the permission prompt — a notification should fire almost immediately for any existing non-archived application. Revert to `14` afterward (two unit tests intentionally fail at `0`, as noted above).
+- **Production:** https://jobtracker.fazare.dev (Cloudflare auto-deploys every push to `main`) — this session's push has not been separately re-checked against production by either me or the user; the Actions tab is worth a glance if anything looks off.
+- **Already verified, don't redo:** Table nav item appears and is clickable; the table renders real guest-mode application data with correct columns; clicking the "Company" header sorts ascending (▲ shown, correct row order) and toggles direction on re-click; the "Stage" `MultiSelectFilter` opens with checkboxes reflecting all 4 stages selected. NOT verified live: the per-row stage `<select>` actually writing through `moveApplicationStage` (i.e., picking "Interview" from the dropdown and confirming the card really moves stage + a `stage_history` row is appended) — only that the dropdown renders with the right selected value. Worth a quick manual click-through next session before considering M10 fully closed, though nothing in the code path differs from the already-battle-tested `moveApplicationStage` used by drag-and-drop.
