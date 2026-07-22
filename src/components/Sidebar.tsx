@@ -105,7 +105,7 @@ export function Sidebar({
       </button>
       <NavItem
         icon={<BoardIcon />}
-        label="Job Tracker"
+        label="Board"
         active={view === 'board'}
         onClick={() => onNavigate('board')}
         expanded={expanded}
