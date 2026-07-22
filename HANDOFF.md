@@ -6,55 +6,62 @@
 
 ## Session scope
 
-Did the dark-green UI reskin deferred from last session (color-only, structure unchanged), then a same-session follow-up fixing the sidebar's leftover white background.
+Built M12 (a new "Insights" page with 7 charts), then — prompted by the user spotting a real correctness bug in it — ran a 5-stage correctness audit of the Insights math, one stage per commit. Closed the session by re-verifying the whole thing live on `jobtracker.fazare.dev`.
 
 ---
 
 ## Commits this session
 
 ```
-b60ed7a Reskin UI with dark-green-based ink color scale
-426dd20 Darken sidebar background from white to ink-200
+cfbbc45 Add M12: Insights page, with a two-stage fix for stage-history reliability
+4eaada2 M12 Stage 3: zero-fill gap months in the applications-over-time chart
+ae2b170 M12 Stage 4: exclude fresh apps from the response-rate denominator
+86288e3 M12 Stage 5: anchor stage timing on date_applied, guard bad deltas
 ```
 
-Both pushed to `origin/main` (`b9ce75f..426dd20`). Working tree clean, nothing stashed, no scratch branches.
+All 4 pushed to `origin/main` (`8a7c1c9..86288e3`). This handoff's own `PLAN.md`/`PLAN-ARCHIVE.md`/`HANDOFF.md` doc updates are committed and pushed as a 5th commit right after these. Working tree clean, nothing stashed, no scratch branches.
 
 ---
 
 ## Exact stopping point
 
-**Reskin is complete, pushed, and locally verified. Not yet re-checked live on `jobtracker.fazare.dev` after this push** — that's the one loose end (Cloudflare should auto-deploy from `main`, same as every prior session, but hasn't been confirmed this time).
+**M12 is fully done, shipped, and live-verified on production.** There is no in-progress code and nothing uncommitted. This handoff's own doc edits (below) are committed along with it:
 
-Files touched this session:
-- `src/index.css` — added a `@theme` block (10 new custom properties, `--color-ink-50` through `--color-ink-900`) right after `@import "tailwindcss"`. Full values are in the file; anchor points are `ink-50: #f2fdf5` (near-white, green-tinted) through `ink-900: #031e0c` (near-black, green). This is the "Bold" candidate from a 3-option artifact shown to the user (Subtle/Medium/Bold, varying chroma at fixed hue 152deg).
-- All 25 `src/components/*.tsx` files that used `slate-*` Tailwind classes — mechanically renamed to `ink-*` via `sed 's/slate-/ink-/g'`, same shade numbers (a `slate-700` became `ink-700`, etc.), so no manual color-value judgment calls were made file-by-file.
-- `src/components/ErrorToast.tsx` and `src/components/UndoToast.tsx` — collateral damage from the sed above (`translate-x-1/2` → `tranink-x-1/2`, since `slate-` is a substring of `translate-`) caught and fixed with a second `sed 's/tranink-x/translate-x/g'` before committing. Net diff on `ErrorToast.tsx` ended up zero (it had no other `slate-` usages), which is why it doesn't appear in the `b60ed7a` commit despite being edited mid-session.
-- `src/components/Sidebar.tsx` line ~83 — the outer sidebar `<div>`'s class changed from `bg-white border-r border-ink-200` to `bg-ink-200 border-r border-ink-300` (separate commit, `426dd20`, prompted by the user noticing the sidebar was still white after the main reskin).
+- `PLAN.md` — M12's "Current status" bullet compressed from a ~5-paragraph inline narrative down to a 3-sentence pointer at line 23, linking to the archive. The milestone index bullet (around line 44) got `· M12 Insights page + 5-stage correctness audit (closed 2026-07-23)` appended.
+- `PLAN-ARCHIVE.md` — new `### M12 — Insights page + a 5-stage correctness audit of its own math` section inserted just before `## Decisions & notes` (was around line 209 pre-edit), containing the full 5-stage narrative, every decision point, and the recurring recharts gotcha (see below). This is the first time this project's `/handoff` flow has moved a just-finished milestone into the archive in the same session it closed, rather than leaving it in `PLAN.md` indefinitely (which is what happened to M9/M10/M11 — they're still only inline bullets in `PLAN.md`, never given a `###` archive section). Worth a note if a future session wonders why M12 looks structurally different from M9-M11 in the docs.
 
-No test files touched — this was a pure Tailwind-class/CSS-variable change, nothing to unit test. `tsc --noEmit`, `oxlint`, and the full Vitest suite (75/75) were run after both commits and are clean (one pre-existing, unrelated `react-hooks/exhaustive-deps` warning on `Board.tsx:282` — not introduced this session, not touched).
+**Files changed by the session itself** (all committed):
+- `src/lib/insights.ts` — new file, the whole computation layer. Key exports: `computeFunnel`, `computeOutcomes`, `computeApplicationsOverTime`, `computeStageTiming`, `computeWorkModeSplit`/`computeEmploymentTypeSplit`, `computeResponseRateBySegment`, `computeTrackerComparison`, `computeKpis`. Internal primitives worth knowing for any future insights work: `stagesOccupied()` (single source of truth for "did this app reach stage X"), `trustedEntries()` (the 30-min dwell-time round-trip filter), `isEligibleForResponseVerdict()` (the 14-day-stale response-rate gate), `nextMonth()` (pure string month arithmetic for zero-filling).
+- `src/components/InsightsView.tsx` — new file, all 7 charts + KPI tiles + tracker-scope dropdown, built on `recharts` (new dependency, added to `package.json`).
+- `src/hooks/useStageHistory.ts` — new file, read-only `stage_history` loader (guest/signed-in dual-store pattern, mirrors `useApplications`/`useTrackers`).
+- `src/hooks/useApplications.ts` — `createApplication` now also writes an initial `stage_history` row (Stage 1's fix).
+- `src/components/Board.tsx`, `src/components/Sidebar.tsx`, `src/components/icons.tsx` — wiring: new `'insights'` view state, sidebar nav item, `ChartIcon`.
+- `src/lib/insights.test.ts`, `src/hooks/useApplications.test.ts` — new test files. 106 tests total in the suite now (was 75 before this session).
 
 ---
 
 ## Next action
 
-1. **Verify live**: open `https://jobtracker.fazare.dev` in a fresh tab/incognito and confirm the green palette + darker sidebar actually deployed (Cloudflare auto-builds `main` on push, per every prior session's pattern, but this session never circled back to check — do that first before starting anything new).
-2. No further reskin work is expected unless the user asks for another tweak (e.g. a different shade of the sidebar, or extending the green treatment somewhere not yet touched). If they do, the same `ink-*` scale in `src/index.css` is the place to adjust — don't hand-pick new hex values without regenerating via the browser-canvas OKLCH probe (see "Learned this session" below for the exact technique).
-3. No open milestone. If nothing else is queued, the next session's first move is the usual `/continue` read-through, not a specific task.
+1. No open milestone. Per `PLAN.md`'s working protocol, the next session needs a fresh user ask before starting new work — there is nothing queued. The usual `/continue` read-through is the right way to start.
+2. If the user wants more Insights work: the natural next candidates are (a) a data table / CSV export alongside the charts, (b) more segment cuts (by tracker × stage, e.g.), or (c) surfacing the Insights data on the Board itself as a compact widget. None of these were requested — just the shape of what'd extend cleanly given the current `insights.ts` primitives.
 
 ---
 
 ## Learned this session
 
-- **Bulk find/replace on Tailwind utility classes needs a post-replace collision sweep, not just a "did the old token disappear" check.** `slate-` is a substring of `translate-` (and would be of `escalate-`, `isolate-`, etc. if those existed as classes) — a plain `sed 's/slate-/ink-/g'` silently corrupts any class containing the old string as a substring, not just as a whole token. The fix pattern that caught it: after the rename, `grep -rohE "\b[a-zA-Z]*ink-[a-zA-Z0-9]*" src --include="*.tsx" | sort -u` and eyeball every distinct token for ones that aren't a clean `ink-<number>` — `tranink-x` stood out immediately. Reusable for any future bulk class-prefix rename in this repo.
-- **The browser-canvas OKLCH→hex probe (first used for the logo, in `HANDOFF.md`'s prior version) generalizes cleanly to generating a whole *scale*, not just single colors.** Ran a loop in `javascript_tool` building `oklch(L C H)` strings across Tailwind's known slate lightness steps (50→900) at 3 different chroma curves and a fixed hue, fed each through a 1x1 canvas `fillStyle`/`getImageData` round-trip, and got exact hex values with no manual OKLCH math or external library. Also confirmed this needs a *real* http(s) origin tab (used the existing `localhost:5173` dev-server tab) — `file://` tabs outside the project directory render as CSP-locked static snapshots in the Browser pane (`script-src 'none'`) and `javascript_tool` fails with "No site is open in this tab" on them, even though `navigate` appears to succeed. Worth remembering: for any future in-browser color/JS probe, use an already-open real origin, not a fresh local file open.
-- **Tailwind v4's `@theme` block is additive, not a slate-replacement mechanism** — `ink-*` and `slate-*` coexist as valid utility classes now (nothing disables the built-in scale). Not a problem today since nothing references `slate-*` anymore, but if a future PR or a copy-pasted snippet reintroduces a `slate-*` class it will silently work rather than error, drifting back toward the old palette. No lint rule enforces "no slate-* in this repo" — purely a grep-it-yourself convention going forward.
+- **A blanket "stage reached" definition (`furthestStageIndex` = max over history) is fundamentally exploitable by any UI that lets a user move things back and forth freely** — this isn't specific to bad code, it's inherent to inferring "genuine progress" from a raw event log with no recorded intent. The fix that worked (`trustedEntries`'s dwell-time filter) only works because reversals are rare and deliberate drags-through-everything are fast; if a future feature ever needs to distinguish "real slow reversal" from "fast exploration" on a *different* signal (not time), this heuristic won't transfer — it's specifically exploiting the fact that real regressions take hours/days and fake ones take seconds.
+- **`recharts` + `ResponsiveContainer` has a reproducible transient bug (or at least: reproducible-enough-to-plan-around) where right after a data change, the SVG mounts with zero `<path>`/`<rect>` elements for every bar chart on the page** — confirmed via direct DOM inspection (`querySelectorAll('svg.recharts-surface').length` paths = 0) that it's not a screenshot-timing fluke, it's genuinely empty on first paint. A second screenshot moments later always showed correct bars. Hit this at least 4 separate times across Stages 3, 4, and 5's live verification, always on freshly-added test data, never on a page that had already settled. **Practical rule for future live-checks of any recharts-based UI in this repo: never conclude "broken" from one screenshot showing empty bars — re-screenshot once before investigating.**
+- **`isStale`/`daysSinceUpdate` (`src/lib/stale.ts`) calls `Date.now()` directly**, so any test exercising staleness-dependent logic (this session added several to `insights.test.ts` for Stage 4) has to build fixtures with real wall-clock-relative offsets (`new Date(Date.now() - N * 86400000).toISOString()`), same pattern already established in `useStaleReminders.test.ts`. Not new, but worth remembering before reaching for a mocking library — this codebase's convention is real-time-relative fixtures, not `vi.useFakeTimers()`.
+- **The Table view's stage `<select>` is a reliable stand-in for board drag-and-drop when testing in the browser-preview tool.** dnd-kit genuinely can't be exercised by this tool's synthetic mouse events (documented back in M11's HANDOFF), but the Table dropdown calls the exact same `moveApplicationStage` and writes identical `stage_history` rows — used it throughout this session (including to reproduce the user's original round-trip bug report) instead of fighting the drag simulation.
+- **Port 5173 kept getting claimed by an untracked `node` process** (not started via this tool's `preview_start`) at least 3 times this session — always turned out to be a leftover `vite` dev server from an earlier turn in the *same* session that the preview tool had lost track of after a `preview_stop`/restart cycle. Fix each time was `lsof -i :5173 -sTCP:LISTEN -n -P` → `kill <pid>` → retry `preview_start`. Not a data-loss risk (it's always this same project's own dev server), just a recurring friction point worth trying `preview_list` on first, before assuming a kill is needed.
 
 ---
 
 ## Open questions
 
-- Live-deploy confirmation (see "Next action" #1) — not a design question, just an unfinished verification step.
-- No open design questions; the user picked a specific palette (Bold) from concrete options and confirmed the sidebar fix visually via this session's screenshots, nothing was left ambiguous.
+None outstanding from this session — every decision point (funnel semantics, the round-trip fix approach, the response-rate eligibility rule) was explicitly asked and answered by the user, recorded in `PLAN-ARCHIVE.md`'s new M12 section with the alternatives that were rejected. No ambiguity was left for a future session to resolve.
+
+One soft option worth surfacing next time rather than a real question: Stage 2's round-trip fix used the dwell-time heuristic (option "B"); the alternative discussed but not built was a "Moved — Undo" toast mirroring the existing archive-undo pattern, which would fix the misclick-correction case at the source instead of via a heuristic. Not needed now — B is working and live-verified — but if the dwell-time approach ever produces a wrong-feeling number in real usage, that's the fallback to revisit.
 
 ---
 
@@ -62,14 +69,14 @@ No test files touched — this was a pure Tailwind-class/CSS-variable change, no
 
 ```bash
 npx tsc --noEmit -p tsconfig.app.json   # expect: "TypeScript: No errors found"
-npx oxlint                               # expect: only the pre-existing Board.tsx:282 exhaustive-deps warning
-npm test -- --run                        # expect: 11 test files, 75 tests, all passed
-git log --oneline -3                     # expect 426dd20 at top, origin/main matching (clean, ahead/behind nothing)
-grep -rn "slate-" src --include="*.tsx"  # expect: no output (fully migrated to ink-*)
+npx oxlint                               # expect: only the pre-existing Board.tsx:293 exhaustive-deps warning
+npm test -- --run                        # expect: 106 tests passed (up from 75 at session start)
+git log --oneline -6                     # expect the /handoff doc commit at top, 86288e3 just below it, origin/main matching
+git status                               # expect: clean
 ```
 
-Visual check (not yet done this session — do this first next time):
+Visual check (already done this session, but re-confirm if picking this up much later):
 ```bash
 open https://jobtracker.fazare.dev
 ```
-Expect: pale green board background, visibly darker green sidebar panel (not white), dark-green "JobTracker" wordmark/logo unchanged from last session, dark-green primary buttons (e.g. "+ Add application").
+Expect: an "Insights" item in the sidebar (bar-chart icon, between Archived and the support/reminders icons). Clicking it shows a tracker-scope dropdown, 4 KPI tiles, and 7 charts. If you add a test application and move it through stages via the Table view's stage dropdown, the funnel/KPIs should update to match — reached-interview/reached-offer percentages should never inflate from a same-session drag-everywhere-and-back (the round-trip fix), and a fresh same-day app should stay out of the response-rate denominator (the Stage 4 fix) until it's either interviewed, archived, or 14+ days old.
