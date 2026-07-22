@@ -108,7 +108,7 @@ export function Card({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
-      className={`group relative rounded-md cursor-grab active:cursor-grabbing focus:outline-none focus:ring-2 focus:ring-slate-400 ${
+      className={`group relative rounded-md cursor-grab active:cursor-grabbing touch-none focus:outline-none focus:ring-2 focus:ring-slate-400 ${
         isDragging ? 'opacity-30' : ''
       }`}
     >
