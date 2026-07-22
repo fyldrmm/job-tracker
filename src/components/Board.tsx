@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
@@ -17,9 +17,20 @@ import { useAuth } from '../hooks/useAuth'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
 import { consumePendingSignup, migrateGuestDataToAccount } from '../lib/migration'
 import { buildExportData, downloadJSON } from '../lib/export'
-import { deleteOwnAccount, changePassword } from '../lib/remoteStore'
+import {
+  deleteOwnAccount,
+  changePassword,
+  extractJobDetailsFromText,
+  type ExtractedJobFields,
+} from '../lib/remoteStore'
 import { clearLocalStore, hasAnyLocalGuestData } from '../lib/localStore'
 import { subscribeToGlobalErrors } from '../lib/globalErrors'
+import {
+  parseExtensionMessage,
+  storePendingExtraction,
+  consumePendingExtraction,
+  type ExtensionHandoffPayload,
+} from '../lib/extensionHandoff'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
@@ -42,7 +53,10 @@ import { ExtractionPromo } from './ExtractionPromo'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
-type FormState = { mode: 'add'; stage: ApplicationStage } | { mode: 'edit'; application: Application } | null
+type FormState =
+  | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
+  | { mode: 'edit'; application: Application }
+  | null
 type View = 'board' | 'archive' | 'privacy'
 
 const UNDO_WINDOW_MS = 10000
@@ -117,6 +131,12 @@ export function Board() {
   const [migrating, setMigrating] = useState(false)
   const [migratePrompt, setMigratePrompt] = useState(false)
   const migrationCheckedForRef = useRef<string | null>(null)
+  // True once the migration-decision effect below has fully resolved for the
+  // current user (including a user-answered prompt, if one was shown).
+  // Gates the extension-handoff resume effect so it can't race migration
+  // and land an extracted application in a stale/about-to-change tracker.
+  const [migrationSettled, setMigrationSettled] = useState(false)
+  const [extractingFromExtension, setExtractingFromExtension] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -276,6 +296,12 @@ export function Board() {
     if (!user) return
     if (migrationCheckedForRef.current === user.id) return
     migrationCheckedForRef.current = user.id
+    // A genuinely new user -- the extraction-resume effect below must wait
+    // for this round to fully settle (including a user-answered prompt)
+    // before it's safe to resolve/create a tracker, or it could race
+    // migration and land the extracted application in a stale or
+    // about-to-be-replaced tracker.
+    setMigrationSettled(false)
     const currentUser = user
     let cancelled = false
 
@@ -295,17 +321,25 @@ export function Board() {
       } catch (err) {
         showError(err, "We couldn't finish syncing your guest data. It's still saved on this device -- reload to try again.")
       } finally {
-        if (!cancelled) setMigrating(false)
+        if (!cancelled) {
+          setMigrating(false)
+          setMigrationSettled(true)
+        }
       }
     }
 
     hasAnyLocalGuestData().then((hasGuestData) => {
       if (cancelled) return
       const fromThisSignUp = consumePendingSignup(currentUser)
-      if (!hasGuestData) return
+      if (!hasGuestData) {
+        setMigrationSettled(true)
+        return
+      }
       if (fromThisSignUp) {
         runMigration()
       } else {
+        // Settles once the user answers, in handleConfirmMigratePrompt /
+        // handleDeclineMigratePrompt below -- not yet.
         setMigratePrompt(true)
       }
     })
@@ -326,12 +360,106 @@ export function Board() {
       showError(err, "We couldn't finish syncing your guest data. It's still saved on this device -- reload to try again.")
     } finally {
       setMigrating(false)
+      setMigrationSettled(true)
     }
   }
 
   function handleDeclineMigratePrompt() {
     setMigratePrompt(false)
+    setMigrationSettled(true)
   }
+
+  // Picks the tracker an extension handoff's extracted application should
+  // land in: the active one if there is one, else the first tracker, else
+  // (a genuinely trackerless account/guest) creates one -- same default
+  // name and behavior as the "+ Create tracker" empty state
+  // (handleCreateFirstTracker below).
+  const resolveTrackerIdForHandoff = useCallback(async (): Promise<string | null> => {
+    if (activeTrackerId && trackers.some((t) => t.id === activeTrackerId)) return activeTrackerId
+    if (trackers.length > 0) return trackers[0].id
+    const tracker = await createTracker('My Applications')
+    return tracker.id
+  }, [activeTrackerId, trackers, createTracker])
+
+  // Runs an extension-handoff extraction and opens the add form pre-filled
+  // with the result, for the user to review and save -- same "extract, then
+  // human confirms" flow as the in-form "Extract with AI" button (M8), just
+  // triggered by an external postMessage instead of a click. On extraction
+  // failure, still opens a blank-ish form seeded with the page's URL (if the
+  // extension sent one) rather than losing the handoff entirely -- the user
+  // can fill the rest in manually.
+  const runExtensionExtraction = useCallback(
+    async (payload: ExtensionHandoffPayload) => {
+      setExtractingFromExtension(true)
+      let trackerId: string | null
+      try {
+        trackerId = await resolveTrackerIdForHandoff()
+      } catch (err) {
+        setExtractingFromExtension(false)
+        showError(err, 'Could not prepare a tracker for the extracted application.')
+        return
+      }
+      setActiveTrackerId(trackerId)
+      try {
+        const fields = await extractJobDetailsFromText(payload.text)
+        setFormState({
+          mode: 'add',
+          stage: 'applied',
+          prefill: { ...fields, job_link: fields.job_link ?? payload.sourceUrl },
+        })
+      } catch (err) {
+        showError(err, 'Could not extract job details from that page. You can still add it manually.')
+        setFormState({
+          mode: 'add',
+          stage: 'applied',
+          prefill: payload.sourceUrl ? { job_link: payload.sourceUrl } : null,
+        })
+      } finally {
+        setExtractingFromExtension(false)
+      }
+    },
+    [resolveTrackerIdForHandoff],
+  )
+
+  // Receiving half of the browser-extension handoff (milestone B1) -- see
+  // src/lib/extensionHandoff.ts for the wire contract and why origin+source
+  // are both checked (postMessage has no built-in sender scoping). Requires
+  // sign-in (idea 1's decision): page text can't usefully be extracted from
+  // without an account to run it against, unlike a plain link.
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return
+      const payload = parseExtensionMessage(event.data)
+      if (!payload) return
+      if (!user) {
+        storePendingExtraction(payload)
+        setAuthModalNotice('Sign in to extract job details from this page.')
+        setAuthModalMode('sign-up')
+        return
+      }
+      if (!migrationSettled || trackersLoading) {
+        // Not safe to resolve/create a tracker yet -- stash it the same way
+        // the sign-in wall does; the resume effect below picks it up once
+        // migration has settled and trackers have loaded.
+        storePendingExtraction(payload)
+        return
+      }
+      runExtensionExtraction(payload)
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [user, migrationSettled, trackersLoading, runExtensionExtraction])
+
+  // Resumes a handoff held across the sign-in wall (or a not-yet-ready
+  // moment above) once it's actually safe to act on: signed in, migration
+  // fully settled (including any user-answered prompt), trackers loaded.
+  useEffect(() => {
+    if (!user) return
+    if (!migrationSettled || trackersLoading) return
+    const pending = consumePendingExtraction()
+    if (!pending) return
+    runExtensionExtraction(pending)
+  }, [user, migrationSettled, trackersLoading, runExtensionExtraction])
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
@@ -502,6 +630,9 @@ export function Board() {
         <h1 className="text-xl font-medium text-slate-800">{pageTitle}</h1>
         <div className="flex items-center gap-4">
           {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
+          {extractingFromExtension && (
+            <span className="text-sm text-slate-400">Extracting job details…</span>
+          )}
           <a
             href={DONATION_URL}
             target="_blank"
@@ -638,6 +769,7 @@ export function Board() {
         <ApplicationForm
           initial={formState.mode === 'edit' ? formState.application : null}
           defaultStage={formState.mode === 'add' ? formState.stage : 'applied'}
+          prefill={formState.mode === 'add' ? formState.prefill : null}
           userId={user?.id ?? null}
           onSubmit={
             formState.mode === 'edit'

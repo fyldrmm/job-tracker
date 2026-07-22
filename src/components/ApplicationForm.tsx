@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { Application, ApplicationStage, EmploymentType, WorkMode } from '../types/application'
 import type { ApplicationInput } from '../hooks/useApplications'
-import { extractJobDetails, getExtractionUsageThisMonth } from '../lib/remoteStore'
+import { extractJobDetails, getExtractionUsageThisMonth, type ExtractedJobFields } from '../lib/remoteStore'
 import { PER_USER_MONTHLY_LIMIT } from '../lib/extraction'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { useModalDismiss } from '../hooks/useModalDismiss'
@@ -13,6 +13,15 @@ interface ApplicationFormProps {
   onSubmit: (input: ApplicationInput) => Promise<void>
   onRequestSignUp: () => void
   onClose: () => void
+  // Seeds add-mode fields without a full Application (no id/timestamps/etc)
+  // -- used by the browser-extension handoff (Board.tsx) to open the form
+  // pre-filled from an extraction that already ran, same review-before-save
+  // flow as the in-form "Extract with AI" button, just triggered externally.
+  // Ignored when editing (initial takes precedence). Shaped like
+  // ExtractedJobFields (nullable strings/enums), not ApplicationInput
+  // (company/role_title are required there) -- a prefill is allowed to be
+  // incomplete since the user still reviews and fills gaps before saving.
+  prefill?: Partial<ExtractedJobFields> | null
 }
 
 function today(): string {
@@ -28,16 +37,19 @@ export function ApplicationForm({
   onSubmit,
   onRequestSignUp,
   onClose,
+  prefill,
 }: ApplicationFormProps) {
   const isSignedIn = userId !== null
-  const [company, setCompany] = useState(initial?.company ?? '')
-  const [roleTitle, setRoleTitle] = useState(initial?.role_title ?? '')
+  const [company, setCompany] = useState(initial?.company ?? prefill?.company ?? '')
+  const [roleTitle, setRoleTitle] = useState(initial?.role_title ?? prefill?.role_title ?? '')
   const [dateApplied, setDateApplied] = useState(initial?.date_applied ?? today())
-  const [jobLink, setJobLink] = useState(initial?.job_link ?? '')
-  const [salaryRange, setSalaryRange] = useState(initial?.salary_range ?? '')
-  const [location, setLocation] = useState(initial?.location ?? '')
-  const [employmentType, setEmploymentType] = useState<EmploymentType | ''>(initial?.employment_type ?? '')
-  const [workMode, setWorkMode] = useState<WorkMode | ''>(initial?.work_mode ?? '')
+  const [jobLink, setJobLink] = useState(initial?.job_link ?? prefill?.job_link ?? '')
+  const [salaryRange, setSalaryRange] = useState(initial?.salary_range ?? prefill?.salary_range ?? '')
+  const [location, setLocation] = useState(initial?.location ?? prefill?.location ?? '')
+  const [employmentType, setEmploymentType] = useState<EmploymentType | ''>(
+    initial?.employment_type ?? prefill?.employment_type ?? '',
+  )
+  const [workMode, setWorkMode] = useState<WorkMode | ''>(initial?.work_mode ?? prefill?.work_mode ?? '')
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)

@@ -131,6 +131,16 @@ export async function extractJobDetails(imageBase64: string, mediaType: string):
   return fields
 }
 
+// Text-mode sibling of extractJobDetails, for the browser-extension handoff
+// (milestone B1) -- same Edge Function, same quota/schema, just scraped page
+// text instead of a screenshot. See supabase/functions/extract-job-details/index.ts.
+export async function extractJobDetailsFromText(text: string): Promise<ExtractedJobFields> {
+  const { fields } = await invokeEdgeFunction<{ fields: ExtractedJobFields }>('extract-job-details', {
+    text,
+  })
+  return fields
+}
+
 // How many extractions the caller has used this calendar month, for the
 // "N of 20 left" display. Relies on the extraction_events_select_own RLS
 // policy to scope the count to the caller; the actual quota enforcement
