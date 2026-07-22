@@ -38,6 +38,7 @@ import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
 import { CardVisual } from './CardVisual'
 import { ArchiveView } from './ArchiveView'
+import { TableView } from './TableView'
 import { UndoToast } from './UndoToast'
 import { ErrorToast } from './ErrorToast'
 import { AuthModal } from './AuthModal'
@@ -59,7 +60,7 @@ type FormState =
   | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
   | { mode: 'edit'; application: Application }
   | null
-type View = 'board' | 'archive' | 'privacy'
+type View = 'board' | 'archive' | 'table' | 'privacy'
 
 const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
@@ -183,6 +184,13 @@ export function Board() {
   // than being scoped to the active one -- per product decision, there's
   // one shared Archive screen, not one per tracker.
   const archivedApplications = useMemo(() => applications.filter((app) => app.is_archived), [applications])
+
+  // Table view is just another rendering of the same active-tracker data as
+  // the board (see byStage above), not a separate scope.
+  const activeApplications = useMemo(
+    () => applications.filter((app) => !app.is_archived && app.tracker_id === activeTrackerId),
+    [applications, activeTrackerId],
+  )
 
   const activeTrackerHasApplications = useMemo(
     () => applications.some((app) => app.tracker_id === activeTrackerId),
@@ -518,6 +526,12 @@ export function Board() {
     }
   }
 
+  function handleStageChange(application: Application, stage: ApplicationStage) {
+    moveApplicationStage(application.id, stage).catch((err) =>
+      showError(err, 'Could not move the application. Please try again.'),
+    )
+  }
+
   function handleTogglePriority(application: Application) {
     togglePriority(application.id).catch((err) =>
       showError(err, 'Could not update the application. Please try again.'),
@@ -632,7 +646,14 @@ export function Board() {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
   }
 
-  const pageTitle = view === 'board' ? 'Job Application Tracker' : view === 'archive' ? 'Archive' : 'Privacy policy'
+  const pageTitle =
+    view === 'board'
+      ? 'Job Application Tracker'
+      : view === 'archive'
+        ? 'Archive'
+        : view === 'table'
+          ? 'Job Application Tracker'
+          : 'Privacy policy'
 
   return (
     <div className="h-screen bg-slate-50 flex">
@@ -668,7 +689,7 @@ export function Board() {
           >
             <CoffeeIcon className="w-5 h-5" />
           </a>
-          {view === 'board' && activeTrackerId && (
+          {(view === 'board' || view === 'table') && activeTrackerId && (
             <button
               type="button"
               onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
@@ -690,7 +711,7 @@ export function Board() {
         />
       )}
 
-      {view === 'board' && trackers.length > 0 && (
+      {(view === 'board' || view === 'table') && trackers.length > 0 && (
         <TrackerTabs
           trackers={trackers}
           activeTrackerId={activeTrackerId}
@@ -745,6 +766,13 @@ export function Board() {
             {!user && <ExtractionPromo onSignUp={() => setAuthModalMode('sign-up')} />}
           </div>
         </div>
+      ) : view === 'table' ? (
+        <TableView
+          applications={activeApplications}
+          onCardOpen={setDetailApplication}
+          onStageChange={handleStageChange}
+          onTogglePriority={handleTogglePriority}
+        />
       ) : (
         <main className="flex-1 overflow-x-auto py-6">
           <DndContext

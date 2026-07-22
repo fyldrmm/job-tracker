@@ -1,10 +1,20 @@
 import type { ReactNode } from 'react'
-import { BoardIcon, ArchiveIcon, LogoutIcon, LoginIcon, UserIcon, UserPlusIcon, CoffeeIcon, BellIcon } from './icons'
+import {
+  BoardIcon,
+  ArchiveIcon,
+  ListIcon,
+  LogoutIcon,
+  LoginIcon,
+  UserIcon,
+  UserPlusIcon,
+  CoffeeIcon,
+  BellIcon,
+} from './icons'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
-  view: 'board' | 'archive' | 'privacy'
-  onNavigate: (view: 'board' | 'archive') => void
+  view: 'board' | 'archive' | 'table' | 'privacy'
+  onNavigate: (view: 'board' | 'archive' | 'table') => void
   archivedCount: number
   isSignedIn: boolean
   displayName: string
@@ -72,6 +82,12 @@ export function Sidebar({
         label="Job Tracker"
         active={view === 'board'}
         onClick={() => onNavigate('board')}
+      />
+      <NavItem
+        icon={<ListIcon />}
+        label="Table"
+        active={view === 'table'}
+        onClick={() => onNavigate('table')}
       />
       <NavItem
         icon={<ArchiveIcon />}
