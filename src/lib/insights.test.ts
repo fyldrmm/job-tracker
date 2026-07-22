@@ -163,6 +163,38 @@ describe('computeApplicationsOverTime', () => {
       { period: '2026-02', active: 1, archived: 0 },
     ])
   })
+
+  it('zero-fills months with no applications instead of skipping them', () => {
+    const apps = [
+      makeApplication({ id: 'a', date_applied: '2026-01-15' }),
+      makeApplication({ id: 'b', date_applied: '2026-04-01' }),
+    ]
+    const series = computeApplicationsOverTime(apps)
+    expect(series).toEqual([
+      { period: '2026-01', active: 1, archived: 0 },
+      { period: '2026-02', active: 0, archived: 0 },
+      { period: '2026-03', active: 0, archived: 0 },
+      { period: '2026-04', active: 1, archived: 0 },
+    ])
+  })
+
+  it('zero-fills across a year boundary', () => {
+    const apps = [
+      makeApplication({ id: 'a', date_applied: '2025-11-01' }),
+      makeApplication({ id: 'b', date_applied: '2026-01-01' }),
+    ]
+    const series = computeApplicationsOverTime(apps)
+    expect(series.map((p) => p.period)).toEqual(['2025-11', '2025-12', '2026-01'])
+  })
+
+  it('returns an empty series for no applications', () => {
+    expect(computeApplicationsOverTime([])).toEqual([])
+  })
+
+  it('returns a single point when everything falls in one month', () => {
+    const apps = [makeApplication({ id: 'a', date_applied: '2026-03-05' })]
+    expect(computeApplicationsOverTime(apps)).toEqual([{ period: '2026-03', active: 1, archived: 0 }])
+  })
 })
 
 describe('computeStageTiming', () => {

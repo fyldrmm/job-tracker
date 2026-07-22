@@ -124,9 +124,27 @@ export interface TimeSeriesPoint {
   archived: number
 }
 
+// 'YYYY-MM' + 1 month, with year rollover. Pure string/number arithmetic
+// (no Date object) so this can't be thrown off by timezone-driven
+// month/day boundary shifts -- the month range here only ever needs to
+// answer "what's the next label," never a real calendar computation.
+function nextMonth(period: string): string {
+  const [year, month] = period.split('-').map(Number)
+  const rolledOver = month === 12
+  return `${rolledOver ? year + 1 : year}-${String(rolledOver ? 1 : month + 1).padStart(2, '0')}`
+}
+
 // Bucketed by month of date_applied (not created_at/archived_at) -- this is
 // meant to answer "how much did I apply, and how did that cohort turn out,"
-// not "when did things get archived."
+// not "when did things get archived." The active/archived split reflects
+// current status, not a historical event dated to that month -- an app
+// applied to in January and archived last week still shows as "archived" in
+// January's bar.
+//
+// Zero-filled across the full min-to-max month range: without this, a month
+// with no applications is simply absent rather than shown as zero, so two
+// non-adjacent months with activity render next to each other on the x-axis
+// as if nothing came between them -- silently misrepresenting cadence.
 export function computeApplicationsOverTime(applications: Application[]): TimeSeriesPoint[] {
   const byMonth = new Map<string, { active: number; archived: number }>()
   for (const app of applications) {
@@ -136,9 +154,16 @@ export function computeApplicationsOverTime(applications: Application[]): TimeSe
     else bucket.active += 1
     byMonth.set(month, bucket)
   }
-  return [...byMonth.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([period, counts]) => ({ period, ...counts }))
+  if (byMonth.size === 0) return []
+
+  const months = [...byMonth.keys()].sort()
+  const lastMonth = months[months.length - 1]
+  const points: TimeSeriesPoint[] = []
+  for (let month = months[0]; ; month = nextMonth(month)) {
+    points.push({ period: month, ...(byMonth.get(month) ?? { active: 0, archived: 0 }) })
+    if (month === lastMonth) break
+  }
+  return points
 }
 
 export interface StageTiming {

@@ -197,11 +197,14 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
                   <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#637968' }} />
                   <Tooltip contentStyle={tooltipStyle} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="active" name="Active" fill={CATEGORICAL[0]} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="archived" name="Archived" fill={CATEGORICAL[1]} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="active" name="Still active" fill={CATEGORICAL[0]} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="archived" name="Now archived" fill={CATEGORICAL[1]} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-              <p className="text-xs text-ink-400 mt-2">Bucketed by month applied, not month archived.</p>
+              <p className="text-xs text-ink-400 mt-2">
+                Grouped by the month you applied. The split shows each month's current status, not when it was
+                archived -- an app from January archived last week still counts as January's.
+              </p>
             </ChartCard>
 
             <ChartCard title="Avg. days to reach each stage">
