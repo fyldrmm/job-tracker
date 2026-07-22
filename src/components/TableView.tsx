@@ -104,30 +104,30 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
       )}
 
       {applications.length === 0 ? (
-        <p className="text-sm text-slate-400">No applications on this tracker yet.</p>
+        <p className="text-sm text-ink-400">No applications on this tracker yet.</p>
       ) : filteredApplications.length === 0 ? (
-        <p className="text-sm text-slate-400">No applications match the selected filters.</p>
+        <p className="text-sm text-ink-400">No applications match the selected filters.</p>
       ) : (
         <table className="w-full text-sm border-collapse">
           <thead>
-            <tr className="border-b border-slate-200">
+            <tr className="border-b border-ink-200">
               <th className="w-8" />
               {COLUMNS.map((column) => (
                 <th key={column.key} className="text-left py-2 pr-4">
                   <button
                     type="button"
                     onClick={() => handleHeaderClick(column.key)}
-                    className="font-medium text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+                    className="font-medium text-ink-500 hover:text-ink-700 inline-flex items-center gap-1"
                   >
                     {column.label}
                     {sortKey === column.key && <span aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>}
                   </button>
                 </th>
               ))}
-              <th className="text-left py-2 pr-4 font-medium text-slate-500">Salary</th>
-              <th className="text-left py-2 pr-4 font-medium text-slate-500">Location</th>
-              <th className="text-left py-2 pr-4 font-medium text-slate-500">Employment</th>
-              <th className="text-left py-2 pr-4 font-medium text-slate-500">Work mode</th>
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Salary</th>
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Location</th>
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Employment</th>
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Work mode</th>
             </tr>
           </thead>
           <tbody>
@@ -135,7 +135,7 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
               <tr
                 key={application.id}
                 onClick={() => onCardOpen(application)}
-                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                className="border-b border-ink-100 hover:bg-ink-50 cursor-pointer"
               >
                 <td className="w-8">
                   <button
@@ -147,7 +147,7 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
                     }}
                     aria-label={application.is_priority ? 'Remove from most wanted' : 'Mark as most wanted'}
                     aria-pressed={application.is_priority}
-                    className="p-1 text-slate-300 hover:text-amber-400"
+                    className="p-1 text-ink-300 hover:text-amber-400"
                   >
                     <StarIcon
                       className={`w-4 h-4 ${application.is_priority ? 'text-amber-400 fill-amber-400' : ''}`}
@@ -155,20 +155,20 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
                   </button>
                 </td>
                 <td className="py-2 pr-4">
-                  <span className="flex items-center gap-1.5 font-medium text-slate-800">
+                  <span className="flex items-center gap-1.5 font-medium text-ink-800">
                     {application.company}
                     {application.notes && application.notes.trim() && (
-                      <NoteIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-label="Has notes" />
+                      <NoteIcon className="w-3.5 h-3.5 text-ink-400 shrink-0" aria-label="Has notes" />
                     )}
                   </span>
                 </td>
-                <td className="py-2 pr-4 text-slate-600">{application.role_title}</td>
+                <td className="py-2 pr-4 text-ink-600">{application.role_title}</td>
                 <td className="py-2 pr-4">
                   <select
                     value={application.current_stage}
                     onClick={(e) => e.stopPropagation()}
                     onChange={(e) => onStageChange(application, e.target.value as ApplicationStage)}
-                    className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-slate-400 bg-white"
+                    className="border border-ink-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ink-400 bg-white"
                   >
                     {STAGE_ORDER.map((stage) => (
                       <option key={stage} value={stage}>
@@ -177,13 +177,13 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
                     ))}
                   </select>
                 </td>
-                <td className="py-2 pr-4 text-slate-500">{formatDate(application.date_applied)}</td>
-                <td className="py-2 pr-4 text-slate-500">{application.salary_range || '—'}</td>
-                <td className="py-2 pr-4 text-slate-500">{application.location || '—'}</td>
-                <td className="py-2 pr-4 text-slate-500">
+                <td className="py-2 pr-4 text-ink-500">{formatDate(application.date_applied)}</td>
+                <td className="py-2 pr-4 text-ink-500">{application.salary_range || '—'}</td>
+                <td className="py-2 pr-4 text-ink-500">{application.location || '—'}</td>
+                <td className="py-2 pr-4 text-ink-500">
                   {application.employment_type ? EMPLOYMENT_TYPE_LABELS[application.employment_type] : '—'}
                 </td>
-                <td className="py-2 pr-4 text-slate-500">
+                <td className="py-2 pr-4 text-ink-500">
                   {application.work_mode ? WORK_MODE_LABELS[application.work_mode] : '—'}
                 </td>
               </tr>

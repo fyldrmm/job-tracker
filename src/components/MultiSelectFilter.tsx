@@ -44,22 +44,22 @@ export function MultiSelectFilter<T extends string>({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="true"
-        className="border border-slate-300 rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 focus:outline-none focus:ring-1 focus:ring-slate-400"
+        className="border border-ink-300 rounded-md px-2 py-1 text-sm text-ink-600 hover:bg-ink-50 focus:outline-none focus:ring-1 focus:ring-ink-400"
       >
         {label} ({selected.size})
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg py-1 w-40 z-10">
+        <div className="absolute right-0 mt-1 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-40 z-10">
           {options.map((option) => (
             <label
               key={option.value}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 cursor-pointer"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-ink-600 hover:bg-ink-50 cursor-pointer"
             >
               <input
                 type="checkbox"
                 checked={selected.has(option.value)}
                 onChange={() => onToggle(option.value)}
-                className="rounded border-slate-300"
+                className="rounded border-ink-300"
               />
               {option.label}
             </label>

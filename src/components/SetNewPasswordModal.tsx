@@ -32,11 +32,11 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <h2 className="text-lg font-medium text-slate-800">Set a new password</h2>
-          <p className="text-sm text-slate-600">Choose a new password for your account.</p>
+          <h2 className="text-lg font-medium text-ink-800">Set a new password</h2>
+          <p className="text-sm text-ink-600">Choose a new password for your account.</p>
 
           <div>
-            <label htmlFor="new-password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="new-password" className="block text-sm font-medium text-ink-700">
               New password
             </label>
             <input
@@ -47,12 +47,12 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           <div>
-            <label htmlFor="confirm-new-password" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="confirm-new-password" className="block text-sm font-medium text-ink-700">
               Confirm new password
             </label>
             <input
@@ -62,12 +62,12 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           {newPassword.length > 0 && newPassword.length < 6 && (
-            <p className="text-xs text-slate-400">At least 6 characters.</p>
+            <p className="text-xs text-ink-400">At least 6 characters.</p>
           )}
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
             <p className="text-xs text-rose-600">Passwords don't match.</p>
@@ -77,7 +77,7 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
           <button
             type="submit"
             disabled={!canSubmit || submitting}
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-40"
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-40"
           >
             Update password
           </button>

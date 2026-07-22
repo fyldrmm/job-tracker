@@ -25,8 +25,8 @@ export function CardVisual({ application, dragging }: CardVisualProps) {
   return (
     <div
       className={`w-full text-left bg-white rounded-md border p-3 transition select-none ${
-        application.is_priority ? 'border-l-4 border-l-amber-400 border-slate-200' : 'border-slate-200'
-      } ${dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-slate-300'}`}
+        application.is_priority ? 'border-l-4 border-l-amber-400 border-ink-200' : 'border-ink-200'
+      } ${dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-ink-300'}`}
     >
       <div className="flex items-start gap-1">
         {application.is_priority && (
@@ -37,12 +37,12 @@ export function CardVisual({ application, dragging }: CardVisualProps) {
           />
         )}
         <div className="min-w-0">
-          <div className="font-medium text-slate-800 text-sm truncate">{application.company}</div>
-          <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
+          <div className="font-medium text-ink-800 text-sm truncate">{application.company}</div>
+          <div className="text-ink-600 text-sm truncate">{application.role_title}</div>
         </div>
       </div>
       <div className="flex items-center justify-between mt-1">
-        <span className="text-slate-400 text-xs">{formatDate(application.date_applied)}</span>
+        <span className="text-ink-400 text-xs">{formatDate(application.date_applied)}</span>
         {showStale && (
           <span className="inline-flex items-center gap-1 text-amber-600 text-[10px] font-medium uppercase tracking-wide">
             <span title={`No activity in over ${STALE_THRESHOLD_DAYS} days`}>OUTDATED</span>

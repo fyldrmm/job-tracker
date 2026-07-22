@@ -27,26 +27,26 @@ export function ExtractionDemoAnimation() {
       aria-label="Illustration: AI reading a job posting on the left and filling its details into form fields on the right."
     >
       {/* Screenshot: a page of text standing in for a job posting. */}
-      <rect x="8" y="14" width="72" height="68" rx="4" className="fill-white stroke-slate-300" strokeWidth="1" />
-      <rect x="16" y="24" width="40" height="5" rx="2" className="fill-slate-400" />
-      <rect x="16" y="34" width="52" height="3" rx="1.5" className="fill-slate-200" />
-      <rect x="16" y="41" width="46" height="3" rx="1.5" className="fill-slate-200" />
-      <rect x="16" y="48" width="52" height="3" rx="1.5" className="fill-slate-200" />
-      <rect x="16" y="55" width="34" height="3" rx="1.5" className="fill-slate-200" />
-      <rect x="16" y="62" width="44" height="3" rx="1.5" className="fill-slate-200" />
-      <rect x="16" y="69" width="28" height="3" rx="1.5" className="fill-slate-200" />
+      <rect x="8" y="14" width="72" height="68" rx="4" className="fill-white stroke-ink-300" strokeWidth="1" />
+      <rect x="16" y="24" width="40" height="5" rx="2" className="fill-ink-400" />
+      <rect x="16" y="34" width="52" height="3" rx="1.5" className="fill-ink-200" />
+      <rect x="16" y="41" width="46" height="3" rx="1.5" className="fill-ink-200" />
+      <rect x="16" y="48" width="52" height="3" rx="1.5" className="fill-ink-200" />
+      <rect x="16" y="55" width="34" height="3" rx="1.5" className="fill-ink-200" />
+      <rect x="16" y="62" width="44" height="3" rx="1.5" className="fill-ink-200" />
+      <rect x="16" y="69" width="28" height="3" rx="1.5" className="fill-ink-200" />
 
       {/* Flow arrow. */}
       <g className="motion-safe:animate-[extraction-demo-arrow_7s_ease-in-out_infinite]">
         <path
           d="M92 48 h32"
-          className="stroke-slate-300"
+          className="stroke-ink-300"
           strokeWidth="2"
           strokeLinecap="round"
         />
         <path
           d="M119 43 l6 5 -6 5"
-          className="stroke-slate-300"
+          className="stroke-ink-300"
           fill="none"
           strokeWidth="2"
           strokeLinecap="round"
@@ -58,41 +58,41 @@ export function ExtractionDemoAnimation() {
           the darker fills, matching how the real form reads once
           extraction populates it. */}
       <g>
-        <rect x="136" y="16" width="26" height="3" rx="1.5" className="fill-slate-300" />
-        <rect x="136" y="23" width="96" height="14" rx="3" className="fill-white stroke-slate-300" strokeWidth="1" />
+        <rect x="136" y="16" width="26" height="3" rx="1.5" className="fill-ink-300" />
+        <rect x="136" y="23" width="96" height="14" rx="3" className="fill-white stroke-ink-300" strokeWidth="1" />
         <rect
           x="142"
           y="28"
           width="42"
           height="4"
           rx="2"
-          className="fill-slate-400 motion-safe:animate-[extraction-demo-field-1_7s_ease-in-out_infinite]"
+          className="fill-ink-400 motion-safe:animate-[extraction-demo-field-1_7s_ease-in-out_infinite]"
           style={fillBoxLeft}
         />
       </g>
       <g>
-        <rect x="136" y="45" width="20" height="3" rx="1.5" className="fill-slate-300" />
-        <rect x="136" y="52" width="96" height="14" rx="3" className="fill-white stroke-slate-300" strokeWidth="1" />
+        <rect x="136" y="45" width="20" height="3" rx="1.5" className="fill-ink-300" />
+        <rect x="136" y="52" width="96" height="14" rx="3" className="fill-white stroke-ink-300" strokeWidth="1" />
         <rect
           x="142"
           y="57"
           width="56"
           height="4"
           rx="2"
-          className="fill-slate-400 motion-safe:animate-[extraction-demo-field-2_7s_ease-in-out_infinite]"
+          className="fill-ink-400 motion-safe:animate-[extraction-demo-field-2_7s_ease-in-out_infinite]"
           style={fillBoxLeft}
         />
       </g>
       <g>
-        <rect x="136" y="74" width="24" height="3" rx="1.5" className="fill-slate-300" />
-        <rect x="136" y="81" width="96" height="11" rx="3" className="fill-white stroke-slate-300" strokeWidth="1" />
+        <rect x="136" y="74" width="24" height="3" rx="1.5" className="fill-ink-300" />
+        <rect x="136" y="81" width="96" height="11" rx="3" className="fill-white stroke-ink-300" strokeWidth="1" />
         <rect
           x="142"
           y="85"
           width="34"
           height="4"
           rx="2"
-          className="fill-slate-400 motion-safe:animate-[extraction-demo-field-3_7s_ease-in-out_infinite]"
+          className="fill-ink-400 motion-safe:animate-[extraction-demo-field-3_7s_ease-in-out_infinite]"
           style={fillBoxLeft}
         />
       </g>

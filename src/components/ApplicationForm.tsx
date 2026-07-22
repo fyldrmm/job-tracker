@@ -154,7 +154,7 @@ export function ApplicationForm({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <h2 className="text-lg font-medium text-slate-800">
+          <h2 className="text-lg font-medium text-ink-800">
             {isEdit ? 'Edit application' : 'Add application'}
           </h2>
 
@@ -171,12 +171,12 @@ export function ApplicationForm({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={extracting || extractionsLeft === 0}
-                className="text-sm font-medium text-slate-600 border border-slate-300 rounded-md px-3 py-1.5 hover:bg-slate-100 disabled:opacity-50"
+                className="text-sm font-medium text-ink-600 border border-ink-300 rounded-md px-3 py-1.5 hover:bg-ink-100 disabled:opacity-50"
               >
                 {extracting ? 'Extracting...' : 'Extract with AI'}
               </button>
               {extractionsLeft !== null && (
-                <p className="mt-1 text-xs text-slate-400">
+                <p className="mt-1 text-xs text-ink-400">
                   {extractionsLeft === 0
                     ? "You've used all your free AI extractions this month."
                     : `${extractionsLeft} of ${PER_USER_MONTHLY_LIMIT} free AI extractions left this month.`}
@@ -192,7 +192,7 @@ export function ApplicationForm({
               empty-state ExtractionPromo card only reaches guests with an
               empty board; this covers everyone else. */}
           {!isEdit && !isSignedIn && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-ink-400">
               Skip the typing — screenshot a job posting and our AI will fill in the details.{' '}
               <button
                 type="button"
@@ -206,7 +206,7 @@ export function ApplicationForm({
           )}
 
           <div>
-            <label htmlFor="company" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="company" className="block text-sm font-medium text-ink-700">
               Company *
             </label>
             <input
@@ -216,12 +216,12 @@ export function ApplicationForm({
               maxLength={200}
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           <div>
-            <label htmlFor="role_title" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="role_title" className="block text-sm font-medium text-ink-700">
               Role title *
             </label>
             <input
@@ -231,12 +231,12 @@ export function ApplicationForm({
               maxLength={200}
               value={roleTitle}
               onChange={(e) => setRoleTitle(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           <div>
-            <label htmlFor="date_applied" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="date_applied" className="block text-sm font-medium text-ink-700">
               Date applied *
             </label>
             <input
@@ -245,12 +245,12 @@ export function ApplicationForm({
               required
               value={dateApplied}
               onChange={(e) => setDateApplied(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           <div>
-            <label htmlFor="job_link" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="job_link" className="block text-sm font-medium text-ink-700">
               Job link
             </label>
             <input
@@ -259,13 +259,13 @@ export function ApplicationForm({
               maxLength={2000}
               value={jobLink}
               onChange={(e) => setJobLink(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="salary_range" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="salary_range" className="block text-sm font-medium text-ink-700">
                 Salary range
               </label>
               <input
@@ -274,11 +274,11 @@ export function ApplicationForm({
                 maxLength={200}
                 value={salaryRange}
                 onChange={(e) => setSalaryRange(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
             </div>
             <div>
-              <label htmlFor="location" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="location" className="block text-sm font-medium text-ink-700">
                 Location
               </label>
               <input
@@ -287,21 +287,21 @@ export function ApplicationForm({
                 maxLength={200}
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="employment_type" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="employment_type" className="block text-sm font-medium text-ink-700">
                 Employment type
               </label>
               <select
                 id="employment_type"
                 value={employmentType}
                 onChange={(e) => setEmploymentType(e.target.value as EmploymentType | '')}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               >
                 <option value="">Not specified</option>
                 {(Object.entries(EMPLOYMENT_TYPE_LABELS) as [EmploymentType, string][]).map(([value, label]) => (
@@ -312,14 +312,14 @@ export function ApplicationForm({
               </select>
             </div>
             <div>
-              <label htmlFor="work_mode" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="work_mode" className="block text-sm font-medium text-ink-700">
                 Work mode
               </label>
               <select
                 id="work_mode"
                 value={workMode}
                 onChange={(e) => setWorkMode(e.target.value as WorkMode | '')}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               >
                 <option value="">Not specified</option>
                 {(Object.entries(WORK_MODE_LABELS) as [WorkMode, string][]).map(([value, label]) => (
@@ -332,7 +332,7 @@ export function ApplicationForm({
           </div>
 
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-slate-700">
+            <label htmlFor="notes" className="block text-sm font-medium text-ink-700">
               Notes
             </label>
             <textarea
@@ -341,7 +341,7 @@ export function ApplicationForm({
               maxLength={5000}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
           </div>
 
@@ -351,14 +351,14 @@ export function ApplicationForm({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 rounded-md hover:bg-slate-100"
+              className="px-4 py-2 text-sm font-medium text-ink-600 rounded-md hover:bg-ink-100"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-50"
             >
               {isEdit ? 'Save' : 'Add'}
             </button>

@@ -23,18 +23,18 @@ interface ExtractionPromoProps {
 // flow it can't finish.
 export function ExtractionPromo({ onSignUp }: ExtractionPromoProps) {
   return (
-    <div className="mt-8 max-w-sm rounded-lg border border-slate-200 bg-white p-4 text-left">
-      <div className="rounded-md bg-slate-50 p-3">
+    <div className="mt-8 max-w-sm rounded-lg border border-ink-200 bg-white p-4 text-left">
+      <div className="rounded-md bg-ink-50 p-3">
         <ExtractionDemoAnimation />
       </div>
-      <h3 className="mt-3 text-sm font-medium text-slate-800">Skip the typing</h3>
-      <p className="mt-1 text-sm text-slate-500">
+      <h3 className="mt-3 text-sm font-medium text-ink-800">Skip the typing</h3>
+      <p className="mt-1 text-sm text-ink-500">
         Screenshot a job posting and our AI fills in the details. Free with an account.
       </p>
       <button
         type="button"
         onClick={onSignUp}
-        className="mt-3 text-sm font-medium text-slate-700 underline decoration-slate-300 hover:decoration-slate-600"
+        className="mt-3 text-sm font-medium text-ink-700 underline decoration-ink-300 hover:decoration-ink-600"
       >
         Extract with AI
       </button>

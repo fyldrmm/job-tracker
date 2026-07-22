@@ -51,7 +51,7 @@ export function TrackerTabs({
   }
 
   return (
-    <div className="flex items-center gap-1 px-6 pt-3 border-b border-slate-200 overflow-x-auto">
+    <div className="flex items-center gap-1 px-6 pt-3 border-b border-ink-200 overflow-x-auto">
       {trackers.map((tracker) => {
         const isActive = tracker.id === activeTrackerId
         const isEditing = editingId === tracker.id
@@ -68,8 +68,8 @@ export function TrackerTabs({
               isEditing ? 'px-3 py-1.5' : ''
             } ${
               isActive
-                ? 'bg-slate-50 text-slate-900 font-medium border border-b-0 border-slate-200'
-                : 'text-slate-500 hover:bg-slate-100'
+                ? 'bg-ink-50 text-ink-900 font-medium border border-b-0 border-ink-200'
+                : 'text-ink-500 hover:bg-ink-100'
             }`}
             onDoubleClick={() => startEditing(tracker)}
           >
@@ -86,7 +86,7 @@ export function TrackerTabs({
                   if (e.key === 'Escape') setEditingId(null)
                 }}
                 onClick={(e) => e.stopPropagation()}
-                className="bg-white border border-slate-300 rounded px-1 text-sm w-32 focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className="bg-white border border-ink-300 rounded px-1 text-sm w-32 focus:outline-none focus:ring-1 focus:ring-ink-400"
               />
             ) : (
               <>
@@ -94,7 +94,7 @@ export function TrackerTabs({
                   type="button"
                   aria-current={isActive ? 'true' : undefined}
                   onClick={() => onSelect(tracker.id)}
-                  className="max-w-[10rem] truncate px-3 py-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400 rounded-t-md"
+                  className="max-w-[10rem] truncate px-3 py-1.5 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-400 rounded-t-md"
                 >
                   {tracker.name}
                 </button>
@@ -103,7 +103,7 @@ export function TrackerTabs({
                     type="button"
                     aria-label={`Delete ${tracker.name}`}
                     onClick={() => onDeleteRequest(tracker)}
-                    className="-ml-1.5 pr-3 py-1.5 text-slate-300 hover:text-rose-600 opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-slate-400 rounded-t-md transition-opacity"
+                    className="-ml-1.5 pr-3 py-1.5 text-ink-300 hover:text-rose-600 opacity-0 group-hover/tab:opacity-100 focus-visible:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink-400 rounded-t-md transition-opacity"
                   >
                     ✕
                   </button>
@@ -130,14 +130,14 @@ export function TrackerTabs({
             }
           }}
           placeholder="Tracker name"
-          className="ml-1 border border-slate-300 rounded px-2 py-1 text-sm w-36 focus:outline-none focus:ring-1 focus:ring-slate-400"
+          className="ml-1 border border-ink-300 rounded px-2 py-1 text-sm w-36 focus:outline-none focus:ring-1 focus:ring-ink-400"
         />
       ) : (
         <button
           type="button"
           onClick={() => setAdding(true)}
           aria-label="Add tracker"
-          className="ml-1 text-slate-400 hover:text-slate-700 w-7 h-7 flex items-center justify-center rounded-md hover:bg-slate-100 shrink-0"
+          className="ml-1 text-ink-400 hover:text-ink-700 w-7 h-7 flex items-center justify-center rounded-md hover:bg-ink-100 shrink-0"
         >
           +
         </button>

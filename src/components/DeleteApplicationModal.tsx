@@ -17,17 +17,17 @@ export function DeleteApplicationModal({ application, onConfirm, onClose }: Dele
       }}
     >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4">
-        <h2 className="text-lg font-medium text-slate-800">
+        <h2 className="text-lg font-medium text-ink-800">
           Delete "{application.company}"?
         </h2>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-ink-600">
           This permanently deletes {application.company} -- {application.role_title}. There's no undo.
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-slate-600 rounded-md hover:bg-slate-100"
+            className="px-4 py-2 text-sm font-medium text-ink-600 rounded-md hover:bg-ink-100"
           >
             Cancel
           </button>

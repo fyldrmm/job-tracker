@@ -1,5 +1,22 @@
 @import "tailwindcss";
 
+/* Reskin (2026-07-22): dark-green-tinted neutral scale replacing Tailwind's
+   default slate-*, same lightness steps (so existing contrast ratios hold),
+   hue shifted to 152deg toward the JobTracker logo greens (#1c3a27 / #1fa04e).
+   "Bold" candidate -- see reskin palette-options artifact from that session. */
+@theme {
+  --color-ink-50: #f2fdf5;
+  --color-ink-100: #edf8ef;
+  --color-ink-200: #e0ebe2;
+  --color-ink-300: #cdd7cf;
+  --color-ink-400: #90a695;
+  --color-ink-500: #637968;
+  --color-ink-600: #455a4a;
+  --color-ink-700: #2c4834;
+  --color-ink-800: #142f1d;
+  --color-ink-900: #031e0c;
+}
+
 body {
   margin: 0;
 }

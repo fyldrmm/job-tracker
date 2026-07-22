@@ -29,10 +29,10 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
   if (!value) return null
   return (
     <div className="py-2">
-      <dt className="text-slate-400 text-xs uppercase tracking-wide">{label}</dt>
-      <dd className={`text-slate-700 mt-0.5 text-sm ${multiline ? 'whitespace-pre-wrap' : ''}`}>
+      <dt className="text-ink-400 text-xs uppercase tracking-wide">{label}</dt>
+      <dd className={`text-ink-700 mt-0.5 text-sm ${multiline ? 'whitespace-pre-wrap' : ''}`}>
         {isLink && isSafeHttpUrl(value) ? (
-          <a href={value} target="_blank" rel="noreferrer" className="text-slate-700 underline break-all">
+          <a href={value} target="_blank" rel="noreferrer" className="text-ink-700 underline break-all">
             {value}
           </a>
         ) : (
@@ -64,10 +64,10 @@ export function CardDetail({
         <div className="flex items-start justify-between">
           <div>
             {trackerName && (
-              <p className="text-slate-400 text-xs uppercase tracking-wide mb-0.5">{trackerName}</p>
+              <p className="text-ink-400 text-xs uppercase tracking-wide mb-0.5">{trackerName}</p>
             )}
-            <h2 className="text-lg font-medium text-slate-800">{application.company}</h2>
-            <p className="text-slate-600 text-sm">{application.role_title}</p>
+            <h2 className="text-lg font-medium text-ink-800">{application.company}</h2>
+            <p className="text-ink-600 text-sm">{application.role_title}</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -75,8 +75,8 @@ export function CardDetail({
               onClick={onTogglePriority}
               aria-pressed={application.is_priority}
               aria-label={application.is_priority ? 'Remove from most wanted' : 'Mark as most wanted'}
-              className={`p-1.5 rounded-md hover:bg-slate-100 ${
-                application.is_priority ? 'text-amber-400' : 'text-slate-300 hover:text-slate-500'
+              className={`p-1.5 rounded-md hover:bg-ink-100 ${
+                application.is_priority ? 'text-amber-400' : 'text-ink-300 hover:text-ink-500'
               }`}
             >
               <StarIcon className={`w-5 h-5 ${application.is_priority ? 'fill-amber-400' : ''}`} />
@@ -85,14 +85,14 @@ export function CardDetail({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="text-slate-400 hover:text-slate-700 text-lg leading-none px-1"
+              className="text-ink-400 hover:text-ink-700 text-lg leading-none px-1"
             >
               ✕
             </button>
           </div>
         </div>
 
-        <dl className="divide-y divide-slate-100 mt-2">
+        <dl className="divide-y divide-ink-100 mt-2">
           <Field label="Stage" value={STAGE_LABELS[application.current_stage]} />
           <Field label="Date applied" value={formatDate(application.date_applied)} />
           {application.is_archived && application.archive_reason && (
@@ -121,7 +121,7 @@ export function CardDetail({
               type="button"
               onClick={() => onDeleteRequest(application)}
               aria-label={`Delete ${application.company}`}
-              className="p-2 text-slate-400 rounded-md hover:bg-rose-50 hover:text-rose-600"
+              className="p-2 text-ink-400 rounded-md hover:bg-rose-50 hover:text-rose-600"
             >
               <TrashIcon className="w-4 h-4" />
             </button>
@@ -130,14 +130,14 @@ export function CardDetail({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-slate-600 rounded-md hover:bg-slate-100"
+              className="px-4 py-2 text-sm font-medium text-ink-600 rounded-md hover:bg-ink-100"
             >
               Close
             </button>
             <button
               type="button"
               onClick={onEdit}
-              className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              className="px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
             >
               Edit
             </button>

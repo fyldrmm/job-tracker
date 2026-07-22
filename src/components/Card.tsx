@@ -108,7 +108,7 @@ export function Card({
       onClick={handleClick}
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
-      className={`group relative rounded-md cursor-grab active:cursor-grabbing touch-none focus:outline-none focus:ring-2 focus:ring-slate-400 ${
+      className={`group relative rounded-md cursor-grab active:cursor-grabbing touch-none focus:outline-none focus:ring-2 focus:ring-ink-400 ${
         isDragging ? 'opacity-30' : ''
       }`}
     >
@@ -122,7 +122,7 @@ export function Card({
         aria-haspopup="menu"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={handleMenuButtonClick}
-        className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded text-slate-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
+        className="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded text-ink-400 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 hover:bg-ink-100 hover:text-ink-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-ink-400"
       >
         ⋮
       </button>

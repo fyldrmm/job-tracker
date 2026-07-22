@@ -27,16 +27,16 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 p-6">
+        <div className="min-h-screen flex items-center justify-center bg-ink-50 p-6">
           <div className="text-center max-w-sm">
-            <h1 className="text-lg font-medium text-slate-800">Something went wrong</h1>
-            <p className="mt-2 text-sm text-slate-500">
+            <h1 className="text-lg font-medium text-ink-800">Something went wrong</h1>
+            <p className="mt-2 text-sm text-ink-500">
               Your data is safe -- it's stored separately from this page. Reloading usually fixes this.
             </p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
             >
               Reload
             </button>

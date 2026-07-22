@@ -31,7 +31,7 @@ export function ArchiveSplitButton({ onArchive }: ArchiveSplitButtonProps) {
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full mb-1 left-0 bg-white border border-slate-200 rounded-md shadow-lg py-1 w-40 z-10"
+          className="absolute bottom-full mb-1 left-0 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-40 z-10"
         >
           {ARCHIVE_REASONS.map((reason) => (
             <button
@@ -42,7 +42,7 @@ export function ArchiveSplitButton({ onArchive }: ArchiveSplitButtonProps) {
                 onArchive(reason.value)
                 setOpen(false)
               }}
-              className="w-full text-left px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+              className="w-full text-left px-3 py-1.5 text-sm text-ink-700 hover:bg-ink-100"
             >
               {reason.label}
             </button>

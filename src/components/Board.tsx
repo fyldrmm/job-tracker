@@ -644,14 +644,14 @@ export function Board() {
   }
 
   if (loading || trackersLoading) {
-    return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading…</div>
+    return <div className="min-h-screen flex items-center justify-center text-ink-400">Loading…</div>
   }
 
   const pageTitle =
     view === 'archive' ? 'Archive' : view === 'privacy' ? 'Privacy policy' : null
 
   return (
-    <div className="h-screen bg-slate-50 flex">
+    <div className="h-screen bg-ink-50 flex">
       <Sidebar
         view={view}
         onNavigate={setView}
@@ -667,22 +667,22 @@ export function Board() {
         onToggleReminders={handleToggleReminders}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-ink-200">
         <div className="flex items-center gap-2.5">
           <span className="shrink-0 w-6 h-6 rounded-[6px] overflow-hidden">
             <LogoMark className="w-full h-full" />
           </span>
-          <h1 className="text-lg font-semibold text-slate-800">JobTracker</h1>
+          <h1 className="text-lg font-semibold text-ink-800">JobTracker</h1>
           {pageTitle && (
-            <span className="text-lg font-normal text-slate-300">
-              / <span className="text-slate-500">{pageTitle}</span>
+            <span className="text-lg font-normal text-ink-300">
+              / <span className="text-ink-500">{pageTitle}</span>
             </span>
           )}
         </div>
         <div className="flex items-center gap-4">
-          {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
+          {migrating && <span className="text-sm text-ink-400">Syncing your data…</span>}
           {extractingFromExtension && (
-            <span className="text-sm text-slate-400">Extracting job details…</span>
+            <span className="text-sm text-ink-400">Extracting job details…</span>
           )}
           <a
             href={DONATION_URL}
@@ -690,7 +690,7 @@ export function Board() {
             rel="noreferrer"
             aria-label="Support this project"
             title="Support this project"
-            className="text-slate-400 hover:text-slate-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-slate-100"
+            className="text-ink-400 hover:text-ink-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-ink-100"
           >
             <CoffeeIcon className="w-5 h-5" />
           </a>
@@ -698,7 +698,7 @@ export function Board() {
             <button
               type="button"
               onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              className="px-3 py-1.5 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
             >
               + Add application
             </button>
@@ -741,14 +741,14 @@ export function Board() {
       ) : trackers.length === 0 || !activeTrackerId ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm flex flex-col items-center">
-            <h2 className="text-lg font-medium text-slate-800">Create your first tracker</h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <h2 className="text-lg font-medium text-ink-800">Create your first tracker</h2>
+            <p className="mt-2 text-sm text-ink-500">
               A tracker is its own board -- handy if you're job hunting in more than one place at once.
             </p>
             <button
               type="button"
               onClick={handleCreateFirstTracker}
-              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
             >
               + Create tracker
             </button>
@@ -757,14 +757,14 @@ export function Board() {
       ) : !activeTrackerHasApplications ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm flex flex-col items-center">
-            <h2 className="text-lg font-medium text-slate-800">Nothing here yet</h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <h2 className="text-lg font-medium text-ink-800">Nothing here yet</h2>
+            <p className="mt-2 text-sm text-ink-500">
               Add the first job you're eyeing, applying to, or already interviewing for.
             </p>
             <button
               type="button"
               onClick={() => setFormState({ mode: 'add', stage: 'applied' })}
-              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+              className="mt-4 px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
             >
               + Add your first application
             </button>
@@ -812,11 +812,11 @@ export function Board() {
       )}
 
       {view !== 'privacy' && (
-        <footer className="px-6 py-3 border-t border-slate-200 flex items-center justify-center gap-4 text-xs text-slate-400">
-          <button type="button" onClick={() => setView('privacy')} className="hover:text-slate-600 hover:underline">
+        <footer className="px-6 py-3 border-t border-ink-200 flex items-center justify-center gap-4 text-xs text-ink-400">
+          <button type="button" onClick={() => setView('privacy')} className="hover:text-ink-600 hover:underline">
             Privacy policy
           </button>
-          <a href="mailto:fazare@fazare.dev" className="hover:text-slate-600 hover:underline">
+          <a href="mailto:fazare@fazare.dev" className="hover:text-ink-600 hover:underline">
             Contact
           </a>
         </footer>

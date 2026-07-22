@@ -64,7 +64,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       ref={menuRef}
       role="menu"
       style={{ position: 'fixed', left: style.left, top: style.top, visibility: style.visibility }}
-      className="z-50 bg-white border border-slate-200 rounded-md shadow-lg py-1 w-48"
+      className="z-50 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-48"
     >
       {items.map((item) => (
         <button
@@ -83,8 +83,8 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             item.onSelect()
             onClose()
           }}
-          className={`w-full text-left px-3 py-1.5 text-sm focus:outline-none focus:bg-slate-100 hover:bg-slate-100 ${
-            item.danger ? 'text-rose-600' : 'text-slate-700'
+          className={`w-full text-left px-3 py-1.5 text-sm focus:outline-none focus:bg-ink-100 hover:bg-ink-100 ${
+            item.danger ? 'text-rose-600' : 'text-ink-700'
           }`}
         >
           {item.label}

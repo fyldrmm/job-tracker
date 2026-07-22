@@ -78,19 +78,19 @@ export function AccountModal({
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-medium text-slate-800">Account</h2>
+          <h2 className="text-lg font-medium text-ink-800">Account</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-slate-400 hover:text-slate-700 text-lg leading-none"
+            className="text-ink-400 hover:text-ink-700 text-lg leading-none"
           >
             ✕
           </button>
         </div>
 
         <div>
-          <label htmlFor="account-name" className="block text-sm font-medium text-slate-700">
+          <label htmlFor="account-name" className="block text-sm font-medium text-ink-700">
             Name
           </label>
           <div className="mt-1 flex gap-2">
@@ -103,13 +103,13 @@ export function AccountModal({
                 setNameValue(e.target.value)
                 setNameSaved(false)
               }}
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+              className="flex-1 rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
             />
             <button
               type="button"
               onClick={handleSaveName}
               disabled={!nameChanged || nameSubmitting}
-              className="px-3 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-40"
+              className="px-3 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-40"
             >
               Save
             </button>
@@ -119,14 +119,14 @@ export function AccountModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700">Email</label>
-          <p className="mt-1 px-3 py-2 text-sm text-slate-500 bg-slate-50 rounded-md border border-slate-200">
+          <label className="block text-sm font-medium text-ink-700">Email</label>
+          <p className="mt-1 px-3 py-2 text-sm text-ink-500 bg-ink-50 rounded-md border border-ink-200">
             {email}
           </p>
         </div>
 
-        <form onSubmit={handleChangePassword} className="space-y-2 pt-3 border-t border-slate-200">
-          <h3 className="text-sm font-medium text-slate-700">Change password</h3>
+        <form onSubmit={handleChangePassword} className="space-y-2 pt-3 border-t border-ink-200">
+          <h3 className="text-sm font-medium text-ink-700">Change password</h3>
           <input
             type="password"
             placeholder="Current password"
@@ -136,7 +136,7 @@ export function AccountModal({
               setCurrentPassword(e.target.value)
               setPasswordSaved(false)
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
           />
           <input
             type="password"
@@ -148,7 +148,7 @@ export function AccountModal({
               setNewPassword(e.target.value)
               setPasswordSaved(false)
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
           />
           <input
             type="password"
@@ -159,10 +159,10 @@ export function AccountModal({
               setConfirmPassword(e.target.value)
               setPasswordSaved(false)
             }}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
           />
           {newPassword.length > 0 && newPassword.length < 6 && (
-            <p className="text-xs text-slate-400">At least 6 characters.</p>
+            <p className="text-xs text-ink-400">At least 6 characters.</p>
           )}
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
             <p className="text-xs text-rose-600">Passwords don't match.</p>
@@ -172,17 +172,17 @@ export function AccountModal({
           <button
             type="submit"
             disabled={!canSubmitPassword || passwordSubmitting}
-            className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-40"
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-40"
           >
             Update password
           </button>
         </form>
 
-        <div className="pt-3 border-t border-slate-200 space-y-1">
+        <div className="pt-3 border-t border-ink-200 space-y-1">
           <button
             type="button"
             onClick={onExport}
-            className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md"
+            className="w-full text-left px-3 py-2 text-sm text-ink-600 hover:bg-ink-100 rounded-md"
           >
             Export data
           </button>
@@ -196,7 +196,7 @@ export function AccountModal({
           <button
             type="button"
             onClick={onSignOut}
-            className="w-full text-left px-3 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-md"
+            className="w-full text-left px-3 py-2 text-sm text-ink-600 hover:bg-ink-100 rounded-md"
           >
             Sign out
           </button>

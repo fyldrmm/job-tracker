@@ -76,16 +76,16 @@ function ArchiveRow({
   trackerName: string | undefined
 }) {
   return (
-    <div className="flex items-center justify-between bg-white rounded-md border border-slate-200 p-3">
+    <div className="flex items-center justify-between bg-white rounded-md border border-ink-200 p-3">
       <button type="button" onClick={() => onCardOpen(application)} className="text-left flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <div className="font-medium text-slate-800 text-sm truncate">{application.company}</div>
+          <div className="font-medium text-ink-800 text-sm truncate">{application.company}</div>
           {application.notes && application.notes.trim() && (
-            <NoteIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-label="Has notes" />
+            <NoteIcon className="w-3.5 h-3.5 text-ink-400 shrink-0" aria-label="Has notes" />
           )}
         </div>
-        <div className="text-slate-600 text-sm truncate">{application.role_title}</div>
-        <div className="text-slate-400 text-xs mt-1">
+        <div className="text-ink-600 text-sm truncate">{application.role_title}</div>
+        <div className="text-ink-400 text-xs mt-1">
           {[
             application.archive_reason ? ARCHIVE_REASON_LABELS[application.archive_reason] : null,
             formatDate(application.date_applied),
@@ -100,7 +100,7 @@ function ArchiveRow({
       <button
         type="button"
         onClick={() => onUnarchive(application)}
-        className="ml-3 px-3 py-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-md hover:bg-slate-50 shrink-0"
+        className="ml-3 px-3 py-1.5 text-sm font-medium text-ink-600 border border-ink-300 rounded-md hover:bg-ink-50 shrink-0"
       >
         Un-archive
       </button>
@@ -108,7 +108,7 @@ function ArchiveRow({
         type="button"
         onClick={() => onDeleteRequest(application)}
         aria-label={`Delete ${application.company}`}
-        className="ml-2 p-1.5 text-slate-400 rounded-md hover:bg-rose-50 hover:text-rose-600 shrink-0"
+        className="ml-2 p-1.5 text-ink-400 rounded-md hover:bg-rose-50 hover:text-rose-600 shrink-0"
       >
         <TrashIcon className="w-4 h-4" />
       </button>
@@ -171,30 +171,30 @@ export function ArchiveView({
       <button
         type="button"
         onClick={onBack}
-        className="text-sm font-medium text-slate-600 hover:text-slate-800 mb-4"
+        className="text-sm font-medium text-ink-600 hover:text-ink-800 mb-4"
       >
         ← Back to board
       </button>
 
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-medium text-slate-800">Archive</h2>
+        <h2 className="text-lg font-medium text-ink-800">Archive</h2>
         {applications.length > 0 && (
           <div className="flex items-center gap-4 text-sm">
-            <label className="flex items-center gap-1.5 text-slate-600 cursor-pointer">
+            <label className="flex items-center gap-1.5 text-ink-600 cursor-pointer">
               <input
                 type="checkbox"
                 checked={groupByTracker}
                 onChange={(e) => setGroupByTracker(e.target.checked)}
-                className="rounded border-slate-300"
+                className="rounded border-ink-300"
               />
               Group by tracker
             </label>
-            <label className="flex items-center gap-1.5 text-slate-600">
+            <label className="flex items-center gap-1.5 text-ink-600">
               Sort by
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortBy)}
-                className="border border-slate-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-slate-400"
+                className="border border-ink-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ink-400"
               >
                 {(Object.keys(SORT_LABELS) as SortBy[]).map((key) => (
                   <option key={key} value={key}>
@@ -226,14 +226,14 @@ export function ArchiveView({
       </div>
 
       {applications.length === 0 ? (
-        <p className="text-sm text-slate-400">No archived applications yet.</p>
+        <p className="text-sm text-ink-400">No archived applications yet.</p>
       ) : filteredApplications.length === 0 ? (
-        <p className="text-sm text-slate-400">No archived applications match the selected filters.</p>
+        <p className="text-sm text-ink-400">No archived applications match the selected filters.</p>
       ) : groupByTracker ? (
         <div className="max-w-2xl space-y-6">
           {groups.map(({ tracker, applications: trackerApps }) => (
             <div key={tracker.id}>
-              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
+              <h3 className="text-xs font-medium text-ink-400 uppercase tracking-wide mb-2">
                 {tracker.name}
               </h3>
               <div className="space-y-2">

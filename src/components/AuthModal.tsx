@@ -82,8 +82,8 @@ export function AuthModal({
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
         {resetSent ? (
           <div className="space-y-4">
-            <h2 className="text-lg font-medium text-slate-800">Check your email</h2>
-            <p className="text-sm text-slate-600">
+            <h2 className="text-lg font-medium text-ink-800">Check your email</h2>
+            <p className="text-sm text-ink-600">
               If an account exists for <span className="font-medium">{email}</span>, we sent a link to
               reset your password.
             </p>
@@ -91,7 +91,7 @@ export function AuthModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
               >
                 Done
               </button>
@@ -100,23 +100,23 @@ export function AuthModal({
         ) : forgotPassword ? (
           <form onSubmit={handleResetSubmit} className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-slate-800">Reset your password</h2>
+              <h2 className="text-lg font-medium text-ink-800">Reset your password</h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="text-slate-400 hover:text-slate-700 text-lg leading-none"
+                className="text-ink-400 hover:text-ink-700 text-lg leading-none"
               >
                 ✕
               </button>
             </div>
 
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ink-500">
               Enter your email and we'll send you a link to set a new password.
             </p>
 
             <div>
-              <label htmlFor="forgot-email" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="forgot-email" className="block text-sm font-medium text-ink-700">
                 Email
               </label>
               <input
@@ -126,7 +126,7 @@ export function AuthModal({
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
             </div>
 
@@ -135,7 +135,7 @@ export function AuthModal({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50"
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-50"
             >
               Send reset link
             </button>
@@ -146,14 +146,14 @@ export function AuthModal({
                 setForgotPassword(false)
                 setError(null)
               }}
-              className="w-full text-sm text-slate-500 hover:text-slate-700 hover:underline"
+              className="w-full text-sm text-ink-500 hover:text-ink-700 hover:underline"
             >
               Back to log in
             </button>
           </form>
         ) : signedUp ? (
           <div className="space-y-4">
-            <h2 className="text-lg font-medium text-slate-800">Check your email</h2>
+            <h2 className="text-lg font-medium text-ink-800">Check your email</h2>
             {/* Supabase's signUp() returns success (no error) even when the
                 email is already registered, to avoid leaking which emails
                 have accounts -- so this can't assert a link was sent. It
@@ -161,12 +161,12 @@ export function AuthModal({
                 anyone signing up with an email they'd already used
                 (AUDIT.md D4). Phrased conditionally like the password-reset
                 panel above, which already got this right. */}
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-ink-600">
               If this email is new to us, we've sent a confirmation link to{' '}
               <span className="font-medium">{email}</span> — click it to finish creating your
               account, and your local data will transfer over automatically.
             </p>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-ink-500">
               Already have an account with this email? Log in instead — nothing will have been
               sent.
             </p>
@@ -178,14 +178,14 @@ export function AuthModal({
                   setMode('log-in')
                   setPassword('')
                 }}
-                className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+                className="text-sm text-ink-500 hover:text-ink-700 hover:underline"
               >
                 Log in instead
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700"
               >
                 Done
               </button>
@@ -194,14 +194,14 @@ export function AuthModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-slate-800">
+              <h2 className="text-lg font-medium text-ink-800">
                 {mode === 'sign-up' ? 'Create an account' : 'Log in'}
               </h2>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="Close"
-                className="text-slate-400 hover:text-slate-700 text-lg leading-none"
+                className="text-ink-400 hover:text-ink-700 text-lg leading-none"
               >
                 ✕
               </button>
@@ -210,14 +210,14 @@ export function AuthModal({
             {notice && <p className="text-sm text-amber-700 bg-amber-50 rounded-md px-3 py-2">{notice}</p>}
 
             {mode === 'sign-up' && (
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-ink-500">
                 Your existing board data will transfer to this account automatically.
               </p>
             )}
 
             {mode === 'sign-up' && (
               <div>
-                <label htmlFor="auth-name" className="block text-sm font-medium text-slate-700">
+                <label htmlFor="auth-name" className="block text-sm font-medium text-ink-700">
                   Name
                 </label>
                 <input
@@ -228,13 +228,13 @@ export function AuthModal({
                   autoComplete="name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
                 />
               </div>
             )}
 
             <div>
-              <label htmlFor="auth-email" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="auth-email" className="block text-sm font-medium text-ink-700">
                 Email
               </label>
               <input
@@ -244,13 +244,13 @@ export function AuthModal({
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between">
-                <label htmlFor="auth-password" className="block text-sm font-medium text-slate-700">
+                <label htmlFor="auth-password" className="block text-sm font-medium text-ink-700">
                   Password
                 </label>
                 {mode === 'log-in' && (
@@ -260,7 +260,7 @@ export function AuthModal({
                       setForgotPassword(true)
                       setError(null)
                     }}
-                    className="text-sm text-slate-500 hover:text-slate-700 hover:underline"
+                    className="text-sm text-ink-500 hover:text-ink-700 hover:underline"
                   >
                     Forgot password?
                   </button>
@@ -274,7 +274,7 @@ export function AuthModal({
                 autoComplete={mode === 'sign-up' ? 'new-password' : 'current-password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
             </div>
 
@@ -283,7 +283,7 @@ export function AuthModal({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-md hover:bg-slate-700 disabled:opacity-50"
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-ink-800 rounded-md hover:bg-ink-700 disabled:opacity-50"
             >
               {mode === 'sign-up' ? 'Sign up' : 'Log in'}
             </button>
@@ -294,7 +294,7 @@ export function AuthModal({
                 setMode(mode === 'sign-up' ? 'log-in' : 'sign-up')
                 setError(null)
               }}
-              className="w-full text-sm text-slate-500 hover:text-slate-700 hover:underline"
+              className="w-full text-sm text-ink-500 hover:text-ink-700 hover:underline"
             >
               {mode === 'sign-up' ? 'Already have an account? Log in' : "Don't have an account? Sign up"}
             </button>

@@ -44,7 +44,7 @@ function NavItem({ icon, label, badge, active, onClick, expanded }: NavItemProps
       onClick={onClick}
       aria-label={label}
       className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-md transition-colors ${
-        active ? 'text-slate-900 bg-slate-100 font-medium' : 'text-slate-600 hover:bg-slate-100'
+        active ? 'text-ink-900 bg-ink-100 font-medium' : 'text-ink-600 hover:bg-ink-100'
       }`}
     >
       <span className="shrink-0 w-5 h-5">{icon}</span>
@@ -55,7 +55,7 @@ function NavItem({ icon, label, badge, active, onClick, expanded }: NavItemProps
       >
         {label}
         {badge !== undefined && badge > 0 && (
-          <span className="text-xs text-slate-400 font-normal">{badge}</span>
+          <span className="text-xs text-ink-400 font-normal">{badge}</span>
         )}
       </span>
     </button>
@@ -80,7 +80,7 @@ export function Sidebar({
 
   return (
     <nav
-      className={`group h-screen sticky top-0 shrink-0 hover:w-56 transition-[width] duration-150 bg-white border-r border-slate-200 flex flex-col overflow-hidden py-3 gap-1 ${
+      className={`group h-screen sticky top-0 shrink-0 hover:w-56 transition-[width] duration-150 bg-white border-r border-ink-200 flex flex-col overflow-hidden py-3 gap-1 ${
         expanded ? 'w-56' : 'w-14'
       }`}
     >
@@ -95,7 +95,7 @@ export function Sidebar({
           <LogoMark className="w-full h-full" />
         </span>
         <span
-          className={`text-sm font-semibold text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          className={`text-sm font-semibold text-ink-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
             expanded ? '!opacity-100' : ''
           }`}
         >
@@ -127,7 +127,7 @@ export function Sidebar({
 
       <div className="flex-1" />
 
-      <div className="border-t border-slate-200 my-2" />
+      <div className="border-t border-ink-200 my-2" />
 
       <NavItem
         icon={<CoffeeIcon />}
@@ -142,7 +142,7 @@ export function Sidebar({
         aria-pressed={remindersEnabled}
         title={remindersBlocked ? 'Notifications are blocked in your browser settings' : undefined}
         className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm rounded-md transition-colors ${
-          remindersEnabled ? 'text-slate-900 bg-slate-100 font-medium' : 'text-slate-600 hover:bg-slate-100'
+          remindersEnabled ? 'text-ink-900 bg-ink-100 font-medium' : 'text-ink-600 hover:bg-ink-100'
         }`}
       >
         <span className="shrink-0 w-5 h-5">
@@ -157,11 +157,11 @@ export function Sidebar({
         </span>
       </button>
 
-      <div className="border-t border-slate-200 my-2" />
+      <div className="border-t border-ink-200 my-2" />
 
       <div className="px-4 py-2 mb-1">
         <span
-          className={`text-slate-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          className={`text-ink-400 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
             expanded ? '!opacity-100' : ''
           }`}
         >
