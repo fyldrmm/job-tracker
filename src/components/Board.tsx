@@ -33,6 +33,7 @@ import {
   consumePendingExtraction,
   type ExtensionHandoffPayload,
 } from '../lib/extensionHandoff'
+import { LogoMark } from './Logo'
 import { Column } from './Column'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
@@ -647,13 +648,7 @@ export function Board() {
   }
 
   const pageTitle =
-    view === 'board'
-      ? 'Job Application Tracker'
-      : view === 'archive'
-        ? 'Archive'
-        : view === 'table'
-          ? 'Job Application Tracker'
-          : 'Privacy policy'
+    view === 'archive' ? 'Archive' : view === 'privacy' ? 'Privacy policy' : null
 
   return (
     <div className="h-screen bg-slate-50 flex">
@@ -673,7 +668,17 @@ export function Board() {
       />
       <div className="flex-1 flex flex-col overflow-hidden">
       <header className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-        <h1 className="text-xl font-medium text-slate-800">{pageTitle}</h1>
+        <div className="flex items-center gap-2.5">
+          <span className="shrink-0 w-6 h-6 rounded-[6px] overflow-hidden">
+            <LogoMark className="w-full h-full" />
+          </span>
+          <h1 className="text-lg font-semibold text-slate-800">JobTracker</h1>
+          {pageTitle && (
+            <span className="text-lg font-normal text-slate-300">
+              / <span className="text-slate-500">{pageTitle}</span>
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           {migrating && <span className="text-sm text-slate-400">Syncing your data…</span>}
           {extractingFromExtension && (

@@ -9,8 +9,8 @@ import {
   UserPlusIcon,
   CoffeeIcon,
   BellIcon,
-  MenuIcon,
 } from './icons'
+import { LogoMark } from './Logo'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
@@ -89,17 +89,17 @@ export function Sidebar({
         onClick={() => setExpanded((e) => !e)}
         aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
         aria-expanded={expanded}
-        className="flex items-center gap-3 w-full px-4 py-2 mb-1 text-slate-400 hover:text-slate-600 rounded-md"
+        className="flex items-center gap-3 w-full px-4 py-2 mb-1 rounded-md"
       >
-        <span className="shrink-0 w-5 h-5">
-          <MenuIcon />
+        <span className="shrink-0 w-5 h-5 rounded-[5px] overflow-hidden">
+          <LogoMark className="w-full h-full" />
         </span>
         <span
-          className={`text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          className={`text-sm font-semibold text-slate-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
             expanded ? '!opacity-100' : ''
           }`}
         >
-          Tracker
+          JobTracker
         </span>
       </button>
       <NavItem
