@@ -27,6 +27,7 @@ import {
   filterApplicationsForScope,
   type InsightsScope,
 } from '../lib/insights'
+import { buildApplicationsCsv, triggerCsvDownload } from '../lib/csvExport'
 
 interface InsightsViewProps {
   applications: Application[]
@@ -109,25 +110,44 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
   const hasWorkMode = workModeSplit.some((s) => s.count > 0)
   const hasEmployment = employmentSplit.some((s) => s.count > 0)
 
+  const scopeSlug =
+    scope === 'global' ? 'all-trackers' : (trackers.find((t) => t.id === scope)?.name ?? scope).toLowerCase().replace(/[^a-z0-9]+/g, '-')
+
+  const handleExportCsv = () => {
+    const csv = buildApplicationsCsv(scoped, trackers)
+    const date = new Date().toISOString().slice(0, 10)
+    triggerCsvDownload(`jobtracker-${scopeSlug}-${date}.csv`, csv)
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-medium text-ink-800">Insights</h2>
-        <label className="flex items-center gap-1.5 text-sm text-ink-600">
-          Tracker
-          <select
-            value={scope}
-            onChange={(e) => setScope(e.target.value)}
-            className="border border-ink-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ink-400 bg-white"
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            disabled={scoped.length === 0}
+            className="text-sm px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            <option value="global">All trackers</option>
-            {trackers.map((tracker) => (
-              <option key={tracker.id} value={tracker.id}>
-                {tracker.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            Export CSV
+          </button>
+          <label className="flex items-center gap-1.5 text-sm text-ink-600">
+            Tracker
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              className="border border-ink-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-ink-400 bg-white"
+            >
+              <option value="global">All trackers</option>
+              {trackers.map((tracker) => (
+                <option key={tracker.id} value={tracker.id}>
+                  {tracker.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       </div>
 
       {scoped.length === 0 ? (
