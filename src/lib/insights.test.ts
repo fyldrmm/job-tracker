@@ -280,6 +280,46 @@ describe('computeResponseRateBySegment', () => {
     const rates = computeResponseRateBySegment([], [], 'work_mode', options)
     expect(rates.every((r) => r.rate === null)).toBe(true)
   })
+
+  it('excludes a fresh, still-active, pre-interview app from the denominator entirely', () => {
+    // Applied moments ago, still sitting at "applied" -- there hasn't been
+    // time for anyone to respond, so it shouldn't count as a failure (or a
+    // success). makeApplication's default current_stage is 'applied' and
+    // is_archived is false, so this is otherwise a plain default fixture.
+    const apps = [makeApplication({ id: 'a', work_mode: 'remote', updated_at: new Date().toISOString() })]
+    const rates = computeResponseRateBySegment(apps, [], 'work_mode', options)
+    const remote = rates.find((r) => r.value === 'remote')!
+    expect(remote.total).toBe(0)
+    expect(remote.pending).toBe(1)
+    expect(remote.rate).toBeNull()
+  })
+
+  it('counts a stale, still-active, pre-interview app as a no-response failure', () => {
+    // Same shape as the fresh case, but untouched for well over 14 days --
+    // silence this old is fair to call a non-response even without an
+    // explicit archive.
+    const staleDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const apps = [makeApplication({ id: 'a', work_mode: 'remote', updated_at: staleDate })]
+    const rates = computeResponseRateBySegment(apps, [], 'work_mode', options)
+    const remote = rates.find((r) => r.value === 'remote')!
+    expect(remote.total).toBe(1)
+    expect(remote.pending).toBe(0)
+    expect(remote.responded).toBe(0)
+    expect(remote.rate).toBe(0)
+  })
+
+  it('mixes eligible and pending apps correctly within the same segment', () => {
+    const staleDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const apps = [
+      makeApplication({ id: 'a', work_mode: 'remote', current_stage: 'interview', updated_at: staleDate }),
+      makeApplication({ id: 'b', work_mode: 'remote', updated_at: new Date().toISOString() }),
+    ]
+    const rates = computeResponseRateBySegment(apps, [], 'work_mode', options)
+    const remote = rates.find((r) => r.value === 'remote')!
+    expect(remote.total).toBe(1)
+    expect(remote.pending).toBe(1)
+    expect(remote.rate).toBe(100)
+  })
 })
 
 describe('computeTrackerComparison', () => {

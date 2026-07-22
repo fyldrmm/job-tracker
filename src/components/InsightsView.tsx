@@ -271,11 +271,19 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
                   <YAxis allowDecimals={false} unit="%" tick={{ fontSize: 12, fill: '#637968' }} />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(value, _name, item) => [`${Number(value).toFixed(0)}%`, `n=${item.payload.total}`]}
+                    formatter={(value, _name, item) => [
+                      `${Number(value).toFixed(0)}%`,
+                      item.payload.pending > 0
+                        ? `n=${item.payload.total} (${item.payload.pending} too new to count)`
+                        : `n=${item.payload.total}`,
+                    ]}
                   />
                   <Bar dataKey="rate" fill={CATEGORICAL[0]} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              <p className="text-xs text-ink-400 mt-2">
+                Excludes apps still active and under 14 days old -- too soon to call it a non-response.
+              </p>
             </ChartCard>
 
             <ChartCard
@@ -289,11 +297,19 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
                   <YAxis allowDecimals={false} unit="%" tick={{ fontSize: 12, fill: '#637968' }} />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(value, _name, item) => [`${Number(value).toFixed(0)}%`, `n=${item.payload.total}`]}
+                    formatter={(value, _name, item) => [
+                      `${Number(value).toFixed(0)}%`,
+                      item.payload.pending > 0
+                        ? `n=${item.payload.total} (${item.payload.pending} too new to count)`
+                        : `n=${item.payload.total}`,
+                    ]}
                   />
                   <Bar dataKey="rate" fill={CATEGORICAL[0]} radius={[3, 3, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
+              <p className="text-xs text-ink-400 mt-2">
+                Excludes apps still active and under 14 days old -- too soon to call it a non-response.
+              </p>
             </ChartCard>
 
             {scope === 'global' && trackers.length > 1 && (

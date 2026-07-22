@@ -1,6 +1,7 @@
 import type { Application, ApplicationStage, ArchiveReason, StageHistoryEntry, Tracker } from '../types/application'
 import { STAGE_ORDER, STAGE_LABELS } from './stages'
 import { ARCHIVE_REASON_LABELS } from './archive'
+import { isStale } from './stale'
 
 export type InsightsScope = 'global' | string
 
@@ -241,6 +242,7 @@ export interface SegmentResponseRate {
   label: string
   total: number
   responded: number
+  pending: number
   rate: number | null
 }
 
@@ -253,6 +255,22 @@ function gotResponse(app: Application, historyByApp: Map<string, StageHistoryEnt
   return app.is_archived && app.archive_reason !== 'no_response'
 }
 
+// Whether an application has been around long enough to fairly call a
+// verdict on it at all. A fresh, still-active, pre-interview app -- applied
+// yesterday, say -- hasn't had time for anyone to respond; counting it as a
+// "no response" failure would bias the rate down for exactly the segments
+// with the most recent activity. An app is eligible once its story has SOME
+// resolution: it reached Interview (an explicit response), it's archived for
+// any reason (including no_response, which is itself a verdict), or it's
+// gone stale with no further activity -- reusing the same 14-day threshold
+// as the OUTDATED card badge (src/lib/stale.ts), rather than inventing a
+// second "how long is too long" number.
+function isEligibleForResponseVerdict(app: Application, historyByApp: Map<string, StageHistoryEntry[]>): boolean {
+  if (app.is_archived) return true
+  if (furthestStageIndex(app, historyByApp) >= STAGE_ORDER.indexOf('interview')) return true
+  return isStale(app)
+}
+
 export function computeResponseRateBySegment(
   applications: Application[],
   stageHistory: StageHistoryEntry[],
@@ -262,13 +280,15 @@ export function computeResponseRateBySegment(
   const historyByApp = groupHistoryByApplication(stageHistory)
   return options.map((option) => {
     const inSegment = applications.filter((app) => app[field] === option.value)
-    const responded = inSegment.filter((app) => gotResponse(app, historyByApp)).length
+    const eligible = inSegment.filter((app) => isEligibleForResponseVerdict(app, historyByApp))
+    const responded = eligible.filter((app) => gotResponse(app, historyByApp)).length
     return {
       value: option.value,
       label: option.label,
-      total: inSegment.length,
+      total: eligible.length,
       responded,
-      rate: inSegment.length > 0 ? (responded / inSegment.length) * 100 : null,
+      pending: inSegment.length - eligible.length,
+      rate: eligible.length > 0 ? (responded / eligible.length) * 100 : null,
     }
   })
 }
