@@ -33,10 +33,12 @@ function makeApplication(overrides: Partial<Application> = {}): Application {
 class MockNotification {
   static permission: NotificationPermission = 'granted'
   onclick: (() => void) | null = null
-  constructor(
-    public title: string,
-    public options?: NotificationOptions,
-  ) {}
+  title: string
+  options?: NotificationOptions
+  constructor(title: string, options?: NotificationOptions) {
+    this.title = title
+    this.options = options
+  }
 }
 
 beforeEach(() => {
@@ -93,7 +95,7 @@ describe('useStaleReminders', () => {
 
   it('sends one batched notification for multiple newly-stale applications', () => {
     const apps = [makeApplication(), makeApplication()]
-    const spy = vi.spyOn(globalThis, 'Notification' as never)
+    const spy = vi.spyOn(globalThis, 'Notification' as never) as unknown as ReturnType<typeof vi.fn>
     renderHook(() => useStaleReminders(apps, true))
     expect(spy).toHaveBeenCalledTimes(1)
     expect((spy.mock.calls[0]?.[1] as NotificationOptions)?.body).toContain('2 applications')

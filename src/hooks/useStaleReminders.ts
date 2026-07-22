@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { Application } from '../types/application'
 import { isStale, STALE_THRESHOLD_DAYS } from '../lib/stale'
-import { getNotifiedMap, setNotifiedMap } from '../lib/reminders'
+import { getDismissedStaleMap, getNotifiedMap, setDismissedStaleMap, setNotifiedMap } from '../lib/reminders'
 
 const POLL_INTERVAL_MS = 5 * 60 * 1000
 
@@ -17,8 +17,13 @@ export function useStaleReminders(applications: Application[], enabled: boolean)
 
     const check = () => {
       const notified = getNotifiedMap()
+      const dismissed = getDismissedStaleMap()
       const due = applications.filter(
-        (app) => !app.is_archived && isStale(app) && notified[app.id] !== app.updated_at,
+        (app) =>
+          !app.is_archived &&
+          isStale(app) &&
+          notified[app.id] !== app.updated_at &&
+          dismissed[app.id] !== app.updated_at,
       )
       const next = { ...notified }
       if (due.length > 0) {
@@ -39,11 +44,15 @@ export function useStaleReminders(applications: Application[], enabled: boolean)
       }
 
       // Prune entries for applications that no longer exist or are archived,
-      // so the map doesn't grow unbounded over the life of the browser.
+      // so the maps don't grow unbounded over the life of the browser.
       const liveIds = new Set(applications.filter((app) => !app.is_archived).map((app) => app.id))
       const pruned = Object.fromEntries(Object.entries(next).filter(([id]) => liveIds.has(id)))
       if (Object.keys(pruned).length !== Object.keys(notified).length || due.length > 0) {
         setNotifiedMap(pruned)
+      }
+      const prunedDismissed = Object.fromEntries(Object.entries(dismissed).filter(([id]) => liveIds.has(id)))
+      if (Object.keys(prunedDismissed).length !== Object.keys(dismissed).length) {
+        setDismissedStaleMap(prunedDismissed)
       }
     }
 
