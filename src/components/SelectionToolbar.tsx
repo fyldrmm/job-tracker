@@ -6,8 +6,10 @@ interface SelectionToolbarProps {
   count: number
   onClear: () => void
   buildMenuItems: () => ContextMenuItem[]
-  starActive: boolean
-  onToggleStar: () => void
+  // Board's bulk most-wanted toggle -- omitted entirely (no star button
+  // rendered) by callers that have no equivalent bulk action, e.g. Archive.
+  starActive?: boolean
+  onToggleStar?: () => void
 }
 
 // Second entry point to the same bulk-action list a right-click on a
@@ -29,18 +31,20 @@ export function SelectionToolbar({ count, onClear, buildMenuItems, starActive, o
           viewport -- ContextMenu has to render as a sibling, outside this
           div, or its (x, y) anchor math silently breaks. */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-ink-800 text-white rounded-md shadow-lg px-4 py-3 flex items-center gap-4 z-50">
-        <button
-          type="button"
-          onClick={onToggleStar}
-          aria-pressed={starActive}
-          aria-label={starActive ? 'Remove from most wanted' : 'Mark as most wanted'}
-          title={starActive ? 'Remove from most wanted' : 'Mark as most wanted'}
-          className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20"
-        >
-          <StarIcon
-            className={`w-4 h-4 ${starActive ? 'text-amber-400 fill-amber-400' : 'text-white/70 fill-transparent'}`}
-          />
-        </button>
+        {onToggleStar && (
+          <button
+            type="button"
+            onClick={onToggleStar}
+            aria-pressed={starActive}
+            aria-label={starActive ? 'Remove from most wanted' : 'Mark as most wanted'}
+            title={starActive ? 'Remove from most wanted' : 'Mark as most wanted'}
+            className="w-8 h-8 flex items-center justify-center rounded hover:bg-white/20"
+          >
+            <StarIcon
+              className={`w-4 h-4 ${starActive ? 'text-amber-400 fill-amber-400' : 'text-white/70 fill-transparent'}`}
+            />
+          </button>
+        )}
         <button
           type="button"
           aria-haspopup="menu"

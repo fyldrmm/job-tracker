@@ -1,11 +1,14 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Application, ArchiveReason, EmploymentType, Tracker, WorkMode } from '../types/application'
 import { formatDate } from '../lib/format'
 import { ARCHIVE_REASON_LABELS, ARCHIVE_REASONS } from '../lib/archive'
+import { isTextEntryTarget } from '../lib/dom'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { matchesCompanyOrRoleSearch } from '../lib/search'
+import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { NoteIcon, TrashIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
+import { SelectionToolbar } from './SelectionToolbar'
 
 interface ArchiveViewProps {
   applications: Application[]
@@ -13,7 +16,7 @@ interface ArchiveViewProps {
   onBack: () => void
   onCardOpen: (application: Application) => void
   onUnarchive: (application: Application) => void
-  onDeleteRequest: (application: Application) => void
+  onDeleteRequest: (applications: Application[]) => void
 }
 
 type SortBy = 'date_applied' | 'date_archived' | 'company' | 'notes'
@@ -68,17 +71,58 @@ function ArchiveRow({
   onDeleteRequest,
   showTracker,
   trackerName,
+  selected,
+  selectionActive,
+  onToggleSelect,
+  onClearSelection,
+  buildBulkMenuItems,
 }: {
   application: Application
   onCardOpen: (application: Application) => void
   onUnarchive: (application: Application) => void
-  onDeleteRequest: (application: Application) => void
+  onDeleteRequest: (applications: Application[]) => void
   showTracker: boolean
   trackerName: string | undefined
+  selected: boolean
+  selectionActive: boolean
+  onToggleSelect: () => void
+  onClearSelection: () => void
+  buildBulkMenuItems: () => ContextMenuItem[]
 }) {
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
+
+  // Same Cmd/Ctrl-click-to-toggle, plain-click-clears-selection pattern as
+  // Card.tsx on the board -- consistent multi-select behavior across views.
+  function handleClick(event: React.MouseEvent) {
+    if (event.metaKey || event.ctrlKey) {
+      onToggleSelect()
+      return
+    }
+    if (selectionActive) {
+      onClearSelection()
+      return
+    }
+    onCardOpen(application)
+  }
+
+  // Only a selected row opens the bulk menu on right-click -- an unselected
+  // row has no per-row context menu of its own (Un-archive/Delete are
+  // already one plain click away, unlike Card.tsx's board cards where
+  // those actions are hidden behind a menu).
+  function handleContextMenu(event: React.MouseEvent) {
+    if (!selected) return
+    event.preventDefault()
+    setMenuAnchor({ x: event.clientX, y: event.clientY })
+  }
+
   return (
-    <div className="flex items-center justify-between bg-white rounded-md border border-ink-200 p-3">
-      <button type="button" onClick={() => onCardOpen(application)} className="text-left flex-1 min-w-0">
+    <div
+      onContextMenu={handleContextMenu}
+      className={`flex items-center justify-between rounded-md border p-3 ${
+        selected ? 'ring-2 ring-ink-500 border-ink-500 bg-ink-50' : 'border-ink-200 bg-white'
+      }`}
+    >
+      <button type="button" onClick={handleClick} className="text-left flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <div className="font-medium text-ink-800 text-sm truncate">{application.company}</div>
           {application.notes && application.notes.trim() && (
@@ -107,12 +151,15 @@ function ArchiveRow({
       </button>
       <button
         type="button"
-        onClick={() => onDeleteRequest(application)}
+        onClick={() => onDeleteRequest([application])}
         aria-label={`Delete ${application.company}`}
         className="ml-2 p-1.5 text-ink-400 rounded-md hover:bg-rose-50 hover:text-rose-600 shrink-0"
       >
         <TrashIcon className="w-4 h-4" />
       </button>
+      {menuAnchor && (
+        <ContextMenu x={menuAnchor.x} y={menuAnchor.y} items={buildBulkMenuItems()} onClose={() => setMenuAnchor(null)} />
+      )}
     </div>
   )
 }
@@ -135,6 +182,50 @@ export function ArchiveView({
     () => new Set(WORK_MODES.map((o) => o.value)),
   )
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isTextEntryTarget(event.target)) return
+      if (event.key === 'Escape' && selectedIds.size > 0) clearSelection()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIds])
+
+  function handleBulkUnarchive() {
+    const targets = applications.filter((app) => selectedIds.has(app.id))
+    clearSelection()
+    targets.forEach((app) => onUnarchive(app))
+  }
+
+  function handleBulkDeleteRequest() {
+    const targets = applications.filter((app) => selectedIds.has(app.id))
+    if (targets.length === 0) return
+    onDeleteRequest(targets)
+  }
+
+  // Only two flat actions (unlike the board's Move/Archive/Delete groups),
+  // so no drill-down submenu is needed here.
+  function buildBulkMenuItems(): ContextMenuItem[] {
+    return [
+      { label: 'Un-archive', onSelect: handleBulkUnarchive },
+      { label: 'Delete', onSelect: handleBulkDeleteRequest, danger: true },
+    ]
+  }
 
   // Applications with no value for a given field (employment_type/work_mode
   // are optional; archive_reason should always be set but this stays
@@ -257,6 +348,11 @@ export function ArchiveView({
                     onDeleteRequest={onDeleteRequest}
                     showTracker={false}
                     trackerName={undefined}
+                    selected={selectedIds.has(application.id)}
+                    selectionActive={selectedIds.size > 0}
+                    onToggleSelect={() => toggleSelect(application.id)}
+                    onClearSelection={clearSelection}
+                    buildBulkMenuItems={buildBulkMenuItems}
                   />
                 ))}
               </div>
@@ -274,9 +370,18 @@ export function ArchiveView({
               onDeleteRequest={onDeleteRequest}
               showTracker
               trackerName={trackerNameById.get(application.tracker_id)}
+              selected={selectedIds.has(application.id)}
+              selectionActive={selectedIds.size > 0}
+              onToggleSelect={() => toggleSelect(application.id)}
+              onClearSelection={clearSelection}
+              buildBulkMenuItems={buildBulkMenuItems}
             />
           ))}
         </div>
+      )}
+
+      {selectedIds.size > 0 && (
+        <SelectionToolbar count={selectedIds.size} onClear={clearSelection} buildMenuItems={buildBulkMenuItems} />
       )}
     </div>
   )

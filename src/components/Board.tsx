@@ -31,6 +31,7 @@ import {
   type ExtractedJobFields,
 } from '../lib/remoteStore'
 import { clearLocalStore, hasAnyLocalGuestData } from '../lib/localStore'
+import { isTextEntryTarget } from '../lib/dom'
 import { subscribeToGlobalErrors } from '../lib/globalErrors'
 import {
   parseExtensionMessage,
@@ -76,15 +77,6 @@ type View = 'board' | 'archive' | 'table' | 'insights' | 'privacy'
 const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
-
-// True when a keyboard event came from somewhere the browser's own editing
-// shortcuts belong -- an input, a textarea, a select, or a contenteditable.
-function isTextEntryTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false
-  if (target.isContentEditable) return true
-  const tag = target.tagName
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
-}
 
 export function Board() {
   const { user, displayName, passwordRecovery, signUp, signIn, signOut, updateName, resetPassword, updatePasswordAfterRecovery } =
@@ -979,7 +971,7 @@ export function Board() {
           onBack={() => setView('board')}
           onCardOpen={setDetailApplication}
           onUnarchive={handleUnarchive}
-          onDeleteRequest={(application) => setDeleteApplicationTargets([application])}
+          onDeleteRequest={setDeleteApplicationTargets}
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
