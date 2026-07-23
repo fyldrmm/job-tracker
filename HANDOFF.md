@@ -6,76 +6,62 @@
 
 ## Session scope
 
-Three separate ad-hoc feature requests (none a numbered milestone), each planned and approved before building: (1) a CSV export button on the Insights page, (2) a one-line sidebar nav rename to remove a naming collision, (3) multi-select + bulk actions on the Board, iterated three times based on live feedback (menu grouping, star icon, toolbar reorder).
-
----
+Built drag-to-reorder for tracker tabs (`TrackerTabs.tsx`), then separately installed the third-party `graphify` CLI/skill and built a code-only knowledge graph of this repo.
 
 ## Commits this session
 
-```
-9dd423d Add CSV export of raw applications to the Insights page
-acfa6a8 Rename sidebar's board nav item from "Job Tracker" to "Board"
-594b6fc Add multi-select and bulk actions to the Board
-```
+- `60f2822` — Add drag-to-reorder for tracker tabs
+- `5279252` — Gitignore graphify-out/
 
-All 3 pushed to `origin/main` (`806d92b..594b6fc`). This handoff's own `PLAN.md`/`HANDOFF.md` doc updates will be committed and pushed as a 4th commit right after these. Working tree is clean, nothing stashed, no scratch branches.
-
----
+Both pushed to `origin/main`. Nothing stashed, nothing on a scratch branch. `git status` is clean; `HEAD` == `origin/main`.
 
 ## Exact stopping point
 
-**All three features are fully done, shipped, and live-verified.** There is no in-progress code and nothing uncommitted or partially built. `PLAN.md`'s "Current status" section (top of the bulleted list, three new bullets above the M12 bullet) now has the full write-up for all three — see that file for the complete detail on design decisions, gotchas, and file-level specifics; not repeated here in full.
+Both pieces of work are **fully done, tested, and shipped** — this is a clean stopping point, not a mid-task pause.
 
-**Files touched this session** (all committed):
-- `src/lib/csvExport.ts` (new), `src/lib/csvExport.test.ts` (new) — CSV building/escaping/download-trigger logic.
-- `src/components/InsightsView.tsx` — "Export CSV" button wiring.
-- `src/components/Sidebar.tsx` — one label change (`"Job Tracker"` → `"Board"`).
-- `src/components/Board.tsx` — selection state (`selectedIds`, `toggleSelect`, `clearSelection`), bulk handlers (`handleBulkMove`, `handleBulkSetPriority`, `handleBulkToggleStar`, `handleBulkArchive`, `handleBulkDeleteRequest`, `buildBulkMenuItems`), generalized `undoState`/`deleteApplicationTargets` to array-shaped state, Escape-to-clear wired into the existing global keydown effect.
-- `src/components/Card.tsx` — Cmd/Ctrl+click selection toggle, plain-click-clears-selection behavior, selected-card right-click routes to the bulk menu instead of the per-card one.
-- `src/components/CardVisual.tsx`, `src/components/Column.tsx` — `selected` prop threading for the visual ring.
-- `src/components/SelectionToolbar.tsx` (new) — the fixed-bottom bar; current element order (post 3-reorder-requests) is star icon → "Actions ▾" → "N selected" → "Deselect".
-- `src/components/ContextMenu.tsx` — added `items?: ContextMenuItem[]` drill-down/submenu support (stack-based, mount-captured).
-- `src/components/ContextMenu.test.tsx` (new) — direct unit coverage of the drill-down stack.
-- `src/components/DeleteApplicationModal.tsx` — generalized `application: Application` → `applications: Application[]`.
-- `src/hooks/useApplications.ts` — `togglePriority(id, value?: boolean)` gained the optional explicit-value form.
-- `src/components/Board.test.tsx`, `src/hooks/useApplications.test.ts` — new/updated tests for all of the above. 127 tests total (up from 115 at session start).
+- **Tracker reorder**: `src/components/TrackerTabs.tsx` — static-layout + drop-index-indicator implementation (see the long note in `PLAN.md`'s "Current status" for why v1 was replaced). `src/hooks/useTrackers.ts` has `reorderTrackers()`. `src/lib/sort.ts` has `byTrackerOrder`. `src/types/application.ts` has the new optional `Tracker.sort_order`. Migration `supabase/migrations/0010_tracker_sort_order.sql` **has been run** against the live Supabase project by the user (confirmed by them mid-session).
+- **Graphify**: installed globally (`uv tool install graphifyy`; `uv` itself installed via `brew install uv` this session since system Python was 3.9.6, graphify needs 3.10+). Skill registered globally via `graphify install --platform claude` (wrote `~/.claude/skills/graphify/`, appended to `~/.claude/CLAUDE.md` — outside this repo, so not visible in `git status` here). Graph built code-only (`graphify . --code-only` then `graphify cluster-only .`) at `graphify-out/graph.json`, now gitignored.
 
----
+No open loose ends in either piece.
 
 ## Next action
 
-1. No open milestone. Per `PLAN.md`'s working protocol, the next session needs a fresh user ask before starting new work.
-2. No known follow-ups were requested or flagged as pending from any of the three features above — each was explicitly confirmed done and live before moving to the next ask.
-
----
+Nothing queued. Per `PLAN.md`'s postponed-work note, **the next milestone (if any) needs a fresh user ask** — there's no pre-planned next task. If the user doesn't have one, a reasonable prompt: ask whether they want graphify's community labels named (would require setting `GEMINI_API_KEY`/`GOOGLE_API_KEY`), since right now they're generic "Community N" placeholders.
 
 ## Learned this session
 
-- **A `position: fixed` element positions relative to the nearest *transformed* ancestor, not the viewport, if one exists in its DOM chain** — hit this for real: `SelectionToolbar`'s bar div uses `-translate-x-1/2` (a Tailwind transform utility) to center itself at the bottom of the screen, and `ContextMenu` (also `position: fixed`) was originally rendered as a JSX *child* of that div — so it inherited the bar's transformed box as its containing block instead of the viewport, and opened off-screen (confirmed via `getBoundingClientRect()`: an anchor point of (603, 769) in an 837px-tall viewport rendered the menu at (1056, 1204)). This was only caught by testing in the live browser preview and reading computed positions — it wasn't visible from code review, and Card's own (working) `ContextMenu` usage gave no hint since Card has no transformed ancestor. Fix: render `ContextMenu` as a sibling of the transformed div, not a descendant. **Any future fixed-position popup nested inside a `translate-*`/`scale-*`/`rotate-*` Tailwind element needs this same sibling restructuring** — it's a general CSS fact (a transform creates a new containing block for `position: fixed` descendants), not specific to this component.
-- **A `useState(() => initialValue)` lazy initializer only runs once at mount, even if the component's props change on every subsequent re-render** — this is what makes `ContextMenu`'s drill-down stack work: the caller rebuilds its `items` array fresh on every render (`items={buildBulkMenuItems()}` called inline), but since `ContextMenu` only *mounts* once per open (it's conditionally rendered via `{menuAnchor && <ContextMenu .../>}`, so it unmounts when closed), `useState(() => [items])` captures that first array and ignores every later prop change — letting the internal drill-down state survive parent re-renders without an explicit sync effect (which would have reset the stack back to the top level after every click, since a naive `useEffect(() => setStack([items]), [items])` would fire on every re-render given `items` is a new array reference each time).
-- **Three small UI-polish requests arrived back-to-back after the bulk-actions feature shipped** ("split the menu into 3", "make most-wanted a star icon", "change Clear to Deselect", "reorder the toolbar to 3,4,1,2") — each was a quick, low-risk edit-and-reverify cycle (typecheck/lint/test + live browser check) rather than a new planning round, since they were unambiguous, scoped tweaks to code just built this same session. Worth noting only because it shows the shape of iteration on this feature was "ship, then tune from live feedback" rather than getting the UI perfect in the first plan — consistent with how M9 (reminders) and the UI reskin also went in earlier sessions.
-- **`fireEvent.click(card, { ctrlKey: true })` is the reliable way to simulate a Cmd/Ctrl+click in this project's RTL-based component tests** (`Board.test.tsx`) — `userEvent`'s `click()` doesn't take a modifier-key option the same way in this project's installed version, so the new multi-select tests use `fireEvent` directly for the modifier-click and `fireEvent.contextMenu(card)` for the right-click, while still using `userEvent` for everything else (typing, plain clicks, menu-item selection) — matches the existing file's established mixed pattern, not a new convention.
-
----
+- **Live-reshuffle drag preview causes real jitter, not just perceived.** The first tracker-reorder implementation recomputed the rendered array on every `dragover` by feeding the *previous* preview array back into `reorder()` as the next input. This is a feedback loop: reordering the DOM mid-drag changes what element is under the cursor, which can trigger another reorder, which moves the DOM again. Small/wobbly mouse movements amplified this into visible flicker. Fix: keep the array static during the entire drag, track only a `dropIndex` (computed from cursor `clientX` against static element midpoints via a ref map), and apply the actual reorder once, on drop. Worth remembering for any future drag-and-drop UI in this repo — don't reshuffle a rendered list from its own previous render's shape.
+- **The browser's native HTML5 drag-ghost image tracks the cursor on the y-axis by default**, and there's no CSS/JS way to constrain it to x-only — the only lever is suppressing it entirely via `e.dataTransfer.setDragImage(transparentImage, 0, 0)` and building your own visual feedback (the indicator bar) instead. If a future drag feature needs axis-constrained visual feedback, this is the pattern.
+- **This repo's browser-preview tool cannot drive real native drag-and-drop** (confirmed again this session, consistent with the M11 finding for dnd-kit card-dragging). Verifying drag logic requires dispatching synthetic `DragEvent`s via `javascript_tool`'s `javascript_exec`, **with real `await sleep(...)` delays between `dragstart`/`dragover`/`drop`** — React needs an actual tick to re-render and pick up state changes (e.g. `draggingId`) between events; firing all three synchronously in one call stack is a false negative (looks like the feature is broken when it's actually the test harness not yielding to React).
+- **`uv tool install` puts binaries in `~/.local/bin`, which is not on PATH by default** on a fresh shell — needed `export PATH="/Users/burak2/.local/bin:$PATH"` per-command this session since we didn't persist a shell-profile change (that would need the user's own doing, not something to script silently into their `.zshrc`).
+- **Graphify's own README flags a real footgun for this exact machine**: plain `pip install` (as opposed to `uv tool install`/`pipx`) risks the CLI resolving a different Python interpreter than the one `pip` installed into, causing `ModuleNotFoundError: No module named 'graphify'`. Not hit this session (used `uv tool install`), but worth knowing if a future reinstall goes a different route.
+- **User flagged an anomaly worth remembering as a general caution, not specific to graphify**: a repo with 94,204 stars / 9,122 forks after only ~4 months of existence, for a niche dev-tool category, is statistically unusual and worth a heads-up before installing — even when everything else about the repo (real PyPI package, YC-backed, documented, working as advertised) checks out fine, as it did here.
+- **User's standing instruction** (saved to Claude's cross-session memory, not `PLAN.md`, since it's a Claude-Code behavior preference not project truth): proactively run `graphify update .` whenever `HEAD` has moved past the graph's last-built commit and a graph-shaped question is about to be answered — don't wait to be asked each time. Memory files: `feedback_graphify_auto_update.md`, `project_graphify_installed.md`.
 
 ## Open questions
 
-None outstanding. Every design decision on the bulk-actions feature (plain-click-clears-selection vs. clear-and-open, bulk-archive reason picker vs. default-to-Rejected, two explicit priority actions vs. one ambiguous toggle, the 3-way menu split, the star icon, the toolbar element order) was explicitly asked and answered by the user before or during building — see `PLAN.md`'s new bullet for the specifics of what was chosen and why.
-
----
+- Should graphify's community labels be named for real (needs a `GEMINI_API_KEY`/`GOOGLE_API_KEY`, small token cost) or left as generic placeholders indefinitely? Not decided — user hasn't been asked directly.
+- No open questions on the tracker-reorder feature — fully resolved, including the mid-session pivot from v1 to v2 based on live user feedback.
 
 ## Verify
 
 ```bash
-npx tsc --noEmit -p tsconfig.app.json   # expect: "TypeScript: No errors found"
-npx oxlint                               # expect: only the pre-existing Board.tsx:337 exhaustive-deps warning
-npm test -- --run                        # expect: 127 tests passed (up from 115 at session start)
-git log --oneline -6                     # expect the /handoff doc commit at top, 594b6fc just below it, origin/main matching
-git status                               # expect: clean
+git log --oneline -3
+# expect: 5279252 Gitignore graphify-out/
+#         60f2822 Add drag-to-reorder for tracker tabs
+#         9b8bc77 /handoff: session delta -- CSV export, sidebar rename, multi-select+bulk actions shipped and pushed
+
+git status --short
+# expect: empty (clean tree)
+
+npx tsc --noEmit -p tsconfig.app.json
+# expect: "TypeScript: No errors found"
+
+git rev-parse HEAD
+cat graphify-out/GRAPH_REPORT.md | grep "Built from commit"
+# expect: both hashes' first 8 chars match (60f28226) -- if they don't,
+# the graph is stale relative to HEAD (expected once new commits land;
+# just run `graphify update .` before trusting a graph query)
 ```
 
-Visual check (already done this session, but re-confirm if picking this up much later):
-```bash
-open https://jobtracker.fazare.dev
-```
-Expect: sidebar nav reads "Board" (not "Job Tracker") between the logo and "Table". On the Insights page, an "Export CSV" button sits next to the tracker-scope dropdown. On the Board, Cmd/Ctrl+click a card to select it (amber-ish ring appears) — a bottom-fixed toolbar shows a star icon, "Actions ▾", the selection count, and "Deselect", in that order. Right-click a selected card or click "Actions ▾" to get the same 3-item grouped menu (Move to stage ▸ / Archive ▸ / Delete), each drilling into its own submenu with a "← Back". The star icon bulk-toggles most-wanted for the whole selection in one click.
+To see the tracker-reorder feature live: `npm run dev`, add 2+ trackers via the "+" tab, drag one to reorder — order should persist across a page reload.
