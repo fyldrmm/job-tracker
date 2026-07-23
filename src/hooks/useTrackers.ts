@@ -13,6 +13,7 @@ export function useTrackers(userId: string | null) {
     if (userId) {
       try {
         list = await getAllRemoteTrackers(userId)
+        list.sort(byTrackerOrder)
         await Promise.all(list.map((t) => putTracker(t)))
         // Evict local trackers this user owns that are gone remotely (see
         // the same eviction in useApplications).
