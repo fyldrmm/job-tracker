@@ -1,5 +1,6 @@
 import { useDroppable } from '@dnd-kit/core'
-import type { Application, ApplicationStage } from '../types/application'
+import type { Application, ApplicationStage, Interview } from '../types/application'
+import { nextUpcomingInterview } from '../lib/interviews'
 import { Card } from './Card'
 import type { ContextMenuItem } from './ContextMenu'
 
@@ -7,6 +8,7 @@ interface ColumnProps {
   title: string
   stage: ApplicationStage
   applications: Application[]
+  interviews: Interview[]
   onAdd: (stage: ApplicationStage) => void
   onCardOpen: (application: Application) => void
   onCardAdvance: (application: Application) => void
@@ -24,6 +26,7 @@ export function Column({
   title,
   stage,
   applications,
+  interviews,
   onAdd,
   onCardOpen,
   onCardAdvance,
@@ -66,6 +69,7 @@ export function Column({
           <Card
             key={application.id}
             application={application}
+            nextInterview={nextUpcomingInterview(interviews, application.id)}
             onOpenDetail={() => onCardOpen(application)}
             onAdvance={() => onCardAdvance(application)}
             onRetreat={() => onCardRetreat(application)}

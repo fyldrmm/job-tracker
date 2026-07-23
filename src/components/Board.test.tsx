@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor, fireEvent, within } from '@testing-li
 import userEvent from '@testing-library/user-event'
 import { resetIndexedDb } from '../test/dbHelpers'
 import { installGlobalErrorHandlers, resetGlobalErrorsForTest } from '../lib/globalErrors'
+import { getAllApplications, getAllInterviews } from '../lib/localStore'
 import { Board } from './Board'
 
 // Guest mode never touches Supabase, but useAuth() still calls these on
@@ -438,5 +439,147 @@ describe('Board extraction discovery (guest mode)', () => {
     await user.click(hint)
 
     expect(await screen.findByRole('heading', { name: 'Create an account' })).toBeInTheDocument()
+  })
+})
+
+describe('Interview scheduling prompt (guest mode)', () => {
+  beforeEach(async () => {
+    await resetIndexedDb()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  async function addFirstApplication(user: ReturnType<typeof userEvent.setup>, company: string) {
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+    await user.click(await screen.findByRole('button', { name: '+ Add your first application' }))
+    await user.type(screen.getByLabelText(/company/i), company)
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText(company)
+  }
+
+  // Creates a second application straight into a given column via its own
+  // "+" -- the create-path prompt this describe block mostly exercises,
+  // since it needs the board (not the empty-state screen) already showing.
+  async function addApplication(user: ReturnType<typeof userEvent.setup>, company: string, stage = 'Applied') {
+    await user.click(screen.getByRole('button', { name: `Add application to ${stage}` }))
+    await user.type(screen.getByLabelText(/company/i), company)
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText(company)
+  }
+
+  function ctrlClickCard(company: string) {
+    const card = screen.getByText(company).closest('div[role="button"]') as HTMLElement
+    fireEvent.click(card, { ctrlKey: true })
+    return card
+  }
+
+  async function bulkMoveSelectionToInterview(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole('button', { name: 'Actions ▾' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to stage ▸' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Interview' }))
+  }
+
+  // The modal's header renders "{company} — {role}" as a single text node,
+  // scoped under the "Schedule the interview?" heading -- scoping through
+  // it (rather than a bare screen.getByText) avoids colliding with the same
+  // company name still visible on the card behind the modal.
+  function modalHeader() {
+    return screen.getByText('Schedule the interview?').parentElement as HTMLElement
+  }
+
+  it('prompts after creating a card directly into Interview, and Save persists a round', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'First Co')
+    await addApplication(user, 'Second Co', 'Interview')
+
+    expect(await screen.findByText('Schedule the interview?')).toBeInTheDocument()
+    expect(within(modalHeader()).getByText(/Second Co/)).toBeInTheDocument()
+    // A single-card queue shows neither an "N of M" counter nor "Skip all" --
+    // both are specific to a multi-card queue (see the bulk-move tests below).
+    expect(screen.queryByText(/of 1/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Skip all' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByText('Schedule the interview?')).not.toBeInTheDocument())
+
+    const apps = await getAllApplications()
+    const secondCo = apps.find((a) => a.company === 'Second Co')!
+    const interviews = await getAllInterviews()
+    const forSecondCo = interviews.filter((i) => i.application_id === secondCo.id)
+    expect(forSecondCo).toHaveLength(1)
+    expect(forSecondCo[0].round).toBe(1)
+  })
+
+  it('creates no interview row when the prompt is skipped -- skip is the absence of a row, not a half-filled one', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'First Co')
+    await addApplication(user, 'Second Co', 'Interview')
+
+    await screen.findByText('Schedule the interview?')
+    await user.click(screen.getByRole('button', { name: 'Skip' }))
+    await waitFor(() => expect(screen.queryByText('Schedule the interview?')).not.toBeInTheDocument())
+
+    const apps = await getAllApplications()
+    const secondCo = apps.find((a) => a.company === 'Second Co')!
+    const interviews = await getAllInterviews()
+    expect(interviews.filter((i) => i.application_id === secondCo.id)).toHaveLength(0)
+    // The card still landed in Interview -- skipping the prompt never blocks
+    // the move itself.
+    expect(secondCo.current_stage).toBe('interview')
+  })
+
+  it('queues one prompt per card on a bulk move, in "N of M" order, and Skip all discards every remaining card', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Card A')
+    await addApplication(user, 'Card B')
+
+    ctrlClickCard('Card A')
+    ctrlClickCard('Card B')
+    await screen.findByText('2 selected')
+    await bulkMoveSelectionToInterview(user)
+
+    expect(await screen.findByText('Schedule the interview?')).toBeInTheDocument()
+    expect(screen.getByText('1 of 2')).toBeInTheDocument()
+    const skipAll = screen.getByRole('button', { name: 'Skip all' })
+
+    await user.click(skipAll)
+    await waitFor(() => expect(screen.queryByText('Schedule the interview?')).not.toBeInTheDocument())
+
+    const apps = await getAllApplications()
+    const cardA = apps.find((a) => a.company === 'Card A')!
+    const cardB = apps.find((a) => a.company === 'Card B')!
+    expect(cardA.current_stage).toBe('interview')
+    expect(cardB.current_stage).toBe('interview')
+    const interviews = await getAllInterviews()
+    expect(interviews).toHaveLength(0)
+  })
+
+  it('advances to the next card in the queue after Save, and keeps both rounds', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Card A')
+    await addApplication(user, 'Card B')
+
+    ctrlClickCard('Card A')
+    ctrlClickCard('Card B')
+    await screen.findByText('2 selected')
+    await bulkMoveSelectionToInterview(user)
+
+    await screen.findByText('1 of 2')
+    await user.click(screen.getByRole('button', { name: 'Save & next' }))
+    await screen.findByText('2 of 2')
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() => expect(screen.queryByText('Schedule the interview?')).not.toBeInTheDocument())
+
+    const interviews = await getAllInterviews()
+    expect(interviews).toHaveLength(2)
   })
 })

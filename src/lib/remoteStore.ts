@@ -1,6 +1,13 @@
 import { supabase } from './supabase'
 import { startOfCurrentMonthUtc } from './extraction'
-import type { Application, EmploymentType, StageHistoryEntry, Tracker, WorkMode } from '../types/application'
+import type {
+  Application,
+  EmploymentType,
+  Interview,
+  StageHistoryEntry,
+  Tracker,
+  WorkMode,
+} from '../types/application'
 
 export async function getAllRemoteApplications(userId: string): Promise<Application[]> {
   const { data, error } = await supabase
@@ -37,6 +44,29 @@ export async function getAllRemoteStageHistory(): Promise<StageHistoryEntry[]> {
     .order('entered_at', { ascending: true })
   if (error) throw error
   return data as StageHistoryEntry[]
+}
+
+// No .eq(user_id) needed -- like stage_history, RLS already scopes interviews
+// to rows whose parent application belongs to the caller (0013_interviews.sql).
+export async function getAllRemoteInterviews(): Promise<Interview[]> {
+  const { data, error } = await supabase
+    .from('interviews')
+    .select('*')
+    .order('scheduled_at', { ascending: true })
+  if (error) throw error
+  return data as Interview[]
+}
+
+// Upsert rather than insert: the same call path handles both scheduling a new
+// round and editing an existing one's date/location.
+export async function putRemoteInterview(interview: Interview): Promise<void> {
+  const { error } = await supabase.from('interviews').upsert(interview)
+  if (error) throw error
+}
+
+export async function deleteRemoteInterview(id: string): Promise<void> {
+  const { error } = await supabase.from('interviews').delete().eq('id', id)
+  if (error) throw error
 }
 
 // Shared by every Edge Function call below. supabase-js's own error.message

@@ -1,5 +1,5 @@
 import { getDB } from './db'
-import type { Application, StageHistoryEntry, Tracker } from '../types/application'
+import type { Application, Interview, StageHistoryEntry, Tracker } from '../types/application'
 
 export async function getAllApplications(): Promise<Application[]> {
   const db = await getDB()
@@ -11,13 +11,20 @@ export async function putApplication(application: Application): Promise<void> {
   await db.put('applications', application)
 }
 
+// Mirrors the remote FK cascades: stage_history and interviews both hang off
+// applications (0001_init.sql / 0013_interviews.sql), so deleting the parent
+// locally has to take both with it -- otherwise orphaned rows accumulate in
+// IndexedDB and a re-created application id could inherit a stranger's rounds.
 export async function deleteApplication(id: string): Promise<void> {
   const db = await getDB()
-  const tx = db.transaction(['applications', 'stage_history'], 'readwrite')
+  const tx = db.transaction(['applications', 'stage_history', 'interviews'], 'readwrite')
   await tx.objectStore('applications').delete(id)
-  const historyStore = tx.objectStore('stage_history')
-  const historyIndex = historyStore.index('by-application_id')
+  const historyIndex = tx.objectStore('stage_history').index('by-application_id')
   for await (const cursor of historyIndex.iterate(id)) {
+    await cursor.delete()
+  }
+  const interviewIndex = tx.objectStore('interviews').index('by-application_id')
+  for await (const cursor of interviewIndex.iterate(id)) {
     await cursor.delete()
   }
   await tx.done
@@ -54,14 +61,48 @@ export async function addStageHistoryEntry(entry: StageHistoryEntry): Promise<vo
   await db.put('stage_history', entry)
 }
 
+export async function getAllInterviews(): Promise<Interview[]> {
+  const db = await getDB()
+  return db.getAll('interviews')
+}
+
+export async function putInterview(interview: Interview): Promise<void> {
+  const db = await getDB()
+  await db.put('interviews', interview)
+}
+
+export async function deleteInterview(id: string): Promise<void> {
+  const db = await getDB()
+  await db.delete('interviews', id)
+}
+
+// After a successful remote read, drop locally-cached interviews that no
+// longer exist remotely -- same reasoning as pruneRemovedApplications. Scoped
+// by application id rather than user_id because interviews (like
+// stage_history) carry no user_id of their own; the caller passes the ids it
+// just read for this user.
+export async function pruneRemovedInterviews(
+  applicationIds: Set<string>,
+  keepIds: Set<string>,
+): Promise<void> {
+  const db = await getDB()
+  const stale = (await db.getAll('interviews')).filter(
+    (i) => applicationIds.has(i.application_id) && !keepIds.has(i.id),
+  )
+  for (const interview of stale) {
+    await db.delete('interviews', interview.id)
+  }
+}
+
 // Used after account deletion -- the local cache would otherwise still
 // show a signed-out guest the now-deleted account's mirrored data.
 export async function clearLocalStore(): Promise<void> {
   const db = await getDB()
-  const tx = db.transaction(['applications', 'stage_history', 'trackers'], 'readwrite')
+  const tx = db.transaction(['applications', 'stage_history', 'trackers', 'interviews'], 'readwrite')
   await tx.objectStore('applications').clear()
   await tx.objectStore('stage_history').clear()
   await tx.objectStore('trackers').clear()
+  await tx.objectStore('interviews').clear()
   await tx.done
 }
 
@@ -77,16 +118,20 @@ export async function putTracker(tracker: Tracker): Promise<void> {
 
 export async function deleteTracker(id: string): Promise<void> {
   const db = await getDB()
-  const tx = db.transaction(['trackers', 'applications', 'stage_history'], 'readwrite')
+  const tx = db.transaction(['trackers', 'applications', 'stage_history', 'interviews'], 'readwrite')
   await tx.objectStore('trackers').delete(id)
 
   const appStore = tx.objectStore('applications')
   const appIndex = appStore.index('by-tracker_id')
   const historyStore = tx.objectStore('stage_history')
   const historyIndex = historyStore.index('by-application_id')
+  const interviewIndex = tx.objectStore('interviews').index('by-application_id')
   for await (const cursor of appIndex.iterate(id)) {
     for await (const historyCursor of historyIndex.iterate(cursor.value.id)) {
       await historyCursor.delete()
+    }
+    for await (const interviewCursor of interviewIndex.iterate(cursor.value.id)) {
+      await interviewCursor.delete()
     }
     await cursor.delete()
   }

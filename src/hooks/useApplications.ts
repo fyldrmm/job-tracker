@@ -116,6 +116,7 @@ export function useApplications(userId: string | null) {
         userId,
       )
       await refresh()
+      return application
     },
     [userId, refresh],
   )

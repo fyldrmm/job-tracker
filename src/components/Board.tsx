@@ -11,9 +11,11 @@ import {
   type DragEndEvent,
 } from '@dnd-kit/core'
 import type { Application, ApplicationStage, ArchiveReason, Tracker } from '../types/application'
-import { useApplications } from '../hooks/useApplications'
+import { useApplications, type ApplicationInput } from '../hooks/useApplications'
 import { useTrackers } from '../hooks/useTrackers'
 import { useStageHistory } from '../hooks/useStageHistory'
+import { useInterviews, type InterviewInput } from '../hooks/useInterviews'
+import { nextUpcomingInterview } from '../lib/interviews'
 import { useAuth } from '../hooks/useAuth'
 import { useStaleReminders } from '../hooks/useStaleReminders'
 import { getRemindersEnabled, setRemindersEnabled } from '../lib/reminders'
@@ -59,6 +61,7 @@ import { TrackerTabs } from './TrackerTabs'
 import { DeleteTrackerModal } from './DeleteTrackerModal'
 import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { MigrateGuestDataModal } from './MigrateGuestDataModal'
+import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { ExtractionPromo } from './ExtractionPromo'
 import { CoffeeIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
@@ -107,9 +110,21 @@ export function Board() {
     refresh: refreshTrackers,
   } = useTrackers(user?.id ?? null)
   const { stageHistory, refresh: refreshStageHistory } = useStageHistory(user?.id ?? null)
+  const { interviews, scheduleInterview, updateInterview, removeInterview } = useInterviews(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
   const [deleteApplicationTargets, setDeleteApplicationTargets] = useState<Application[] | null>(null)
+  // The queue of cards awaiting an interview-scheduling prompt after a move
+  // into the Interview stage (drag, advance/retreat, context menu, Table
+  // stage select, bulk move) or a creation directly into it. Snapshotted as
+  // {id, company, role_title} at enqueue time rather than re-derived from
+  // `applications` on every render -- company/role_title don't change from
+  // the move itself, and this avoids the prompt's header flickering if the
+  // underlying application updates while the queue is still open.
+  const [interviewQueue, setInterviewQueue] = useState<
+    { id: string; company: string; role_title: string }[]
+  >([])
+  const [interviewQueueIndex, setInterviewQueueIndex] = useState(0)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [formState, setFormState] = useState<FormState>(null)
   // Stores an id, not a snapshot -- CardDetail must reflect live state (e.g.
@@ -272,6 +287,48 @@ export function Board() {
     clearErrorTimer()
     setErrorToast(err instanceof Error ? err.message : fallback)
     errorTimerRef.current = window.setTimeout(() => setErrorToast(null), ERROR_WINDOW_MS)
+  }
+
+  // Called after a move to 'interview' has already persisted (never before
+  // -- a dismissed or errored modal must not be able to strand a card
+  // mid-drag). ids that no longer resolve to a known application (a rare
+  // race with a concurrent delete) are silently dropped from the queue
+  // rather than shown with blank fields.
+  function enqueueInterviewPrompts(ids: string[]) {
+    const entries = ids
+      .map((id) => applications.find((app) => app.id === id))
+      .filter((app): app is Application => Boolean(app))
+      .map((app) => ({ id: app.id, company: app.company, role_title: app.role_title }))
+    if (entries.length === 0) return
+    setInterviewQueue(entries)
+    setInterviewQueueIndex(0)
+  }
+
+  function closeInterviewQueue() {
+    setInterviewQueue([])
+    setInterviewQueueIndex(0)
+  }
+
+  function advanceInterviewQueue() {
+    setInterviewQueueIndex((i) => {
+      if (i + 1 >= interviewQueue.length) {
+        setInterviewQueue([])
+        return 0
+      }
+      return i + 1
+    })
+  }
+
+  async function handleSaveInterview(input: InterviewInput) {
+    const current = interviewQueue[interviewQueueIndex]
+    if (!current) return
+    try {
+      await scheduleInterview(current.id, input)
+    } catch (err) {
+      showError(err, 'Could not save the interview. Please try again.')
+      return
+    }
+    advanceInterviewQueue()
   }
 
   async function handleArchive(application: Application, reason: ArchiveReason) {
@@ -589,9 +646,11 @@ export function Board() {
       handleBulkMove(stage)
       return
     }
-    moveApplicationStage(draggedId, stage).catch((err) =>
-      showError(err, 'Could not move the application. Please try again.'),
-    )
+    moveApplicationStage(draggedId, stage)
+      .then(() => {
+        if (stage === 'interview') enqueueInterviewPrompts([draggedId])
+      })
+      .catch((err) => showError(err, 'Could not move the application. Please try again.'))
   }
 
   function handleDragCancel() {
@@ -601,25 +660,33 @@ export function Board() {
   function handleCardAdvance(application: Application) {
     const next = nextStage(application.current_stage)
     if (next) {
-      moveApplicationStage(application.id, next).catch((err) =>
-        showError(err, 'Could not move the application. Please try again.'),
-      )
+      moveApplicationStage(application.id, next)
+        .then(() => {
+          if (next === 'interview') enqueueInterviewPrompts([application.id])
+        })
+        .catch((err) => showError(err, 'Could not move the application. Please try again.'))
     }
   }
 
   function handleCardRetreat(application: Application) {
+    // Retreating from Offer lands back in Interview -- covered by the same
+    // enqueue as every other path into the stage.
     const prev = prevStage(application.current_stage)
     if (prev) {
-      moveApplicationStage(application.id, prev).catch((err) =>
-        showError(err, 'Could not move the application. Please try again.'),
-      )
+      moveApplicationStage(application.id, prev)
+        .then(() => {
+          if (prev === 'interview') enqueueInterviewPrompts([application.id])
+        })
+        .catch((err) => showError(err, 'Could not move the application. Please try again.'))
     }
   }
 
   function handleStageChange(application: Application, stage: ApplicationStage) {
-    moveApplicationStage(application.id, stage).catch((err) =>
-      showError(err, 'Could not move the application. Please try again.'),
-    )
+    moveApplicationStage(application.id, stage)
+      .then(() => {
+        if (stage === 'interview') enqueueInterviewPrompts([application.id])
+      })
+      .catch((err) => showError(err, 'Could not move the application. Please try again.'))
   }
 
   function handleTogglePriority(application: Application) {
@@ -631,9 +698,11 @@ export function Board() {
   function handleBulkMove(stage: ApplicationStage) {
     const ids = [...selectedIds]
     clearSelection()
-    Promise.all(ids.map((id) => moveApplicationStage(id, stage))).catch((err) =>
-      showError(err, 'Could not move the selected applications. Please try again.'),
-    )
+    Promise.all(ids.map((id) => moveApplicationStage(id, stage)))
+      .then(() => {
+        if (stage === 'interview') enqueueInterviewPrompts(ids)
+      })
+      .catch((err) => showError(err, 'Could not move the selected applications. Please try again.'))
   }
 
   function handleBulkSetPriority(value: boolean) {
@@ -731,6 +800,18 @@ export function Board() {
     }
     if (detailApplication && ids.includes(detailApplication.id)) setDetailApplication(null)
     setDeleteApplicationTargets(null)
+  }
+
+  // Creating a card directly into Interview (the "+" on that column, or a
+  // pre-filled extension/extraction save landing there) prompts the same as
+  // a stage move does -- there's no reason arriving via creation should skip
+  // the prompt a drag would have triggered.
+  async function handleCreateApplication(input: ApplicationInput, trackerId: string) {
+    const created = await createApplication(input, trackerId)
+    if (created.current_stage === 'interview') {
+      setInterviewQueue([{ id: created.id, company: created.company, role_title: created.role_title }])
+      setInterviewQueueIndex(0)
+    }
   }
 
   async function handleCreateFirstTracker() {
@@ -899,7 +980,7 @@ export function Board() {
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
       ) : view === 'insights' ? (
-        <InsightsView applications={applications} stageHistory={stageHistory} trackers={trackers} />
+        <InsightsView applications={applications} interviews={interviews} stageHistory={stageHistory} trackers={trackers} />
       ) : trackers.length === 0 || !activeTrackerId ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm flex flex-col items-center">
@@ -936,6 +1017,7 @@ export function Board() {
       ) : view === 'table' ? (
         <TableView
           applications={activeApplications}
+          interviews={interviews}
           trackerName={trackers.find((t) => t.id === activeTrackerId)?.name ?? 'tracker'}
           onCardOpen={setDetailApplication}
           onStageChange={handleStageChange}
@@ -957,6 +1039,7 @@ export function Board() {
                   title={STAGE_LABELS[stage]}
                   stage={stage}
                   applications={byStage[stage]}
+                  interviews={interviews}
                   onAdd={(s) => setFormState({ mode: 'add', stage: s })}
                   onCardOpen={setDetailApplication}
                   onCardAdvance={handleCardAdvance}
@@ -972,7 +1055,13 @@ export function Board() {
               ))}
             </div>
             <DragOverlay>
-              {activeApplication ? <CardVisual application={activeApplication} dragging /> : null}
+              {activeApplication ? (
+                <CardVisual
+                  application={activeApplication}
+                  nextInterview={nextUpcomingInterview(interviews, activeApplication.id)}
+                  dragging
+                />
+              ) : null}
             </DragOverlay>
           </DndContext>
           {selectedIds.size > 0 && (
@@ -1008,7 +1097,7 @@ export function Board() {
           onSubmit={
             formState.mode === 'edit'
               ? (input) => updateApplication(formState.application.id, input)
-              : (input) => createApplication(input, activeTrackerId)
+              : (input) => handleCreateApplication(input, activeTrackerId)
           }
           // Deliberately leaves the form mounted underneath rather than
           // closing it -- this form opts out of backdrop-dismiss precisely
@@ -1024,6 +1113,12 @@ export function Board() {
         <CardDetail
           application={detailApplication}
           trackerName={trackers.find((t) => t.id === detailApplication.tracker_id)?.name}
+          interviews={interviews}
+          onScheduleInterview={async (input) => {
+            await scheduleInterview(detailApplication.id, input)
+          }}
+          onUpdateInterview={updateInterview}
+          onDeleteInterview={removeInterview}
           onEdit={() => {
             setFormState({ mode: 'edit', application: detailApplication })
             setDetailApplication(null)
@@ -1067,6 +1162,22 @@ export function Board() {
 
       {migratePrompt && (
         <MigrateGuestDataModal onConfirm={handleConfirmMigratePrompt} onDecline={handleDeclineMigratePrompt} />
+      )}
+
+      {interviewQueue[interviewQueueIndex] && (
+        <InterviewScheduleModal
+          // Keyed by the card's id so Save/Skip always mounts a fresh modal
+          // instance for the next card -- this component never needs to
+          // reset its own form fields mid-queue.
+          key={interviewQueue[interviewQueueIndex].id}
+          company={interviewQueue[interviewQueueIndex].company}
+          roleTitle={interviewQueue[interviewQueueIndex].role_title}
+          index={interviewQueueIndex}
+          total={interviewQueue.length}
+          onSave={handleSaveInterview}
+          onSkip={advanceInterviewQueue}
+          onSkipAll={interviewQueue.length > 1 ? closeInterviewQueue : undefined}
+        />
       )}
 
       {accountModalOpen && user && (

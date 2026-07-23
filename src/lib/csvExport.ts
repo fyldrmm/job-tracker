@@ -1,7 +1,9 @@
-import type { Application, Tracker } from '../types/application'
+import type { Application, Interview, Tracker } from '../types/application'
 import { STAGE_LABELS } from './stages'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from './employment'
 import { ARCHIVE_REASON_LABELS } from './archive'
+import { formatDateTime } from './format'
+import { interviewSummaryForApplication } from './interviews'
 
 const CSV_HEADER = [
   'Company',
@@ -19,6 +21,8 @@ const CSV_HEADER = [
   'Archived at',
   'Job link',
   'Notes',
+  'Next interview',
+  'Rounds',
 ]
 
 export function escapeCsvField(value: string): string {
@@ -28,9 +32,14 @@ export function escapeCsvField(value: string): string {
   return value
 }
 
-export function buildApplicationsCsv(applications: Application[], trackers: Tracker[]): string {
+export function buildApplicationsCsv(
+  applications: Application[],
+  trackers: Tracker[],
+  interviews: Interview[],
+): string {
   const trackerNameById = new Map(trackers.map((t) => [t.id, t.name]))
   const rows = applications.map((app) => {
+    const { nextInterview, roundCount } = interviewSummaryForApplication(interviews, app.id)
     const fields = [
       app.company,
       app.role_title,
@@ -47,6 +56,8 @@ export function buildApplicationsCsv(applications: Application[], trackers: Trac
       app.archived_at ?? '',
       app.job_link ?? '',
       app.notes ?? '',
+      nextInterview ? formatDateTime(nextInterview.scheduled_at) : '',
+      String(roundCount),
     ]
     return fields.map(escapeCsvField).join(',')
   })

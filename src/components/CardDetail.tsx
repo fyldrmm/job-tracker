@@ -1,22 +1,34 @@
-import type { Application, ArchiveReason } from '../types/application'
-import { formatDate } from '../lib/format'
+import { useState } from 'react'
+import type { Application, ArchiveReason, Interview } from '../types/application'
+import { formatDate, formatDateTime } from '../lib/format'
 import { isSafeHttpUrl } from '../lib/url'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { STAGE_LABELS } from '../lib/stages'
 import { ARCHIVE_REASON_LABELS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
+import { interviewsForApplication } from '../lib/interviews'
+import { buildGoogleCalendarUrl, downloadInterviewIcs } from '../lib/icsExport'
 import { ArchiveSplitButton } from './ArchiveSplitButton'
+import { InterviewRoundModal } from './InterviewRoundModal'
 import { TrashIcon, StarIcon } from './icons'
+import type { InterviewInput } from '../hooks/useInterviews'
 
 interface CardDetailProps {
   application: Application
   trackerName: string | undefined
+  interviews: Interview[]
+  onScheduleInterview: (input: InterviewInput) => Promise<void>
+  onUpdateInterview: (id: string, input: InterviewInput) => Promise<void>
+  onDeleteInterview: (id: string) => Promise<void>
   onEdit: () => void
   onClose: () => void
   onArchive: (reason: ArchiveReason) => void
   onDeleteRequest: (application: Application) => void
   onTogglePriority: () => void
 }
+
+// null = adding a new round; an Interview = editing that specific round.
+type RoundModalState = { mode: 'add' } | { mode: 'edit'; interview: Interview } | null
 
 interface FieldProps {
   label: string
@@ -46,6 +58,10 @@ function Field({ label, value, isLink, multiline }: FieldProps) {
 export function CardDetail({
   application,
   trackerName,
+  interviews,
+  onScheduleInterview,
+  onUpdateInterview,
+  onDeleteInterview,
   onEdit,
   onClose,
   onArchive,
@@ -53,6 +69,18 @@ export function CardDetail({
   onTogglePriority,
 }: CardDetailProps) {
   useModalDismiss(onClose)
+  const [roundModal, setRoundModal] = useState<RoundModalState>(null)
+  const rounds = interviewsForApplication(interviews, application.id)
+
+  async function handleSaveRound(input: InterviewInput) {
+    if (roundModal?.mode === 'edit') {
+      await onUpdateInterview(roundModal.interview.id, input)
+    } else {
+      await onScheduleInterview(input)
+    }
+    setRoundModal(null)
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
@@ -114,6 +142,66 @@ export function CardDetail({
           <Field label="Notes" value={application.notes} multiline />
         </dl>
 
+        <div className="pt-3 border-t border-ink-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-ink-400 text-xs uppercase tracking-wide">Interviews</h3>
+            <button
+              type="button"
+              onClick={() => setRoundModal({ mode: 'add' })}
+              className="text-sm font-medium text-ink-600 hover:text-ink-800 hover:underline"
+            >
+              + Add round
+            </button>
+          </div>
+          {rounds.length === 0 ? (
+            <p className="text-sm text-ink-400 mt-2">No interviews scheduled yet.</p>
+          ) : (
+            <ul className="mt-2 space-y-1.5">
+              {rounds.map((interview) => (
+                <li key={interview.id} className="flex items-center justify-between gap-2 text-sm">
+                  <p className="text-ink-700 truncate min-w-0">
+                    Round {interview.round} · {formatDateTime(interview.scheduled_at)}
+                    {interview.is_remote ? ' · Remote' : interview.location ? ` · ${interview.location}` : ''}
+                  </p>
+                  <div className="flex items-center gap-2 shrink-0 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => downloadInterviewIcs(application, interview)}
+                      className="text-ink-500 hover:text-ink-800 hover:underline"
+                    >
+                      .ics
+                    </button>
+                    <a
+                      href={buildGoogleCalendarUrl(application, interview)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-ink-500 hover:text-ink-800 hover:underline"
+                    >
+                      Google
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setRoundModal({ mode: 'edit', interview })}
+                      aria-label={`Edit round ${interview.round}`}
+                      className="text-ink-500 hover:text-ink-800 hover:underline"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDeleteInterview(interview.id)}
+                      aria-label={`Delete round ${interview.round}`}
+                      className="p-1 -m-1 text-ink-400 hover:text-rose-600 rounded hover:bg-rose-50"
+                    >
+                      <TrashIcon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <div className="flex items-center justify-between pt-4">
           <div className="flex items-center gap-2">
             {!application.is_archived && <ArchiveSplitButton onArchive={onArchive} />}
@@ -144,6 +232,15 @@ export function CardDetail({
           </div>
         </div>
       </div>
+
+      {roundModal && (
+        <InterviewRoundModal
+          title={roundModal.mode === 'edit' ? `Edit round ${roundModal.interview.round}` : 'Add interview round'}
+          initial={roundModal.mode === 'edit' ? roundModal.interview : null}
+          onSave={handleSaveRound}
+          onCancel={() => setRoundModal(null)}
+        />
+      )}
     </div>
   )
 }

@@ -8,5 +8,10 @@ import { getDB } from '../lib/db'
 // Clearing the stores in place sidesteps that entirely.
 export async function resetIndexedDb(): Promise<void> {
   const db = await getDB()
-  await Promise.all([db.clear('applications'), db.clear('stage_history'), db.clear('trackers')])
+  await Promise.all([
+    db.clear('applications'),
+    db.clear('stage_history'),
+    db.clear('trackers'),
+    db.clear('interviews'),
+  ])
 }

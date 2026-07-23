@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
-import type { Application, ApplicationStage, EmploymentType, WorkMode } from '../types/application'
-import { formatDate } from '../lib/format'
+import type { Application, ApplicationStage, EmploymentType, Interview, WorkMode } from '../types/application'
+import { formatDate, formatDateTime } from '../lib/format'
 import { STAGE_ORDER, STAGE_LABELS } from '../lib/stages'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
+import { interviewSummaryForApplication } from '../lib/interviews'
 import { sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
 import { buildApplicationsXlsx, triggerXlsxDownload } from '../lib/xlsxExport'
 import { NoteIcon, StarIcon } from './icons'
@@ -10,6 +11,7 @@ import { MultiSelectFilter } from './MultiSelectFilter'
 
 interface TableViewProps {
   applications: Application[]
+  interviews: Interview[]
   trackerName: string
   onCardOpen: (application: Application) => void
   onStageChange: (application: Application, stage: ApplicationStage) => void
@@ -51,6 +53,7 @@ function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
 
 export function TableView({
   applications,
+  interviews,
   trackerName,
   onCardOpen,
   onStageChange,
@@ -96,7 +99,7 @@ export function TableView({
   async function handleExportXlsx() {
     setExporting(true)
     try {
-      const buffer = await buildApplicationsXlsx(sorted)
+      const buffer = await buildApplicationsXlsx(sorted, interviews)
       const slug = trackerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
       const date = new Date().toISOString().slice(0, 10)
       triggerXlsxDownload(`jobtracker-${slug}-${date}.xlsx`, buffer)
@@ -159,6 +162,8 @@ export function TableView({
                   </button>
                 </th>
               ))}
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Next interview</th>
+              <th className="text-left py-2 pr-4 font-medium text-ink-500">Rounds</th>
               <th className="text-left py-2 pr-4 font-medium text-ink-500">Salary</th>
               {RIGHT_COLUMNS.map((column) => (
                 <th key={column.key} className="text-left py-2 pr-4">
@@ -175,7 +180,9 @@ export function TableView({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((application) => (
+            {sorted.map((application) => {
+              const { nextInterview, roundCount } = interviewSummaryForApplication(interviews, application.id)
+              return (
               <tr
                 key={application.id}
                 onClick={() => onCardOpen(application)}
@@ -222,6 +229,10 @@ export function TableView({
                   </select>
                 </td>
                 <td className="py-2 pr-4 text-ink-500">{formatDate(application.date_applied)}</td>
+                <td className="py-2 pr-4 text-ink-500">
+                  {nextInterview ? formatDateTime(nextInterview.scheduled_at) : '—'}
+                </td>
+                <td className="py-2 pr-4 text-ink-500">{roundCount || '—'}</td>
                 <td className="py-2 pr-4 text-ink-500">{application.salary_range || '—'}</td>
                 <td className="py-2 pr-4 text-ink-500">{application.location || '—'}</td>
                 <td className="py-2 pr-4 text-ink-500">
@@ -231,7 +242,8 @@ export function TableView({
                   {application.work_mode ? WORK_MODE_LABELS[application.work_mode] : '—'}
                 </td>
               </tr>
-            ))}
+              )
+            })}
           </tbody>
         </table>
       )}

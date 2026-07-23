@@ -12,7 +12,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { Application, ApplicationStage, ArchiveReason, StageHistoryEntry, Tracker } from '../types/application'
+import type {
+  Application,
+  ApplicationStage,
+  ArchiveReason,
+  Interview,
+  StageHistoryEntry,
+  Tracker,
+} from '../types/application'
 import { EMPLOYMENT_TYPES, WORK_MODES } from '../lib/employment'
 import {
   computeApplicationsOverTime,
@@ -31,6 +38,7 @@ import { buildApplicationsCsv, triggerCsvDownload } from '../lib/csvExport'
 
 interface InsightsViewProps {
   applications: Application[]
+  interviews: Interview[]
   stageHistory: StageHistoryEntry[]
   trackers: Tracker[]
 }
@@ -82,7 +90,7 @@ function ChartCard({ title, empty, children }: { title: string; empty?: string; 
 
 const tooltipStyle = { fontSize: 13, borderRadius: 6, borderColor: '#cdd7cf' }
 
-export function InsightsView({ applications, stageHistory, trackers }: InsightsViewProps) {
+export function InsightsView({ applications, interviews, stageHistory, trackers }: InsightsViewProps) {
   const [scope, setScope] = useState<InsightsScope>('global')
 
   const scoped = useMemo(() => filterApplicationsForScope(applications, scope), [applications, scope])
@@ -114,7 +122,7 @@ export function InsightsView({ applications, stageHistory, trackers }: InsightsV
     scope === 'global' ? 'all-trackers' : (trackers.find((t) => t.id === scope)?.name ?? scope).toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
   const handleExportCsv = () => {
-    const csv = buildApplicationsCsv(scoped, trackers)
+    const csv = buildApplicationsCsv(scoped, trackers, interviews)
     const date = new Date().toISOString().slice(0, 10)
     triggerCsvDownload(`jobtracker-${scopeSlug}-${date}.csv`, csv)
   }

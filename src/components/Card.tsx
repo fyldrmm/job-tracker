@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import type { Application } from '../types/application'
+import type { Application, Interview } from '../types/application'
 import { nextStage, prevStage, STAGE_LABELS } from '../lib/stages'
 import { isSafeHttpUrl } from '../lib/url'
 import { CardVisual } from './CardVisual'
@@ -8,6 +8,7 @@ import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 
 interface CardProps {
   application: Application
+  nextInterview?: Interview | null
   onOpenDetail: () => void
   onAdvance: () => void
   onRetreat: () => void
@@ -25,6 +26,7 @@ const CLICK_DELAY_MS = 250
 
 export function Card({
   application,
+  nextInterview,
   onOpenDetail,
   onAdvance,
   onRetreat,
@@ -135,7 +137,7 @@ export function Card({
         isDragging ? 'opacity-30' : ''
       }`}
     >
-      <CardVisual application={application} selected={selected} />
+      <CardVisual application={application} nextInterview={nextInterview} selected={selected} />
       {/* Keyboard/touch-reachable trigger for the same menu right-click
           opens -- right-click alone would be a mouse-only path to Archive/
           Delete, which the brief rules out for anything critical. */}

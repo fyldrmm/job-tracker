@@ -1,17 +1,22 @@
 import { useReducer } from 'react'
-import type { Application } from '../types/application'
-import { formatDate } from '../lib/format'
+import type { Application, Interview } from '../types/application'
+import { formatDate, formatDateTime } from '../lib/format'
 import { isStale, STALE_THRESHOLD_DAYS } from '../lib/stale'
 import { dismissStale, isDismissedStale } from '../lib/reminders'
 import { StarIcon } from './icons'
 
 interface CardVisualProps {
   application: Application
+  // The soonest upcoming interview for this application, or null if none is
+  // scheduled (or every round is in the past) -- see
+  // lib/interviews.ts:interviewSummaryForApplication. Shown regardless of
+  // current_stage, since rounds are kept even after the card moves on.
+  nextInterview?: Interview | null
   dragging?: boolean
   selected?: boolean
 }
 
-export function CardVisual({ application, dragging, selected }: CardVisualProps) {
+export function CardVisual({ application, nextInterview, dragging, selected }: CardVisualProps) {
   // Re-render after a dismiss write -- localStorage itself isn't reactive,
   // and `application` doesn't change when its stale badge is dismissed.
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
@@ -62,6 +67,12 @@ export function CardVisual({ application, dragging, selected }: CardVisualProps)
           </span>
         )}
       </div>
+      {nextInterview && (
+        <div className="mt-1 text-[11px] text-ink-500 truncate">
+          <span className="font-medium text-ink-600">R{nextInterview.round}</span> ·{' '}
+          {formatDateTime(nextInterview.scheduled_at)}
+        </div>
+      )}
     </div>
   )
 }

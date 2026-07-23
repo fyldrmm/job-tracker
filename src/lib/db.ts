@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Application, StageHistoryEntry, Tracker } from '../types/application'
+import type { Application, Interview, StageHistoryEntry, Tracker } from '../types/application'
 
 interface JobTrackerDB extends DBSchema {
   applications: {
@@ -16,10 +16,15 @@ interface JobTrackerDB extends DBSchema {
     key: string
     value: Tracker
   }
+  interviews: {
+    key: string
+    value: Interview
+    indexes: { 'by-application_id': string }
+  }
 }
 
 const DB_NAME = 'job-tracker'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 let dbPromise: Promise<IDBPDatabase<JobTrackerDB>> | null = null
 
@@ -37,6 +42,10 @@ export function getDB(): Promise<IDBPDatabase<JobTrackerDB>> {
         if (oldVersion < 2) {
           db.createObjectStore('trackers', { keyPath: 'id' })
           tx.objectStore('applications').createIndex('by-tracker_id', 'tracker_id')
+        }
+        if (oldVersion < 3) {
+          const interviews = db.createObjectStore('interviews', { keyPath: 'id' })
+          interviews.createIndex('by-application_id', 'application_id')
         }
       },
     })

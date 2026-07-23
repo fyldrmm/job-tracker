@@ -40,6 +40,26 @@ export interface Application {
   updated_at: string
 }
 
+// One scheduled interview round on an application. A row exists only once
+// the user has actually given a date -- "skip for now" means no row at all,
+// which is what keeps unscheduled interviews out of the calendar export by
+// construction. See supabase/migrations/0013_interviews.sql.
+export interface Interview {
+  id: string
+  application_id: string
+  round: number
+  // UTC ISO string, built from the user's local date + time inputs.
+  scheduled_at: string
+  duration_minutes: number
+  is_remote: boolean
+  // Meeting link when remote, address when on-site -- both map onto the
+  // single LOCATION field in an .ics.
+  location: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export interface StageHistoryEntry {
   id: string
   application_id: string

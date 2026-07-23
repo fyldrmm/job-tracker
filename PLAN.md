@@ -106,6 +106,31 @@ Link auto-parsing · email reminders (push reminders shipped as M9) · alternate
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
+### M13 — Interview scheduling + calendar export *(user idea, 2026-07-23)* — planned, not started
+
+Capture **date, time, location** (location may be Remote, with an optional meeting link) for interviews, and export each one to the user's **Google or Apple Calendar**.
+
+**Order decision (2026-07-23):** build this feature *before* the free/paid split, not after. The paid tier is greenfield — there is no billing, subscription, or entitlement anywhere in the codebase (verified). Building the wall first means Stripe + a subscriptions table + RLS + webhooks + upgrade UI with nothing behind it. Mitigation for shipping it free in the meantime: a single `canScheduleInterviews()` entitlement seam from day one (see §6), so gating later is one function body, not a refactor.
+
+**1. Schema — new `interviews` table, not columns on `applications`.** Multiple rounds rules out columns. Modeled on `stage_history`: no `user_id`, RLS scoped through the parent application via `exists (select 1 from applications …)`, four policies. `supabase/migrations/0013_interviews.sql`:
+`id` · `application_id` (fk, on delete cascade) · `round int not null` · `scheduled_at timestamptz not null` · `duration_minutes int not null default 60` · `is_remote boolean not null default false` · `location text` · `notes text` · `created_at` · `updated_at`. Index on `application_id`; unique index on `(application_id, round)`.
+
+`scheduled_at` is built from the user's *local* date+time inputs and stored UTC; the `.ics` emits `DTSTART…Z`, so the event lands correctly on whatever device imports it.
+
+**2. "Skip" is the absence of a row.** User requirement: a skipped card must not be calendar-exportable. That falls out of the schema — no row means nothing to export and no calendar button. There is deliberately no half-filled interview state.
+
+**3. Local (guest) mirror.** `db.ts` `DB_VERSION` 2 → 3, new `interviews` store keyed on `id` with a `by-application_id` index. `localStore`/`remoteStore` get `getAllInterviews`/`putInterview`/`deleteInterview` pairs. New `useInterviews` hook shaped like `useApplications` (write-through persist, optimistic update, revert on throw) — *not* like the read-only `useStageHistory`.
+
+**4. Where the prompt fires.** Five paths reach the Interview stage — drag-drop, the card advance arrow, the card context menu, the Table view stage `<select>`, and bulk move — and all funnel through `moveApplicationStage` in `Board.tsx`. Add one Board-level `moveTo(ids, stage)` that performs the moves and *then*, if the destination is `interview`, enqueues the moved ids. **The prompt opens after the move has persisted, never before** — a dismissed or errored modal must not be able to strand a card mid-drag. Per-card modal queue with an `n of m` counter and the company/role in the header; buttons Save & next · Skip · Skip all; Esc = Skip. Creating a card directly into Interview (Add form and AI extraction) prompts too (user decision).
+
+**5. Rounds.** Card stays in the Interview column; later rounds are added from `CardDetail.tsx` — an **Interviews** section listing each round (`Round 2 · Tue 4 Aug, 14:00 · Remote`) with edit / delete / Add to calendar, plus an **Add interview round** button. New round = `max(round) + 1`. Rounds are retained if the card later leaves Interview — they are history, like `stage_history`. Board card shows a **date + round badge** (`R2 · 4 Aug 14:00`) per user decision.
+
+**6. Paid-tier seam.** `src/lib/entitlements.ts` exporting `canScheduleInterviews(): boolean`, returning `true` for now. Every entry point checks it.
+
+**7. Calendar export — `src/lib/icsExport.ts`.** One `.ics` per interview covers Google, Apple and Outlook with no OAuth, no API key and no consent screen, reusing the blob-download pattern in `lib/export.ts`. `SUMMARY: Interview — {company} · {role_title}`, DTSTART/DTEND in UTC, LOCATION, URL from `job_link`, `UID = interview.id` (stable, so re-exporting after an edit *updates* the event rather than duplicating it), plus a `VALARM` 1 hour before (user decision). Alongside it, an **Add to Google Calendar** link (`calendar.google.com/render?action=TEMPLATE&…`) built from the same fields — one click for Google users. A Google Calendar *API* integration is explicitly out of scope: much larger, and only needed for two-way sync.
+
+**8. Also touched.** `buildExportData` gains `interviews` (otherwise the JSON export is self-inconsistent — same reason trackers are in it). Table view and CSV/XLSX gain **Next interview** and **Rounds** columns (user decision). Guest → account migration path in `migration.ts`. Tests alongside the existing vitest files.
+
 ### Candidate next milestones (user flagged 2026-07-22)
 
 Follow-up reminders picked and built as M9. Alternate views built as M10. Mobile-first polish built as M11. None remain from this list — next milestone, if any, needs a fresh user ask.
