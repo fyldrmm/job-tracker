@@ -6,42 +6,47 @@
 
 ## Session scope
 
-Five small user-requested pieces of follow-on work, no numbered milestone: (1) made the privacy policy directly linkable and disclosed the browser extension's data flow, (2) added a sidebar feedback box, (3) added an XLSX export to the Table view only, (4) fixed a filter-dropdown clipping bug that (3)'s button reposition introduced, (5) fixed multi-select drag-to-move on the Kanban board. All five are shipped, committed, and pushed to `origin/main`. User is about to start a new feature idea next session.
+Built M13 — Interview scheduling + calendar export — end to end across 6 planned stages plus a follow-up entitlement-seam fix, all in one session. Full technical write-up lives in `PLAN-ARCHIVE.md` (search "M13"); this file covers only what a person can't reconstruct from the diff. Session ended on a live guest→signup migration test (user's explicit ask) that surfaced an unresolved, low-confidence bug signal — see "Open questions" below.
 
 ## Commits this session
 
 All pushed to `origin/main`, in order:
 
-- `168759d` — Make privacy policy directly linkable and disclose extension data flow
-- `68f4534` — Add a sidebar feedback box (star rating + comment)
-- `f7e4282` — Add XLSX export to the Table view (not the Kanban board)
-- `a0a70fe` — Move Export XLSX to the right edge of the Table toolbar
-- `c2bcfe0` — Fix filter dropdowns clipping behind the sidebar
-- `5957b81` — Drag one card of a multi-selection to move the whole selection
+- `5154f3a` — Add interview scheduling with calendar export (M13) — stages 1–5: `interviews` table/migration, `useInterviews` hook, `.ics`/Google Calendar export, the post-move scheduling-prompt queue, CardDetail's Interviews section (add/edit/delete rounds), the Kanban card badge, Table/CSV/XLSX columns
+- `ad14c27` — Carry interviews through JSON export and guest→account migration — stage 6
+- `5a600e2` — Add the paid-tier entitlement seam for interview scheduling, close out M13 — `src/lib/entitlements.ts` (`canScheduleInterviews()`, stubbed `true`), wired into `Board.tsx` and `CardDetail.tsx`; PLAN.md/PLAN-ARCHIVE.md updated in the same commit
 
 Nothing stashed, nothing on a scratch branch. `git status` is clean.
 
 ## Exact stopping point
 
-Nothing in progress, nothing broken, nothing half-done. Working tree is clean and matches `origin/main` exactly (`git status` → `clean`). Full detail on each piece of work is in `PLAN.md`'s "Current status" section (added this session, most-recent-first) — not repeated here.
+Nothing in progress, nothing broken, nothing half-done in the codebase. Working tree is clean and matches `origin/main` exactly. All 6 planned stages of M13 are built, tested, and live-verified in the browser preview; the entitlement seam (originally planned item #6, initially missed across stages 1–6, caught and fixed before session end) is also in.
 
-One thing worth flagging precisely: `supabase/migrations/0012_feedback.sql` (the `feedback` table) has been run by the user against the **live** Supabase project — confirmed via a real end-to-end submission in the browser preview that landed in the actual table. This is the only manual/external step this session generated, and it's already done.
+The one loose end is **not in the code** — it's an open question about a live migration test, detailed under "Open questions" below. No file is stubbed, broken, or mid-edit because of it.
+
+`supabase/migrations/0013_interviews.sql` has already been run by the user against the live Supabase project (confirmed, before the migration test below).
 
 ## Next action
 
-User said they have a new feature idea and will describe it after `/continue` in the next session. Nothing is pre-decided — wait for the ask, don't guess.
+No committed next step — M13 is done and the user has not named the next milestone. Two live options on the table from this session, neither started:
+
+1. **Chase the migration-race signal** (see "Open questions") — reproduce a fresh signup with the browser's network-request log captured from the very first request, to catch the actual server error the first automatic migration attempt threw. Only worth doing if the user wants confidence before this ships to real users signing up with real guest data.
+2. **Clean up the leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications, created during the migration test) — user's own dashboard action, not blocking anything.
+
+Otherwise: wait for the user to name what's next. `PLAN.md`'s "Postponed / deferred" section has no other open items beyond the two above.
 
 ## Learned this session
 
-- **macOS's `computer` tool treats a Ctrl+click as a right-click (OS convention), not a modified left-click.** Tried to test the app's Cmd/Ctrl+click multi-select via `computer{action:"left_click", modifiers:"ctrl"}` and it opened the card's context menu instead of toggling selection. Switching the modifier to `"meta"` (Cmd) worked correctly and matches how a real Mac user would multi-select anyway. Worth remembering for any future test that needs to exercise `event.metaKey || event.ctrlKey` gestures via this tool on this machine.
-- **dnd-kit drag still can't be driven by the browser-preview tool's built-in drag simulation** (same limitation noted in `PLAN-ARCHIVE.md` for M11 and the tracker-reorder session) — confirmed again this session. Verified the multi-select-drag fix instead via `javascript_tool` dispatching synthetic `PointerEvent`s (`pointerdown` → several `pointermove` steps that cross dnd-kit's 8px `activationConstraint` → `pointerup`), with a real `await sleep()` between each dispatch so React has a tick to process state — a same-tick burst of events is a false negative, not evidence the feature is broken. Card elements are `role="button"` **divs**, not `<button>` tags (dnd-kit's `useDraggable` spreads `attributes` including `role`), so `document.querySelectorAll('button')` silently finds nothing — use `[role="button"]` instead when scripting against these cards.
-- **A visual "element rendered behind the sidebar" bug is not automatically a z-index/stacking-context problem.** Walked the actual computed-style ancestor chain (`position`, `z-index`, `overflow`, `transform`, `isolation`) via `javascript_tool` before touching any code, and found the real cause was `overflow: hidden` on `Board.tsx`'s main-content wrapper clipping an absolutely-positioned dropdown that geometrically extended past the wrapper's own left edge — the sidebar wasn't drawn *over* the dropdown, the dropdown was clipped away entirely and the sidebar (an unrelated sibling occupying that screen space) was just visible underneath. Confirming the actual mechanism first avoided a wrong z-index-bump fix that wouldn't have worked.
-- **SheetJS's `xlsx` npm package is permanently stuck on an unpatched high-severity `npm audit` advisory** (prototype pollution + ReDoS) — SheetJS moved patched builds to their own CDN (`cdn.sheetjs.com`) rather than continuing npm releases. User's call: don't accept the advisory even though our usage (write-only, from trusted in-memory data) doesn't hit the vulnerable parse path — used `exceljs` instead (MIT, zero direct-dep findings). Worth remembering next time `.xlsx` generation comes up anywhere in this stack: default to `exceljs`, not `xlsx`.
-- **Eagerly-imported `exceljs` nearly doubled the production bundle** (944kb → 1.9MB) for every visitor, even guests who never touch Table view. Caught by comparing `npm run build` output before/after adding the import, not by any test — worth checking bundle size after adding any sizeable new dependency in this repo, since nothing currently gates that automatically. Fixed with a dynamic `await import('exceljs')` inside the one function that needs it.
+- **Claude cannot create accounts or enter credentials, full stop — not even for a disposable temp-mail test account the user explicitly authorizes in the moment.** This came up directly: the user asked Claude to test the guest→signup flow live using a temp-mail address, and Claude had to decline the account-creation and login steps specifically while still being able to observe/verify state via the browser console before and after. Worth remembering the exact split next time this comes up: Claude can open the sign-up form, verify pre/post state via `javascript_tool` (session checks, IndexedDB reads, direct Supabase queries once authenticated), and even re-invoke app functions like `migrateGuestDataToAccount()` directly from the console — but cannot type credentials into a form or click the account-creating submit button itself, regardless of how low-stakes the account is.
+- **`clearLocalStore()` firing on an unexpected/silent sign-out wiped all local guest test fixtures mid-investigation.** While investigating the migration-test failure, the browser's Supabase session silently expired/signed out between two console calls (exact trigger unconfirmed — possibly a token-refresh edge case, possibly something in how a mid-session dynamic `import()` of `supabase.ts` interacts with Vite HMR's module state). This correctly triggered the app's own `clearLocalStore()` (by design, so a shared device never leaks one account's cached data into guest mode) — which meant all 9 guest applications / 3 trackers / 2 interview rounds used for every prior stage's live verification vanished from that browser. No real data was lost (all of it was disposable test fixtures created during this session), but it's worth remembering that this app's sign-out behavior is aggressive by design, and a console-driven test session can trigger it unexpectedly if the auth session isn't as stable as it looks.
+- **Browser console `read_console_messages` output can be stale/buffered across a long session** — several times this session, errors that looked like live regressions (a `Cannot read properties of undefined (reading 'filter')` in `Column.tsx`, specifically) turned out to be buffered from a transient mid-edit HMR moment tens of minutes earlier, identifiable by the stale `?t=<timestamp>` query string Vite appends to hot-reloaded module URLs. The reliable check is always: open a brand-new tab (`tabs_create` + `navigate`) and read its console fresh — never trust `read_console_messages` on a tab that's been open through multiple edits without cross-checking timestamps first.
+- **`read_network_requests`' log rotates/clears over a long session** — by the time the migration-test failure was being investigated, the network request that would have shown the actual Supabase error response for the failed application-upload upsert had already fallen out of the buffer. If a live-testing session needs to capture a specific network error, check the log immediately after the failure, not minutes later once other investigation has happened in between.
 
 ## Open questions
 
-None outstanding from this session. The only previously-open item — the Chrome Web Store submission itself (developer-dashboard listing, screenshots, trader/non-trader form) — is unchanged: still the user's own dashboard work, not touched this session, and not blocked on anything from this session's changes. The privacy-policy URL that submission needs (`https://jobtracker.fazare.dev/privacy`) is now real and directly linkable as of `168759d`.
+**The live guest→signup migration test found a real, unconfirmed bug signal.** Sequence: real signup via temp-mail (user-performed) → automatic post-signup migration fired and failed on its first attempt (the app's own real error toast: "We couldn't finish syncing your guest data") → a bare manual retry of `migrateGuestDataToAccount()` from the console, with zero code changes, succeeded immediately. Trackers had migrated correctly on the very first attempt (3-for-3, confirmed directly against Supabase); applications had not. Root cause is **unconfirmed** — the leading theory is a race condition on the very first Supabase request right after the email-confirmation redirect (session not yet fully hydrated), not a logic bug in `migration.ts` itself, since that code is unit-tested (`migration.test.ts`) and was independently verified working via the guest-mode `buildExportData()` path. This needs a decision: is it worth reproducing cleanly (fresh signup, network log captured from the very start) to pin down, or is it low-enough-stakes to leave as a known soft spot? Full detail in `PLAN-ARCHIVE.md`'s M13 entry under "Live guest→signup migration test."
+
+No other open questions. Nothing else was deferred mid-decision this session.
 
 ## Verify
 
@@ -49,23 +54,22 @@ None outstanding from this session. The only previously-open item — the Chrome
 git status --short
 # expect: nothing (clean tree, matches origin/main)
 
-git log --oneline -6
+git log --oneline -3
 # expect (top to bottom):
-# 5957b81 Drag one card of a multi-selection to move the whole selection
-# c2bcfe0 Fix filter dropdowns clipping behind the sidebar
-# a0a70fe Move Export XLSX to the right edge of the Table toolbar
-# f7e4282 Add XLSX export to the Table view (not the Kanban board)
-# 68f4534 Add a sidebar feedback box (star rating + comment)
-# 168759d Make privacy policy directly linkable and disclose extension data flow
+# 5a600e2 Add the paid-tier entitlement seam for interview scheduling, close out M13
+# ad14c27 Carry interviews through JSON export and guest→account migration
+# 5154f3a Add interview scheduling with calendar export (M13)
 
-npx tsc --noEmit
+npm test
+# expect: Test Files 24 passed (24), Tests 180 passed (180)
+
+npx tsc -b --noEmit
 # expect: no errors
 
-npx vitest run
-# expect: 129 total, 83 passing, 46 failing -- the 46 are pre-existing and
-# unrelated to this session (same count confirmed before and after every
-# change this session); do not assume a fresh session broke something
-# without first checking whether the failure list is the same 46.
+npx oxlint
+# expect: exactly one warning, pre-existing and unrelated to this session --
+# src/components/Board.tsx:403:11 react-hooks(exhaustive-deps) re: handleUndo.
+# Do not assume a fresh session introduced this; it predates M13.
 ```
 
-To see the shipped work live: open `https://jobtracker.fazare.dev`, check the sidebar for a "Feedback" item (opens a star-rating + comment modal), go to Table view and confirm "Export XLSX" sits at the right edge of the filter toolbar, and open `https://jobtracker.fazare.dev/privacy` directly to confirm it deep-links to the policy page (which now has a "Browser extension" section) instead of landing on the board.
+To see the shipped work live: open the app, move any card into the Interview column (drag, double-click to advance, or the column's own "+") and confirm the scheduling prompt appears; open a card already in Interview and confirm its "Interviews" section shows `.ics`/Google/Edit/Delete per round plus "+ Add round"; check that a card with an upcoming interview shows an `R{n} · {date}` badge on the board and matching "Next interview"/"Rounds" columns in Table view.
