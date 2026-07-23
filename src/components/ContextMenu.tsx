@@ -2,8 +2,12 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 export interface ContextMenuItem {
   label: string
-  onSelect: () => void
+  // Leaf items run onSelect and close the menu. A group item instead sets
+  // `items` and has no onSelect -- selecting it drills into that submenu in
+  // place (see `stack` below) rather than performing an action.
+  onSelect?: () => void
   danger?: boolean
+  items?: ContextMenuItem[]
 }
 
 interface ContextMenuProps {
@@ -27,6 +31,13 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     top: y,
     visibility: 'hidden',
   })
+  // Drill-down stack for grouped items (Move/Archive/Delete instead of one
+  // flat list) -- captured once at mount via the initializer, deliberately
+  // NOT resynced when the `items` prop changes on later re-renders (the
+  // caller rebuilds that array fresh every render), or drilling into a
+  // submenu would keep getting reset back to the top level.
+  const [stack, setStack] = useState<ContextMenuItem[][]>(() => [items])
+  const current = stack[stack.length - 1]
 
   useLayoutEffect(() => {
     const menu = menuRef.current
@@ -37,7 +48,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     setStyle({ left, top, visibility: 'visible' })
     const first = menu.querySelector<HTMLElement>('[role="menuitem"]')
     first?.focus()
-  }, [x, y])
+  }, [x, y, stack])
 
   useEffect(() => {
     function handlePointerDown(e: MouseEvent) {
@@ -66,7 +77,21 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
       style={{ position: 'fixed', left: style.left, top: style.top, visibility: style.visibility }}
       className="z-50 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-48"
     >
-      {items.map((item) => (
+      {stack.length > 1 && (
+        <button
+          type="button"
+          role="menuitem"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation()
+            setStack((s) => s.slice(0, -1))
+          }}
+          className="w-full text-left px-3 py-1.5 text-sm text-ink-500 focus:outline-none focus:bg-ink-100 hover:bg-ink-100"
+        >
+          ← Back
+        </button>
+      )}
+      {current.map((item) => (
         <button
           key={item.label}
           type="button"
@@ -80,7 +105,11 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
             // after selecting an item, since a bare (non-double/triple)
             // click reads as "open."
             event.stopPropagation()
-            item.onSelect()
+            if (item.items) {
+              setStack((s) => [...s, item.items!])
+              return
+            }
+            item.onSelect?.()
             onClose()
           }}
           className={`w-full text-left px-3 py-1.5 text-sm focus:outline-none focus:bg-ink-100 hover:bg-ink-100 ${
@@ -88,6 +117,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
           }`}
         >
           {item.label}
+          {item.items ? ' ▸' : ''}
         </button>
       ))}
     </div>

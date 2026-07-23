@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useStaleReminders } from '../hooks/useStaleReminders'
 import { getRemindersEnabled, setRemindersEnabled } from '../lib/reminders'
 import { STAGE_ORDER, STAGE_LABELS, nextStage, prevStage } from '../lib/stages'
+import { ARCHIVE_REASONS } from '../lib/archive'
 import { consumePendingSignup, migrateGuestDataToAccount } from '../lib/migration'
 import { buildExportData, downloadJSON } from '../lib/export'
 import {
@@ -36,6 +37,8 @@ import {
 } from '../lib/extensionHandoff'
 import { LogoMark } from './Logo'
 import { Column } from './Column'
+import { SelectionToolbar } from './SelectionToolbar'
+import type { ContextMenuItem } from './ContextMenu'
 import { ApplicationForm } from './ApplicationForm'
 import { CardDetail } from './CardDetail'
 import { CardVisual } from './CardVisual'
@@ -104,7 +107,8 @@ export function Board() {
   const { stageHistory, refresh: refreshStageHistory } = useStageHistory(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
-  const [deleteApplicationTarget, setDeleteApplicationTarget] = useState<Application | null>(null)
+  const [deleteApplicationTargets, setDeleteApplicationTargets] = useState<Application[] | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [formState, setFormState] = useState<FormState>(null)
   // Stores an id, not a snapshot -- CardDetail must reflect live state (e.g.
   // a stage move or priority toggle applied while it's open), not the
@@ -119,7 +123,7 @@ export function Board() {
   const [view, setView] = useState<View>('board')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [accountModalOpen, setAccountModalOpen] = useState(false)
-  const [undoState, setUndoState] = useState<{ id: string; company: string } | null>(null)
+  const [undoState, setUndoState] = useState<{ ids: string[]; label: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
   const [errorToast, setErrorToast] = useState<string | null>(null)
   const errorTimerRef = useRef<number | null>(null)
@@ -157,6 +161,26 @@ export function Board() {
   useEffect(() => {
     if (view === 'insights') refreshStageHistory()
   }, [view, refreshStageHistory])
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // Selection is board-scoped: leaving the board view, or switching which
+  // tracker is active, invalidates whatever was selected rather than
+  // silently carrying it into a different set of cards.
+  useEffect(() => {
+    clearSelection()
+  }, [view, activeTrackerId])
 
   async function handleToggleReminders() {
     if (remindersEnabled) {
@@ -258,13 +282,33 @@ export function Board() {
     }
     setDetailApplication(null)
     clearUndoTimer()
-    setUndoState({ id: application.id, company: application.company })
+    setUndoState({ ids: [application.id], label: `Archived ${application.company}` })
+    undoTimerRef.current = window.setTimeout(() => setUndoState(null), UNDO_WINDOW_MS)
+  }
+
+  async function handleBulkArchive(reason: ArchiveReason) {
+    const ids = [...selectedIds]
+    if (ids.length === 0) return
+    const companies = applications.filter((app) => ids.includes(app.id)).map((app) => app.company)
+    clearSelection()
+    try {
+      await Promise.all(ids.map((id) => archiveApplication(id, reason)))
+    } catch (err) {
+      showError(err, 'Could not archive the selected applications. Please try again.')
+      return
+    }
+    if (detailApplication && ids.includes(detailApplication.id)) setDetailApplication(null)
+    clearUndoTimer()
+    setUndoState({
+      ids,
+      label: ids.length === 1 ? `Archived ${companies[0]}` : `Archived ${ids.length} applications`,
+    })
     undoTimerRef.current = window.setTimeout(() => setUndoState(null), UNDO_WINDOW_MS)
   }
 
   function handleUndo() {
     if (!undoState) return
-    unarchiveApplication(undoState.id).catch((err) =>
+    Promise.all(undoState.ids.map((id) => unarchiveApplication(id))).catch((err) =>
       showError(err, 'Could not undo the archive. Please try again.'),
     )
     clearUndoTimer()
@@ -275,7 +319,7 @@ export function Board() {
     unarchiveApplication(application.id).catch((err) =>
       showError(err, 'Could not un-archive the application. Please try again.'),
     )
-    if (undoState?.id === application.id) {
+    if (undoState?.ids.includes(application.id)) {
       clearUndoTimer()
       setUndoState(null)
     }
@@ -293,10 +337,13 @@ export function Board() {
           handleUndo()
         }
       }
+      if (event.key === 'Escape' && selectedIds.size > 0) {
+        clearSelection()
+      }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undoState])
+  }, [undoState, selectedIds])
 
   useEffect(() => clearUndoTimer, [])
   useEffect(() => clearErrorTimer, [])
@@ -550,6 +597,64 @@ export function Board() {
     )
   }
 
+  function handleBulkMove(stage: ApplicationStage) {
+    const ids = [...selectedIds]
+    clearSelection()
+    Promise.all(ids.map((id) => moveApplicationStage(id, stage))).catch((err) =>
+      showError(err, 'Could not move the selected applications. Please try again.'),
+    )
+  }
+
+  function handleBulkSetPriority(value: boolean) {
+    const ids = [...selectedIds]
+    clearSelection()
+    Promise.all(ids.map((id) => togglePriority(id, value))).catch((err) =>
+      showError(err, 'Could not update the selected applications. Please try again.'),
+    )
+  }
+
+  // A single star toggle, not two menu items: with a mixed selection this
+  // treats "any not-yet-priority card" as the sign to mark everything, and
+  // only unmarks once every selected card is already priority -- the same
+  // tri-state feel as a "select all" checkbox.
+  const selectedApplications = useMemo(
+    () => applications.filter((app) => selectedIds.has(app.id)),
+    [applications, selectedIds],
+  )
+  const allSelectedArePriority = selectedApplications.length > 0 && selectedApplications.every((app) => app.is_priority)
+
+  function handleBulkToggleStar() {
+    handleBulkSetPriority(!allSelectedArePriority)
+  }
+
+  function handleBulkDeleteRequest() {
+    const targets = applications.filter((app) => selectedIds.has(app.id))
+    if (targets.length === 0) return
+    setDeleteApplicationTargets(targets)
+  }
+
+  // Shared by both bulk-action entry points (a selected card's right-click
+  // menu, and the SelectionToolbar's "Actions" button) -- grouped into 3
+  // top-level choices (Move / Archive / Delete) rather than one flat list,
+  // so choosing one doesn't require scanning past the other two kinds of
+  // action. Most-wanted isn't in here at all -- it's the toolbar's star icon.
+  function buildBulkMenuItems(): ContextMenuItem[] {
+    return [
+      {
+        label: 'Move to stage',
+        items: STAGE_ORDER.map((s) => ({ label: STAGE_LABELS[s], onSelect: () => handleBulkMove(s) })),
+      },
+      {
+        label: 'Archive',
+        items: ARCHIVE_REASONS.map((reason) => ({
+          label: reason.label,
+          onSelect: () => handleBulkArchive(reason.value),
+        })),
+      },
+      { label: 'Delete', onSelect: handleBulkDeleteRequest, danger: true },
+    ]
+  }
+
   async function handleSignOut() {
     // The local IndexedDB store is a write-through cache of whatever
     // account is signed in (see useApplications/useTrackers). Without
@@ -585,15 +690,16 @@ export function Board() {
   }
 
   async function handleConfirmDeleteApplication() {
-    if (!deleteApplicationTarget) return
+    if (!deleteApplicationTargets) return
+    const ids = deleteApplicationTargets.map((app) => app.id)
     try {
-      await deleteApplication(deleteApplicationTarget.id)
+      await Promise.all(ids.map((id) => deleteApplication(id)))
     } catch (err) {
       showError(err, 'Could not delete the application. Please try again.')
       return
     }
-    if (detailApplication?.id === deleteApplicationTarget.id) setDetailApplication(null)
-    setDeleteApplicationTarget(null)
+    if (detailApplication && ids.includes(detailApplication.id)) setDetailApplication(null)
+    setDeleteApplicationTargets(null)
   }
 
   async function handleCreateFirstTracker() {
@@ -745,7 +851,7 @@ export function Board() {
           onBack={() => setView('board')}
           onCardOpen={setDetailApplication}
           onUnarchive={handleUnarchive}
-          onDeleteRequest={setDeleteApplicationTarget}
+          onDeleteRequest={(application) => setDeleteApplicationTargets([application])}
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
@@ -812,8 +918,12 @@ export function Board() {
                   onCardAdvance={handleCardAdvance}
                   onCardRetreat={handleCardRetreat}
                   onCardArchive={(application) => handleArchive(application, 'rejected')}
-                  onCardDeleteRequest={setDeleteApplicationTarget}
+                  onCardDeleteRequest={(application) => setDeleteApplicationTargets([application])}
                   onCardTogglePriority={handleTogglePriority}
+                  selectedIds={selectedIds}
+                  onToggleSelect={toggleSelect}
+                  onClearSelection={clearSelection}
+                  buildBulkMenuItems={buildBulkMenuItems}
                 />
               ))}
             </div>
@@ -821,6 +931,15 @@ export function Board() {
               {activeApplication ? <CardVisual application={activeApplication} dragging /> : null}
             </DragOverlay>
           </DndContext>
+          {selectedIds.size > 0 && (
+            <SelectionToolbar
+              count={selectedIds.size}
+              onClear={clearSelection}
+              buildMenuItems={buildBulkMenuItems}
+              starActive={allSelectedArePriority}
+              onToggleStar={handleBulkToggleStar}
+            />
+          )}
         </main>
       )}
 
@@ -867,13 +986,13 @@ export function Board() {
           }}
           onClose={() => setDetailApplication(null)}
           onArchive={(reason) => handleArchive(detailApplication, reason)}
-          onDeleteRequest={setDeleteApplicationTarget}
+          onDeleteRequest={(application) => setDeleteApplicationTargets([application])}
           onTogglePriority={() => handleTogglePriority(detailApplication)}
         />
       )}
 
       {undoState && (
-        <UndoToast message={`Archived ${undoState.company}`} onUndo={handleUndo} />
+        <UndoToast message={undoState.label} onUndo={handleUndo} />
       )}
 
       {errorToast && (
@@ -938,11 +1057,11 @@ export function Board() {
         />
       )}
 
-      {deleteApplicationTarget && (
+      {deleteApplicationTargets && (
         <DeleteApplicationModal
-          application={deleteApplicationTarget}
+          applications={deleteApplicationTargets}
           onConfirm={handleConfirmDeleteApplication}
-          onClose={() => setDeleteApplicationTarget(null)}
+          onClose={() => setDeleteApplicationTargets(null)}
         />
       )}
     </div>

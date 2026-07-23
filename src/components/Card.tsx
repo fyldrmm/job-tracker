@@ -14,6 +14,11 @@ interface CardProps {
   onArchive: () => void
   onDeleteRequest: () => void
   onTogglePriority: () => void
+  selected: boolean
+  selectionActive: boolean
+  onToggleSelect: () => void
+  onClearSelection: () => void
+  buildBulkMenuItems: () => ContextMenuItem[]
 }
 
 const CLICK_DELAY_MS = 250
@@ -26,6 +31,11 @@ export function Card({
   onArchive,
   onDeleteRequest,
   onTogglePriority,
+  selected,
+  selectionActive,
+  onToggleSelect,
+  onClearSelection,
+  buildBulkMenuItems,
 }: CardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: application.id,
@@ -72,7 +82,20 @@ export function Card({
   // Debounce clicks so we can tell single/double/triple apart: single opens
   // the detail view, double advances a stage (mirrors a forward drag),
   // triple retreats a stage — trackpad-friendly alternatives to dragging.
-  function handleClick() {
+  // Cmd/Ctrl+click bypasses all of that: it's a selection toggle, resolved
+  // synchronously, never counted as a click-to-open. And once anything is
+  // selected, a bare click anywhere just clears the selection instead of
+  // opening detail -- exiting multi-select is a one-click action, not a
+  // second click on top of opening a card you didn't mean to.
+  function handleClick(event: React.MouseEvent) {
+    if (event.metaKey || event.ctrlKey) {
+      onToggleSelect()
+      return
+    }
+    if (selectionActive) {
+      onClearSelection()
+      return
+    }
     clickCount.current += 1
     if (clickTimer.current !== null) {
       window.clearTimeout(clickTimer.current)
@@ -112,7 +135,7 @@ export function Card({
         isDragging ? 'opacity-30' : ''
       }`}
     >
-      <CardVisual application={application} />
+      <CardVisual application={application} selected={selected} />
       {/* Keyboard/touch-reachable trigger for the same menu right-click
           opens -- right-click alone would be a mouse-only path to Archive/
           Delete, which the brief rules out for anything critical. */}
@@ -127,7 +150,12 @@ export function Card({
         ⋮
       </button>
       {menuAnchor && (
-        <ContextMenu x={menuAnchor.x} y={menuAnchor.y} items={buildMenuItems()} onClose={() => setMenuAnchor(null)} />
+        <ContextMenu
+          x={menuAnchor.x}
+          y={menuAnchor.y}
+          items={selected ? buildBulkMenuItems() : buildMenuItems()}
+          onClose={() => setMenuAnchor(null)}
+        />
       )}
     </div>
   )

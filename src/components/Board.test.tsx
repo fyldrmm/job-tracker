@@ -159,6 +159,154 @@ describe('Board card context menu', () => {
   })
 })
 
+describe('Board multi-select and bulk actions', () => {
+  beforeEach(async () => {
+    await resetIndexedDb()
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  async function addFirstApplication(user: ReturnType<typeof userEvent.setup>, company: string) {
+    await user.click(await screen.findByRole('button', { name: '+ Create tracker' }))
+    await user.click(await screen.findByRole('button', { name: '+ Add your first application' }))
+    await user.type(screen.getByLabelText(/company/i), company)
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText(company)
+  }
+
+  async function addApplication(user: ReturnType<typeof userEvent.setup>, company: string, stage = 'Applied') {
+    await user.click(screen.getByRole('button', { name: `Add application to ${stage}` }))
+    await user.type(screen.getByLabelText(/company/i), company)
+    await user.type(screen.getByLabelText(/role title/i), 'Engineer')
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await screen.findByText(company)
+  }
+
+  function ctrlClickCard(company: string) {
+    const card = screen.getByText(company).closest('div[role="button"]') as HTMLElement
+    fireEvent.click(card, { ctrlKey: true })
+    return card
+  }
+
+  it('selects cards with Ctrl/Cmd+click and shows the selection toolbar', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    ctrlClickCard('Acme Corp')
+    await screen.findByText('1 selected')
+
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+
+    // Ctrl+click again deselects, back down to one.
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('1 selected')
+  })
+
+  it('a plain click while a selection is active clears it instead of opening detail', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    ctrlClickCard('Acme Corp')
+    await screen.findByText('1 selected')
+
+    const other = screen.getByText('Globex Inc').closest('div[role="button"]') as HTMLElement
+    fireEvent.click(other)
+
+    expect(screen.queryByText('1 selected')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+  })
+
+  it('bulk-moves selected cards to a stage via the toolbar\'s Actions menu', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    ctrlClickCard('Acme Corp')
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+
+    await user.click(screen.getByRole('button', { name: 'Actions ▾' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Move to stage ▸' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Interview' }))
+
+    await screen.findByRole('heading', { name: 'Interview 2' })
+    expect(screen.getByRole('heading', { name: 'Applied 0' })).toBeInTheDocument()
+    expect(screen.queryByText('2 selected')).not.toBeInTheDocument()
+  })
+
+  it('bulk-archives selected cards via a right-click on a selected card, and undo restores both', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    const card1 = ctrlClickCard('Acme Corp')
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+
+    fireEvent.contextMenu(card1)
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive ▸' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Withdrawn' }))
+
+    await screen.findByText('Archived 2 applications')
+    expect(screen.queryByText('Acme Corp')).not.toBeInTheDocument()
+    expect(screen.queryByText('Globex Inc')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }))
+    await waitFor(() => expect(screen.getByText('Acme Corp')).toBeInTheDocument())
+    expect(screen.getByText('Globex Inc')).toBeInTheDocument()
+  })
+
+  it('routes bulk Delete through the confirm modal, naming the count', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    ctrlClickCard('Acme Corp')
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+
+    await user.click(screen.getByRole('button', { name: 'Actions ▾' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
+
+    expect(await screen.findByText('Delete 2 applications?')).toBeInTheDocument()
+    expect(screen.getByText('Acme Corp')).toBeInTheDocument()
+    expect(screen.getByText('Globex Inc')).toBeInTheDocument()
+  })
+
+  it('marks and unmarks most-wanted in bulk via the toolbar star icon', async () => {
+    const user = userEvent.setup()
+    render(<Board />)
+    await addFirstApplication(user, 'Acme Corp')
+    await addApplication(user, 'Globex Inc')
+
+    ctrlClickCard('Acme Corp')
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+
+    await user.click(screen.getByRole('button', { name: 'Mark as most wanted' }))
+
+    await waitFor(() => expect(screen.getAllByLabelText('Most wanted')).toHaveLength(2))
+
+    ctrlClickCard('Acme Corp')
+    ctrlClickCard('Globex Inc')
+    await screen.findByText('2 selected')
+    await user.click(screen.getByRole('button', { name: 'Remove from most wanted' }))
+
+    await waitFor(() => expect(screen.queryAllByLabelText('Most wanted')).toHaveLength(0))
+  })
+})
+
 describe('Board global error surfacing (AUDIT.md C4)', () => {
   let uninstall: () => void
 

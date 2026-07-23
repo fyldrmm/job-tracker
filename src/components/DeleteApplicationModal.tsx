@@ -2,13 +2,15 @@ import type { Application } from '../types/application'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 
 interface DeleteApplicationModalProps {
-  application: Application
+  applications: Application[]
   onConfirm: () => void
   onClose: () => void
 }
 
-export function DeleteApplicationModal({ application, onConfirm, onClose }: DeleteApplicationModalProps) {
+export function DeleteApplicationModal({ applications, onConfirm, onClose }: DeleteApplicationModalProps) {
   useModalDismiss(onClose)
+  const [first] = applications
+  const isBulk = applications.length > 1
   return (
     <div
       className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
@@ -18,10 +20,12 @@ export function DeleteApplicationModal({ application, onConfirm, onClose }: Dele
     >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-sm p-6 space-y-4">
         <h2 className="text-lg font-medium text-ink-800">
-          Delete "{application.company}"?
+          {isBulk ? `Delete ${applications.length} applications?` : `Delete "${first.company}"?`}
         </h2>
         <p className="text-sm text-ink-600">
-          This permanently deletes {application.company} -- {application.role_title}. There's no undo.
+          {isBulk
+            ? `This permanently deletes ${applications.length} applications. There's no undo.`
+            : `This permanently deletes ${first.company} -- ${first.role_title}. There's no undo.`}
         </p>
         <div className="flex justify-end gap-2 pt-2">
           <button

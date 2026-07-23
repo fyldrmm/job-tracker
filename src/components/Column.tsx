@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import type { Application, ApplicationStage } from '../types/application'
 import { Card } from './Card'
+import type { ContextMenuItem } from './ContextMenu'
 
 interface ColumnProps {
   title: string
@@ -13,6 +14,10 @@ interface ColumnProps {
   onCardArchive: (application: Application) => void
   onCardDeleteRequest: (application: Application) => void
   onCardTogglePriority: (application: Application) => void
+  selectedIds: Set<string>
+  onToggleSelect: (id: string) => void
+  onClearSelection: () => void
+  buildBulkMenuItems: () => ContextMenuItem[]
 }
 
 export function Column({
@@ -26,6 +31,10 @@ export function Column({
   onCardArchive,
   onCardDeleteRequest,
   onCardTogglePriority,
+  selectedIds,
+  onToggleSelect,
+  onClearSelection,
+  buildBulkMenuItems,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: stage })
 
@@ -63,6 +72,11 @@ export function Column({
             onArchive={() => onCardArchive(application)}
             onDeleteRequest={() => onCardDeleteRequest(application)}
             onTogglePriority={() => onCardTogglePriority(application)}
+            selected={selectedIds.has(application.id)}
+            selectionActive={selectedIds.size > 0}
+            onToggleSelect={() => onToggleSelect(application.id)}
+            onClearSelection={onClearSelection}
+            buildBulkMenuItems={buildBulkMenuItems}
           />
         ))}
       </div>

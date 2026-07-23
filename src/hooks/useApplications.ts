@@ -188,10 +188,12 @@ export function useApplications(userId: string | null) {
   // watches updated_at to mean "no real activity in N days." Bumping it
   // here would let starring a card silently clear its stale badge.
   const togglePriority = useCallback(
-    async (id: string) => {
+    async (id: string, value?: boolean) => {
       const existing = applications.find((app) => app.id === id)
       if (!existing) return
-      const updated: Application = { ...existing, is_priority: !existing.is_priority }
+      const nextValue = value ?? !existing.is_priority
+      if (existing.is_priority === nextValue) return
+      const updated: Application = { ...existing, is_priority: nextValue }
       setApplications((prev) => prev.map((app) => (app.id === id ? updated : app)))
       try {
         await persistApplication(updated, userId)

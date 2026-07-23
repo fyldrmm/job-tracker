@@ -43,3 +43,49 @@ describe('useApplications.createApplication (guest)', () => {
     expect(forApp[0].entered_at).toBe(created[0].created_at)
   })
 })
+
+describe('useApplications.togglePriority', () => {
+  it('flips the current value when no explicit value is given', async () => {
+    const { result } = renderHook(() => useApplications(null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.createApplication(input, 'tracker-1')
+    })
+    const id = result.current.applications[0].id
+
+    await act(async () => {
+      await result.current.togglePriority(id)
+    })
+    expect(result.current.applications[0].is_priority).toBe(true)
+
+    await act(async () => {
+      await result.current.togglePriority(id)
+    })
+    expect(result.current.applications[0].is_priority).toBe(false)
+  })
+
+  it('sets an explicit value regardless of the current one, for bulk actions', async () => {
+    const { result } = renderHook(() => useApplications(null))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    await act(async () => {
+      await result.current.createApplication(input, 'tracker-1')
+    })
+    const id = result.current.applications[0].id
+
+    await act(async () => {
+      await result.current.togglePriority(id, true)
+    })
+    expect(result.current.applications[0].is_priority).toBe(true)
+
+    // Setting the same explicit value again is a no-op, not a second flip.
+    await act(async () => {
+      await result.current.togglePriority(id, true)
+    })
+    expect(result.current.applications[0].is_priority).toBe(true)
+
+    await act(async () => {
+      await result.current.togglePriority(id, false)
+    })
+    expect(result.current.applications[0].is_priority).toBe(false)
+  })
+})

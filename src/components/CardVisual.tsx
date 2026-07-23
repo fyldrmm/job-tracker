@@ -8,9 +8,10 @@ import { StarIcon } from './icons'
 interface CardVisualProps {
   application: Application
   dragging?: boolean
+  selected?: boolean
 }
 
-export function CardVisual({ application, dragging }: CardVisualProps) {
+export function CardVisual({ application, dragging, selected }: CardVisualProps) {
   // Re-render after a dismiss write -- localStorage itself isn't reactive,
   // and `application` doesn't change when its stale badge is dismissed.
   const [, forceUpdate] = useReducer((x: number) => x + 1, 0)
@@ -26,7 +27,9 @@ export function CardVisual({ application, dragging }: CardVisualProps) {
     <div
       className={`w-full text-left bg-white rounded-md border p-3 transition select-none ${
         application.is_priority ? 'border-l-4 border-l-amber-400 border-ink-200' : 'border-ink-200'
-      } ${dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-ink-300'}`}
+      } ${dragging ? 'shadow-lg' : 'shadow-sm hover:shadow-md hover:border-ink-300'} ${
+        selected ? 'ring-2 ring-ink-500 bg-ink-50' : ''
+      }`}
     >
       <div className="flex items-start gap-1">
         {application.is_priority && (
