@@ -6,62 +6,61 @@
 
 ## Session scope
 
-Built M12 (a new "Insights" page with 7 charts), then — prompted by the user spotting a real correctness bug in it — ran a 5-stage correctness audit of the Insights math, one stage per commit. Closed the session by re-verifying the whole thing live on `jobtracker.fazare.dev`.
+Three separate ad-hoc feature requests (none a numbered milestone), each planned and approved before building: (1) a CSV export button on the Insights page, (2) a one-line sidebar nav rename to remove a naming collision, (3) multi-select + bulk actions on the Board, iterated three times based on live feedback (menu grouping, star icon, toolbar reorder).
 
 ---
 
 ## Commits this session
 
 ```
-cfbbc45 Add M12: Insights page, with a two-stage fix for stage-history reliability
-4eaada2 M12 Stage 3: zero-fill gap months in the applications-over-time chart
-ae2b170 M12 Stage 4: exclude fresh apps from the response-rate denominator
-86288e3 M12 Stage 5: anchor stage timing on date_applied, guard bad deltas
+9dd423d Add CSV export of raw applications to the Insights page
+acfa6a8 Rename sidebar's board nav item from "Job Tracker" to "Board"
+594b6fc Add multi-select and bulk actions to the Board
 ```
 
-All 4 pushed to `origin/main` (`8a7c1c9..86288e3`). This handoff's own `PLAN.md`/`PLAN-ARCHIVE.md`/`HANDOFF.md` doc updates are committed and pushed as a 5th commit right after these. Working tree clean, nothing stashed, no scratch branches.
+All 3 pushed to `origin/main` (`806d92b..594b6fc`). This handoff's own `PLAN.md`/`HANDOFF.md` doc updates will be committed and pushed as a 4th commit right after these. Working tree is clean, nothing stashed, no scratch branches.
 
 ---
 
 ## Exact stopping point
 
-**M12 is fully done, shipped, and live-verified on production.** There is no in-progress code and nothing uncommitted. This handoff's own doc edits (below) are committed along with it:
+**All three features are fully done, shipped, and live-verified.** There is no in-progress code and nothing uncommitted or partially built. `PLAN.md`'s "Current status" section (top of the bulleted list, three new bullets above the M12 bullet) now has the full write-up for all three — see that file for the complete detail on design decisions, gotchas, and file-level specifics; not repeated here in full.
 
-- `PLAN.md` — M12's "Current status" bullet compressed from a ~5-paragraph inline narrative down to a 3-sentence pointer at line 23, linking to the archive. The milestone index bullet (around line 44) got `· M12 Insights page + 5-stage correctness audit (closed 2026-07-23)` appended.
-- `PLAN-ARCHIVE.md` — new `### M12 — Insights page + a 5-stage correctness audit of its own math` section inserted just before `## Decisions & notes` (was around line 209 pre-edit), containing the full 5-stage narrative, every decision point, and the recurring recharts gotcha (see below). This is the first time this project's `/handoff` flow has moved a just-finished milestone into the archive in the same session it closed, rather than leaving it in `PLAN.md` indefinitely (which is what happened to M9/M10/M11 — they're still only inline bullets in `PLAN.md`, never given a `###` archive section). Worth a note if a future session wonders why M12 looks structurally different from M9-M11 in the docs.
-
-**Files changed by the session itself** (all committed):
-- `src/lib/insights.ts` — new file, the whole computation layer. Key exports: `computeFunnel`, `computeOutcomes`, `computeApplicationsOverTime`, `computeStageTiming`, `computeWorkModeSplit`/`computeEmploymentTypeSplit`, `computeResponseRateBySegment`, `computeTrackerComparison`, `computeKpis`. Internal primitives worth knowing for any future insights work: `stagesOccupied()` (single source of truth for "did this app reach stage X"), `trustedEntries()` (the 30-min dwell-time round-trip filter), `isEligibleForResponseVerdict()` (the 14-day-stale response-rate gate), `nextMonth()` (pure string month arithmetic for zero-filling).
-- `src/components/InsightsView.tsx` — new file, all 7 charts + KPI tiles + tracker-scope dropdown, built on `recharts` (new dependency, added to `package.json`).
-- `src/hooks/useStageHistory.ts` — new file, read-only `stage_history` loader (guest/signed-in dual-store pattern, mirrors `useApplications`/`useTrackers`).
-- `src/hooks/useApplications.ts` — `createApplication` now also writes an initial `stage_history` row (Stage 1's fix).
-- `src/components/Board.tsx`, `src/components/Sidebar.tsx`, `src/components/icons.tsx` — wiring: new `'insights'` view state, sidebar nav item, `ChartIcon`.
-- `src/lib/insights.test.ts`, `src/hooks/useApplications.test.ts` — new test files. 106 tests total in the suite now (was 75 before this session).
+**Files touched this session** (all committed):
+- `src/lib/csvExport.ts` (new), `src/lib/csvExport.test.ts` (new) — CSV building/escaping/download-trigger logic.
+- `src/components/InsightsView.tsx` — "Export CSV" button wiring.
+- `src/components/Sidebar.tsx` — one label change (`"Job Tracker"` → `"Board"`).
+- `src/components/Board.tsx` — selection state (`selectedIds`, `toggleSelect`, `clearSelection`), bulk handlers (`handleBulkMove`, `handleBulkSetPriority`, `handleBulkToggleStar`, `handleBulkArchive`, `handleBulkDeleteRequest`, `buildBulkMenuItems`), generalized `undoState`/`deleteApplicationTargets` to array-shaped state, Escape-to-clear wired into the existing global keydown effect.
+- `src/components/Card.tsx` — Cmd/Ctrl+click selection toggle, plain-click-clears-selection behavior, selected-card right-click routes to the bulk menu instead of the per-card one.
+- `src/components/CardVisual.tsx`, `src/components/Column.tsx` — `selected` prop threading for the visual ring.
+- `src/components/SelectionToolbar.tsx` (new) — the fixed-bottom bar; current element order (post 3-reorder-requests) is star icon → "Actions ▾" → "N selected" → "Deselect".
+- `src/components/ContextMenu.tsx` — added `items?: ContextMenuItem[]` drill-down/submenu support (stack-based, mount-captured).
+- `src/components/ContextMenu.test.tsx` (new) — direct unit coverage of the drill-down stack.
+- `src/components/DeleteApplicationModal.tsx` — generalized `application: Application` → `applications: Application[]`.
+- `src/hooks/useApplications.ts` — `togglePriority(id, value?: boolean)` gained the optional explicit-value form.
+- `src/components/Board.test.tsx`, `src/hooks/useApplications.test.ts` — new/updated tests for all of the above. 127 tests total (up from 115 at session start).
 
 ---
 
 ## Next action
 
-1. No open milestone. Per `PLAN.md`'s working protocol, the next session needs a fresh user ask before starting new work — there is nothing queued. The usual `/continue` read-through is the right way to start.
-2. If the user wants more Insights work: the natural next candidates are (a) a data table / CSV export alongside the charts, (b) more segment cuts (by tracker × stage, e.g.), or (c) surfacing the Insights data on the Board itself as a compact widget. None of these were requested — just the shape of what'd extend cleanly given the current `insights.ts` primitives.
+1. No open milestone. Per `PLAN.md`'s working protocol, the next session needs a fresh user ask before starting new work.
+2. No known follow-ups were requested or flagged as pending from any of the three features above — each was explicitly confirmed done and live before moving to the next ask.
 
 ---
 
 ## Learned this session
 
-- **A blanket "stage reached" definition (`furthestStageIndex` = max over history) is fundamentally exploitable by any UI that lets a user move things back and forth freely** — this isn't specific to bad code, it's inherent to inferring "genuine progress" from a raw event log with no recorded intent. The fix that worked (`trustedEntries`'s dwell-time filter) only works because reversals are rare and deliberate drags-through-everything are fast; if a future feature ever needs to distinguish "real slow reversal" from "fast exploration" on a *different* signal (not time), this heuristic won't transfer — it's specifically exploiting the fact that real regressions take hours/days and fake ones take seconds.
-- **`recharts` + `ResponsiveContainer` has a reproducible transient bug (or at least: reproducible-enough-to-plan-around) where right after a data change, the SVG mounts with zero `<path>`/`<rect>` elements for every bar chart on the page** — confirmed via direct DOM inspection (`querySelectorAll('svg.recharts-surface').length` paths = 0) that it's not a screenshot-timing fluke, it's genuinely empty on first paint. A second screenshot moments later always showed correct bars. Hit this at least 4 separate times across Stages 3, 4, and 5's live verification, always on freshly-added test data, never on a page that had already settled. **Practical rule for future live-checks of any recharts-based UI in this repo: never conclude "broken" from one screenshot showing empty bars — re-screenshot once before investigating.**
-- **`isStale`/`daysSinceUpdate` (`src/lib/stale.ts`) calls `Date.now()` directly**, so any test exercising staleness-dependent logic (this session added several to `insights.test.ts` for Stage 4) has to build fixtures with real wall-clock-relative offsets (`new Date(Date.now() - N * 86400000).toISOString()`), same pattern already established in `useStaleReminders.test.ts`. Not new, but worth remembering before reaching for a mocking library — this codebase's convention is real-time-relative fixtures, not `vi.useFakeTimers()`.
-- **The Table view's stage `<select>` is a reliable stand-in for board drag-and-drop when testing in the browser-preview tool.** dnd-kit genuinely can't be exercised by this tool's synthetic mouse events (documented back in M11's HANDOFF), but the Table dropdown calls the exact same `moveApplicationStage` and writes identical `stage_history` rows — used it throughout this session (including to reproduce the user's original round-trip bug report) instead of fighting the drag simulation.
-- **Port 5173 kept getting claimed by an untracked `node` process** (not started via this tool's `preview_start`) at least 3 times this session — always turned out to be a leftover `vite` dev server from an earlier turn in the *same* session that the preview tool had lost track of after a `preview_stop`/restart cycle. Fix each time was `lsof -i :5173 -sTCP:LISTEN -n -P` → `kill <pid>` → retry `preview_start`. Not a data-loss risk (it's always this same project's own dev server), just a recurring friction point worth trying `preview_list` on first, before assuming a kill is needed.
+- **A `position: fixed` element positions relative to the nearest *transformed* ancestor, not the viewport, if one exists in its DOM chain** — hit this for real: `SelectionToolbar`'s bar div uses `-translate-x-1/2` (a Tailwind transform utility) to center itself at the bottom of the screen, and `ContextMenu` (also `position: fixed`) was originally rendered as a JSX *child* of that div — so it inherited the bar's transformed box as its containing block instead of the viewport, and opened off-screen (confirmed via `getBoundingClientRect()`: an anchor point of (603, 769) in an 837px-tall viewport rendered the menu at (1056, 1204)). This was only caught by testing in the live browser preview and reading computed positions — it wasn't visible from code review, and Card's own (working) `ContextMenu` usage gave no hint since Card has no transformed ancestor. Fix: render `ContextMenu` as a sibling of the transformed div, not a descendant. **Any future fixed-position popup nested inside a `translate-*`/`scale-*`/`rotate-*` Tailwind element needs this same sibling restructuring** — it's a general CSS fact (a transform creates a new containing block for `position: fixed` descendants), not specific to this component.
+- **A `useState(() => initialValue)` lazy initializer only runs once at mount, even if the component's props change on every subsequent re-render** — this is what makes `ContextMenu`'s drill-down stack work: the caller rebuilds its `items` array fresh on every render (`items={buildBulkMenuItems()}` called inline), but since `ContextMenu` only *mounts* once per open (it's conditionally rendered via `{menuAnchor && <ContextMenu .../>}`, so it unmounts when closed), `useState(() => [items])` captures that first array and ignores every later prop change — letting the internal drill-down state survive parent re-renders without an explicit sync effect (which would have reset the stack back to the top level after every click, since a naive `useEffect(() => setStack([items]), [items])` would fire on every re-render given `items` is a new array reference each time).
+- **Three small UI-polish requests arrived back-to-back after the bulk-actions feature shipped** ("split the menu into 3", "make most-wanted a star icon", "change Clear to Deselect", "reorder the toolbar to 3,4,1,2") — each was a quick, low-risk edit-and-reverify cycle (typecheck/lint/test + live browser check) rather than a new planning round, since they were unambiguous, scoped tweaks to code just built this same session. Worth noting only because it shows the shape of iteration on this feature was "ship, then tune from live feedback" rather than getting the UI perfect in the first plan — consistent with how M9 (reminders) and the UI reskin also went in earlier sessions.
+- **`fireEvent.click(card, { ctrlKey: true })` is the reliable way to simulate a Cmd/Ctrl+click in this project's RTL-based component tests** (`Board.test.tsx`) — `userEvent`'s `click()` doesn't take a modifier-key option the same way in this project's installed version, so the new multi-select tests use `fireEvent` directly for the modifier-click and `fireEvent.contextMenu(card)` for the right-click, while still using `userEvent` for everything else (typing, plain clicks, menu-item selection) — matches the existing file's established mixed pattern, not a new convention.
 
 ---
 
 ## Open questions
 
-None outstanding from this session — every decision point (funnel semantics, the round-trip fix approach, the response-rate eligibility rule) was explicitly asked and answered by the user, recorded in `PLAN-ARCHIVE.md`'s new M12 section with the alternatives that were rejected. No ambiguity was left for a future session to resolve.
-
-One soft option worth surfacing next time rather than a real question: Stage 2's round-trip fix used the dwell-time heuristic (option "B"); the alternative discussed but not built was a "Moved — Undo" toast mirroring the existing archive-undo pattern, which would fix the misclick-correction case at the source instead of via a heuristic. Not needed now — B is working and live-verified — but if the dwell-time approach ever produces a wrong-feeling number in real usage, that's the fallback to revisit.
+None outstanding. Every design decision on the bulk-actions feature (plain-click-clears-selection vs. clear-and-open, bulk-archive reason picker vs. default-to-Rejected, two explicit priority actions vs. one ambiguous toggle, the 3-way menu split, the star icon, the toolbar element order) was explicitly asked and answered by the user before or during building — see `PLAN.md`'s new bullet for the specifics of what was chosen and why.
 
 ---
 
@@ -69,9 +68,9 @@ One soft option worth surfacing next time rather than a real question: Stage 2's
 
 ```bash
 npx tsc --noEmit -p tsconfig.app.json   # expect: "TypeScript: No errors found"
-npx oxlint                               # expect: only the pre-existing Board.tsx:293 exhaustive-deps warning
-npm test -- --run                        # expect: 106 tests passed (up from 75 at session start)
-git log --oneline -6                     # expect the /handoff doc commit at top, 86288e3 just below it, origin/main matching
+npx oxlint                               # expect: only the pre-existing Board.tsx:337 exhaustive-deps warning
+npm test -- --run                        # expect: 127 tests passed (up from 115 at session start)
+git log --oneline -6                     # expect the /handoff doc commit at top, 594b6fc just below it, origin/main matching
 git status                               # expect: clean
 ```
 
@@ -79,4 +78,4 @@ Visual check (already done this session, but re-confirm if picking this up much 
 ```bash
 open https://jobtracker.fazare.dev
 ```
-Expect: an "Insights" item in the sidebar (bar-chart icon, between Archived and the support/reminders icons). Clicking it shows a tracker-scope dropdown, 4 KPI tiles, and 7 charts. If you add a test application and move it through stages via the Table view's stage dropdown, the funnel/KPIs should update to match — reached-interview/reached-offer percentages should never inflate from a same-session drag-everywhere-and-back (the round-trip fix), and a fresh same-day app should stay out of the response-rate denominator (the Stage 4 fix) until it's either interviewed, archived, or 14+ days old.
+Expect: sidebar nav reads "Board" (not "Job Tracker") between the logo and "Table". On the Insights page, an "Export CSV" button sits next to the tracker-scope dropdown. On the Board, Cmd/Ctrl+click a card to select it (amber-ish ring appears) — a bottom-fixed toolbar shows a star icon, "Actions ▾", the selection count, and "Deselect", in that order. Right-click a selected card or click "Actions ▾" to get the same 3-item grouped menu (Move to stage ▸ / Archive ▸ / Delete), each drilling into its own submenu with a "← Back". The star icon bulk-toggles most-wanted for the whole selection in one click.
