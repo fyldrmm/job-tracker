@@ -45,6 +45,16 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           tokens it used, so we can enforce the monthly free limit.
         </p>
 
+        <h3 className="font-medium text-ink-800 pt-2">Browser extension</h3>
+        <p>
+          Our browser extension reads the visible text of the job posting page you're on and sends
+          it to Anthropic's API to pre-fill the add-application form, the same way the "Extract with
+          AI" screenshot flow does. This only happens when you click the extension's own extract
+          action — it doesn't run automatically or in the background. As with screenshots, we don't
+          store the page text itself; we record only the time of each extraction and how many tokens
+          it used.
+        </p>
+
         <h3 className="font-medium text-ink-800 pt-2">Who else is involved</h3>
         <p>
           Running the app means a few other services handle your data on our behalf: Supabase

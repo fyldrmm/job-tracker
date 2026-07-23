@@ -121,7 +121,9 @@ export function Board() {
     setDetailApplicationId(application?.id ?? null)
   }
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [view, setView] = useState<View>('board')
+  const [view, setView] = useState<View>(() =>
+    window.location.pathname === '/privacy' ? 'privacy' : 'board',
+  )
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [undoState, setUndoState] = useState<{ ids: string[]; label: string } | null>(null)
@@ -348,6 +350,23 @@ export function Board() {
 
   useEffect(() => clearUndoTimer, [])
   useEffect(() => clearErrorTimer, [])
+
+  // Only the privacy view gets a real, directly-linkable URL (Chrome Web
+  // Store needs one) -- every other view stays plain client state.
+  useEffect(() => {
+    const path = view === 'privacy' ? '/privacy' : '/'
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path)
+    }
+  }, [view])
+
+  useEffect(() => {
+    const onPopState = () => {
+      setView(window.location.pathname === '/privacy' ? 'privacy' : 'board')
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [])
 
   // Routes window-level uncaught errors/rejections into the SAME toast as
   // every other failure (AUDIT.md C4) -- not a second, parallel one. A
