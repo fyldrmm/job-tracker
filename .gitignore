@@ -36,3 +36,6 @@ pnpm-debug.log*
 
 # Graphify (local knowledge-graph tool output, regenerate with `graphify update .`)
 graphify-out/
+
+# Extension packaging output (regenerate with extension/package.sh)
+extension/*.zip

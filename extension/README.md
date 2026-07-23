@@ -21,10 +21,6 @@ Chrome MV3, vanilla JS, no build step — the files here are loaded directly.
 
 No `tabs` permission — reading matching tabs' URLs is covered by the host permissions above without it.
 
-## Known limitation: no custom icon
-
-MV3 action icons must be raster PNGs; none is bundled (this build environment can't reliably produce one). Chrome will show a generic default icon. Drop `icon16.png` / `icon48.png` / `icon128.png` into this directory and add an `"icons"` block to `manifest.json` whenever you want a real one — not required for the extension to function.
-
 ## Loading it for testing
 
 1. `chrome://extensions` → enable **Developer mode** (top right) → **Load unpacked** → select this `extension/` directory.
@@ -42,3 +38,9 @@ This can't be driven from the coding environment — Chrome extension APIs (`chr
 - [ ] Guest path: sign in (or sign up) from the wall, confirm the form opens pre-filled afterward with no need to click the extension again.
 - [ ] Signed-in path: confirm company/role/etc. fields are actually pre-filled from the real page content, and the job link falls back to the page URL when the model doesn't find one in the text.
 - [ ] A page with very little/no visible text (e.g. an image-only posting) shows the popup's "No readable text found" message rather than silently doing nothing.
+
+## Packaging for the Chrome Web Store
+
+`manifest.json` includes the `localhost:5173` host permission for local dev testing — the Web Store review process flags localhost host permissions in a submitted build, so packaging swaps in `manifest.prod.json` (identical, minus the localhost entries) instead.
+
+Run `./package.sh` from this directory. It builds `job-tracker-extension.zip` with `manifest.prod.json` renamed to `manifest.json` at the zip root, ready to upload to the [developer dashboard](https://chrome.google.com/webstore/devconsole).

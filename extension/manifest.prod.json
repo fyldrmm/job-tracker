@@ -22,12 +22,11 @@
   },
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
-    "https://jobtracker.fazare.dev/*",
-    "http://localhost:5173/*"
+    "https://jobtracker.fazare.dev/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://jobtracker.fazare.dev/*", "http://localhost:5173/*"],
+      "matches": ["https://jobtracker.fazare.dev/*"],
       "js": ["content-bridge.js"],
       "run_at": "document_idle"
     }
