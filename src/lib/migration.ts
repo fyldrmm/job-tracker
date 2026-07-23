@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import {
   getAllApplications,
+  getAllInterviews,
   getAllStageHistory,
   getAllTrackers,
   backfillDefaultTracker,
@@ -81,26 +82,33 @@ export function consumePendingSignup(user: { email?: string; created_at: string 
 }
 
 /**
- * Uploads local guest data (trackers/applications with no user_id) into a
- * signed-in account, then re-stamps those same local rows with the real
- * user_id so they stop looking like unclaimed guest data. Upserts by
- * primary key, so it's safe to call more than once. Trackers must be
- * uploaded before applications, since applications.tracker_id is a foreign
- * key. Callers are expected to have already checked hasAnyLocalGuestData().
+ * Uploads local guest data (trackers/applications with no user_id, plus
+ * their stage_history/interviews rows, which carry no user_id of their own)
+ * into a signed-in account, then re-stamps the local trackers/applications
+ * with the real user_id so they stop looking like unclaimed guest data.
+ * Upserts by primary key, so it's safe to call more than once. Trackers must
+ * be uploaded before applications, since applications.tracker_id is a
+ * foreign key. Callers are expected to have already checked
+ * hasAnyLocalGuestData().
  */
 export async function migrateGuestDataToAccount(userId: string): Promise<void> {
   await backfillDefaultTracker()
 
-  const [allTrackers, allApplications, allStageHistory] = await Promise.all([
+  const [allTrackers, allApplications, allStageHistory, allInterviews] = await Promise.all([
     getAllTrackers(),
     getAllApplications(),
     getAllStageHistory(),
+    getAllInterviews(),
   ])
 
   const guestTrackers = allTrackers.filter((t) => t.user_id === null)
   const guestApplications = allApplications.filter((app) => app.user_id === null)
   const guestApplicationIds = new Set(guestApplications.map((app) => app.id))
   const guestStageHistory = allStageHistory.filter((entry) => guestApplicationIds.has(entry.application_id))
+  // Like stage_history, interviews carry no user_id of their own -- "guest"
+  // here means "belongs to a guest application", the same test stage_history
+  // uses.
+  const guestInterviews = allInterviews.filter((interview) => guestApplicationIds.has(interview.application_id))
 
   if (guestTrackers.length > 0) {
     const stampedTrackers = guestTrackers.map((t) => ({ ...t, user_id: userId }))
@@ -121,6 +129,14 @@ export async function migrateGuestDataToAccount(userId: string): Promise<void> {
     // there's nothing to update anyway; skipping already-inserted rows is
     // correct and avoids a permanent RLS-violation loop.
     const { error } = await supabase.from('stage_history').upsert(guestStageHistory, { ignoreDuplicates: true })
+    if (error) throw error
+  }
+
+  if (guestInterviews.length > 0) {
+    // Unlike stage_history, interviews has a real UPDATE policy (0013_
+    // interviews.sql), so a plain upsert -- not ignoreDuplicates -- is both
+    // safe on retry and correct if a round was edited between attempts.
+    const { error } = await supabase.from('interviews').upsert(guestInterviews)
     if (error) throw error
   }
 

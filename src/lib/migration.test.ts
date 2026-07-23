@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetIndexedDb } from '../test/dbHelpers'
-import { putTracker, putApplication, addStageHistoryEntry, hasAnyLocalGuestData } from './localStore'
+import {
+  putTracker,
+  putApplication,
+  putInterview,
+  addStageHistoryEntry,
+  hasAnyLocalGuestData,
+} from './localStore'
 import { migrateGuestDataToAccount, markPendingSignup, consumePendingSignup } from './migration'
-import type { Application, Tracker } from '../types/application'
+import type { Application, Interview, Tracker } from '../types/application'
 
 interface UpsertCall {
   table: string
@@ -61,6 +67,23 @@ function makeApplication(trackerId: string, overrides: Partial<Application> = {}
   }
 }
 
+function makeInterview(applicationId: string, overrides: Partial<Interview> = {}): Interview {
+  const now = new Date().toISOString()
+  return {
+    id: crypto.randomUUID(),
+    application_id: applicationId,
+    round: 1,
+    scheduled_at: '2026-08-04T13:00:00.000Z',
+    duration_minutes: 60,
+    is_remote: false,
+    location: null,
+    notes: null,
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  }
+}
+
 describe('migration', () => {
   beforeEach(async () => {
     await resetIndexedDb()
@@ -101,6 +124,43 @@ describe('migration', () => {
     expect(uploadedTrackers[0].user_id).toBe('user-1')
     expect(uploadedApplications.map((a) => a.id)).toEqual([guestApp.id])
     expect(uploadedApplications[0].user_id).toBe('user-1')
+  })
+
+  it('uploads interviews scoped to guest applications, leaving already-owned ones alone', async () => {
+    const guestTracker = makeTracker()
+    const guestApp = makeApplication(guestTracker.id)
+    const guestInterview = makeInterview(guestApp.id, { round: 1 })
+    await putTracker(guestTracker)
+    await putApplication(guestApp)
+    await putInterview(guestInterview)
+
+    // An interview belonging to an application some OTHER already-signed-in
+    // account owns -- must not be swept up into this migration just because
+    // it happens to share this browser's IndexedDB.
+    const otherTracker = makeTracker({ user_id: 'other-user' })
+    const otherApp = makeApplication(otherTracker.id, { user_id: 'other-user' })
+    await putTracker(otherTracker)
+    await putApplication(otherApp)
+    await putInterview(makeInterview(otherApp.id, { round: 1 }))
+
+    await migrateGuestDataToAccount('user-1')
+
+    const interviewsCallIndex = upsertCalls.findIndex((c) => c.table === 'interviews')
+    expect(interviewsCallIndex).toBeGreaterThanOrEqual(0)
+    const uploaded = upsertCalls[interviewsCallIndex].rows as Interview[]
+    expect(uploaded.map((i) => i.id)).toEqual([guestInterview.id])
+  })
+
+  it('does not upload an interviews row when there are none, but still migrates the rest', async () => {
+    const guestTracker = makeTracker()
+    const guestApp = makeApplication(guestTracker.id)
+    await putTracker(guestTracker)
+    await putApplication(guestApp)
+
+    await migrateGuestDataToAccount('user-1')
+
+    expect(upsertCalls.some((c) => c.table === 'interviews')).toBe(false)
+    expect(upsertCalls.some((c) => c.table === 'applications')).toBe(true)
   })
 
   it('is safe to call twice -- the second call finds nothing left to migrate', async () => {
