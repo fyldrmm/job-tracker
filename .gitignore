@@ -39,3 +39,8 @@ graphify-out/
 
 # Extension packaging output (regenerate with extension/package.sh)
 extension/*.zip
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
