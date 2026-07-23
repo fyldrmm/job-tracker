@@ -49,7 +49,7 @@ export function MultiSelectFilter<T extends string>({
         {label} ({selected.size})
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-40 z-10">
+        <div className="absolute left-0 mt-1 bg-white border border-ink-200 rounded-md shadow-lg py-1 w-40 z-10">
           {options.map((option) => (
             <label
               key={option.value}
