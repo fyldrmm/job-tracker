@@ -13,3 +13,16 @@ export function byTimestamp<K extends string>(key: K) {
 }
 
 export const byCreatedAt = byTimestamp('created_at')
+
+// Trackers order themselves by drag-and-drop (TrackerTabs.tsx) once the user
+// sets one, but rows created before sort_order existed -- or never
+// reordered -- have it undefined. Those fall back to created_at so tab order
+// stays stable instead of going arbitrary.
+export function byTrackerOrder(a: { sort_order?: number; created_at: string }, b: { sort_order?: number; created_at: string }): number {
+  const ao = a.sort_order
+  const bo = b.sort_order
+  if (ao !== undefined && bo !== undefined && ao !== bo) return ao - bo
+  if (ao !== undefined && bo === undefined) return -1
+  if (ao === undefined && bo !== undefined) return 1
+  return byCreatedAt(a, b)
+}

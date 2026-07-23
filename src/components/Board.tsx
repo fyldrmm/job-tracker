@@ -102,6 +102,7 @@ export function Board() {
     createTracker,
     renameTracker,
     removeTracker,
+    reorderTrackers,
     refresh: refreshTrackers,
   } = useTrackers(user?.id ?? null)
   const { stageHistory, refresh: refreshStageHistory } = useStageHistory(user?.id ?? null)
@@ -841,6 +842,7 @@ export function Board() {
           onCreate={(name) => createTracker(name).then((t) => setActiveTrackerId(t.id))}
           onRename={renameTracker}
           onDeleteRequest={setDeleteTrackerTarget}
+          onReorder={reorderTrackers}
         />
       )}
 

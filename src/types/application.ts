@@ -12,6 +12,10 @@ export interface Tracker {
   name: string
   created_at: string
   updated_at: string
+  // Manual tab order set by dragging in TrackerTabs. Optional: rows created
+  // before this field existed (or not yet reordered) have no value here and
+  // fall back to created_at ordering -- see byTrackerOrder in lib/sort.ts.
+  sort_order?: number
 }
 
 export interface Application {
