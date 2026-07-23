@@ -241,13 +241,13 @@ export function ArchiveView({
       ) : filteredApplications.length === 0 ? (
         <p className="text-sm text-ink-400">No archived applications match the selected filters or search.</p>
       ) : groupByTracker ? (
-        <div className="max-w-2xl space-y-6">
+        <div className="space-y-6">
           {groups.map(({ tracker, applications: trackerApps }) => (
             <div key={tracker.id}>
               <h3 className="text-xs font-medium text-ink-400 uppercase tracking-wide mb-2">
                 {tracker.name}
               </h3>
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                 {trackerApps.map((application) => (
                   <ArchiveRow
                     key={application.id}
@@ -264,7 +264,7 @@ export function ArchiveView({
           ))}
         </div>
       ) : (
-        <div className="max-w-2xl space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
           {flatSorted.map((application) => (
             <ArchiveRow
               key={application.id}
