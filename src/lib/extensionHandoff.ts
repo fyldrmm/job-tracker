@@ -17,11 +17,20 @@ export const EXTENSION_MESSAGE_SOURCE = 'jobtracker-extension'
 // -- the server is authoritative and re-checks this; capping here just
 // avoids sending a payload we already know will be rejected, same
 // duplication pattern as PER_USER_MONTHLY_LIMIT in extraction.ts.
-export const MAX_EXTRACTION_TEXT_CHARS = 20000
+export const MAX_EXTRACTION_TEXT_CHARS = 8000
 
 export interface ExtensionHandoffPayload {
   text: string
   sourceUrl: string | null
+  // Pre-truncation length of the scraped page text, as reported by the
+  // extension (background.js measures this before its own MAX_TEXT_CHARS
+  // slice). Lets the Edge Function tell a genuinely truncated page apart
+  // from one that just happens to fit, for the "how many users are hitting
+  // the char cap" query -- see 0011_extraction_original_text_chars.sql.
+  // Undefined for anything that didn't report it (e.g. an older extension
+  // build); not itself trusted for anything security-sensitive, only used
+  // as a metrics signal.
+  originalTextLength?: number
 }
 
 // Validates and normalizes an incoming window.postMessage event's data.
@@ -37,6 +46,7 @@ export function parseExtensionMessage(data: unknown): ExtensionHandoffPayload | 
   return {
     text: msg.text.slice(0, MAX_EXTRACTION_TEXT_CHARS),
     sourceUrl: typeof msg.sourceUrl === 'string' && msg.sourceUrl ? msg.sourceUrl : null,
+    originalTextLength: typeof msg.originalTextLength === 'number' ? msg.originalTextLength : undefined,
   }
 }
 

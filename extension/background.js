@@ -8,7 +8,7 @@ const MESSAGE_SOURCE = 'jobtracker-extension'
 // itself mirrors the Edge Function's MAX_TEXT_CHARS). The app truncates and
 // the server re-checks too, so this is just avoiding sending a payload
 // that's already known to be oversized.
-const MAX_TEXT_CHARS = 20000
+const MAX_TEXT_CHARS = 8000
 
 const TRACKER_URL_PATTERNS = ['https://jobtracker.fazare.dev/*', 'http://localhost:5173/*']
 const TRACKER_DEFAULT_URL = 'https://jobtracker.fazare.dev/'
@@ -65,14 +65,19 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         func: scrapePageText,
       })
       const rawText = results[0]?.result ?? ''
-      const text = rawText.trim().slice(0, MAX_TEXT_CHARS)
+      const trimmedText = rawText.trim()
+      const text = trimmedText.slice(0, MAX_TEXT_CHARS)
+      // Pre-truncation length, so the app/Edge Function can tell a genuinely
+      // truncated page apart from one that just happens to fit -- see
+      // originalTextLength in src/lib/extensionHandoff.ts.
+      const originalTextLength = trimmedText.length
 
       if (!text) {
         sendResponse({ error: 'No readable text found on this page.' })
         return
       }
 
-      const payload = { source: MESSAGE_SOURCE, type: 'extract', text, sourceUrl: tab.url }
+      const payload = { source: MESSAGE_SOURCE, type: 'extract', text, sourceUrl: tab.url, originalTextLength }
 
       // Stash first (the fallback path for a freshly created/reloading
       // tab), THEN try direct delivery for a tab that's already open and

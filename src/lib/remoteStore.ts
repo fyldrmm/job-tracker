@@ -134,9 +134,13 @@ export async function extractJobDetails(imageBase64: string, mediaType: string):
 // Text-mode sibling of extractJobDetails, for the browser-extension handoff
 // (milestone B1) -- same Edge Function, same quota/schema, just scraped page
 // text instead of a screenshot. See supabase/functions/extract-job-details/index.ts.
-export async function extractJobDetailsFromText(text: string): Promise<ExtractedJobFields> {
+export async function extractJobDetailsFromText(
+  text: string,
+  originalTextLength?: number,
+): Promise<ExtractedJobFields> {
   const { fields } = await invokeEdgeFunction<{ fields: ExtractedJobFields }>('extract-job-details', {
     text,
+    originalTextLength,
   })
   return fields
 }

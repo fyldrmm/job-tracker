@@ -58,6 +58,30 @@ describe('parseExtensionMessage', () => {
     const result = parseExtensionMessage({ source: EXTENSION_MESSAGE_SOURCE, type: 'extract', text: longText })
     expect(result?.text.length).toBe(MAX_EXTRACTION_TEXT_CHARS)
   })
+
+  it('passes through a numeric originalTextLength', () => {
+    const result = parseExtensionMessage({
+      source: EXTENSION_MESSAGE_SOURCE,
+      type: 'extract',
+      text: 'hi',
+      originalTextLength: 12345,
+    })
+    expect(result?.originalTextLength).toBe(12345)
+  })
+
+  it('leaves originalTextLength undefined when absent or non-numeric', () => {
+    expect(
+      parseExtensionMessage({ source: EXTENSION_MESSAGE_SOURCE, type: 'extract', text: 'hi' })?.originalTextLength,
+    ).toBeUndefined()
+    expect(
+      parseExtensionMessage({
+        source: EXTENSION_MESSAGE_SOURCE,
+        type: 'extract',
+        text: 'hi',
+        originalTextLength: 'not-a-number',
+      })?.originalTextLength,
+    ).toBeUndefined()
+  })
 })
 
 describe('pending extraction hold-and-resume (sessionStorage)', () => {

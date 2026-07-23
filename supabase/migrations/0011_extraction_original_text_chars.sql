@@ -1,0 +1,11 @@
+-- Visibility into how often the browser-extension text-extraction path
+-- (milestone B1) hits MAX_TEXT_CHARS and gets silently truncated before
+-- ever reaching the Anthropic call. Nullable and only meaningful for
+-- text-mode extractions: image-mode rows (the screenshot path, M8) and
+-- text-mode rows from before this column existed leave it null.
+-- extract-job-details/index.ts populates it from the client-reported
+-- pre-truncation length; a row is "truncated" when this exceeds
+-- MAX_TEXT_CHARS. Query example:
+--   select count(*) from extraction_events
+--   where original_text_chars > 8000;
+alter table extraction_events add column original_text_chars integer;

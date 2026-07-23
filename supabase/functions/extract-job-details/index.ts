@@ -36,15 +36,17 @@ const GLOBAL_MONTHLY_LIMIT = 5000
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 // Bounds worst-case input-token spend for the text path (browser-extension
 // handoff, milestone B1) the same way MAX_IMAGE_BYTES does for screenshots.
-// A full job posting's visible text is a few KB; 20k chars is generous
-// headroom without letting a pathological page balloon the Anthropic call.
-const MAX_TEXT_CHARS = 20000
+// Real usage averages ~4,372 chars/extraction (see PLAN.md's token-cost
+// note) -- 8k chars is ~2x that typical size, generous headroom for a
+// verbose posting without letting a pathological page balloon the
+// Anthropic call the way the old 20k ceiling could.
+const MAX_TEXT_CHARS = 8000
 
 // BUMP THIS ON EVERY DASHBOARD DEPLOY. Deploys are manual pastes with no
 // CLI link, so nothing else can tell you which build is actually live
 // (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
 // Caveat: this only detects drift if it actually gets bumped.
-const FUNCTION_VERSION = 'extract-job-details@2026-07-22.1'
+const FUNCTION_VERSION = 'extract-job-details@2026-07-23.1'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -98,11 +100,13 @@ Deno.serve(async (req: Request) => {
   let imageBase64: string | undefined
   let mediaType: string | undefined
   let pageText: string | undefined
+  let originalTextLength: number | undefined
   try {
     const body = await req.json()
     imageBase64 = body?.imageBase64
     mediaType = body?.mediaType
     pageText = body?.text
+    originalTextLength = typeof body?.originalTextLength === 'number' ? body.originalTextLength : undefined
   } catch {
     // malformed/empty body -- handled by the checks below
   }
@@ -142,6 +146,13 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: 'Page text is too long to extract from.' }, 400)
     }
   }
+
+  // For "how many users are hitting the char cap" visibility
+  // (original_text_chars, 0011_extraction_original_text_chars.sql): prefer
+  // the extension's own pre-truncation measurement; pageText.length is
+  // already-truncated fallback for callers that don't report it (e.g. an
+  // older extension build), so it undercounts rather than overcounts.
+  const originalTextChars = mode === 'text' ? (originalTextLength ?? pageText!.length) : null
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -292,6 +303,7 @@ Deno.serve(async (req: Request) => {
     .update({
       input_tokens: anthropicData.usage?.input_tokens ?? null,
       output_tokens: anthropicData.usage?.output_tokens ?? null,
+      original_text_chars: originalTextChars,
     })
     .eq('id', eventId)
 

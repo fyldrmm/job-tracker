@@ -491,7 +491,7 @@ export function Board() {
       }
       setActiveTrackerId(trackerId)
       try {
-        const fields = await extractJobDetailsFromText(payload.text)
+        const fields = await extractJobDetailsFromText(payload.text, payload.originalTextLength)
         setFormState({
           mode: 'add',
           stage: 'applied',

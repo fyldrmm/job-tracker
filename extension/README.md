@@ -8,7 +8,7 @@ Chrome MV3, vanilla JS, no build step — the files here are loaded directly.
 
 1. Click the extension icon on a job posting page → the popup shows the page title and a "Send to Job Tracker" button.
 2. `popup.js` asks `background.js` (the service worker) to do the actual work, since the popup can close mid-flow (e.g. once focus moves to a new tab) before an in-popup async chain would finish.
-3. `background.js` scrapes the active tab's visible text (`document.body.innerText`, capped at 20,000 chars — mirrors `MAX_EXTRACTION_TEXT_CHARS` in `src/lib/extensionHandoff.ts`), stashes it in `chrome.storage.session`, then opens or focuses a Job Tracker tab.
+3. `background.js` scrapes the active tab's visible text (`document.body.innerText`, capped at 8,000 chars — mirrors `MAX_EXTRACTION_TEXT_CHARS` in `src/lib/extensionHandoff.ts`), stashes it in `chrome.storage.session`, then opens or focuses a Job Tracker tab.
 4. `content-bridge.js`, which only runs on the Job Tracker origin, relays the payload into the page via `window.postMessage` — either immediately (direct runtime message, for a tab that was already open) or on its own load (reading the stashed `chrome.storage.session` entry, for a tab that was just created).
 5. Job Tracker's `Board.tsx` receives it: signed-in users get an extraction call + a pre-filled add form; guests hit a sign-in wall, with the payload held and auto-resumed once signed in.
 
