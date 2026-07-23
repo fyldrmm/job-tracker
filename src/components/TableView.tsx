@@ -4,7 +4,7 @@ import { formatDate, formatDateTime } from '../lib/format'
 import { STAGE_ORDER, STAGE_LABELS } from '../lib/stages'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { interviewSummaryForApplication } from '../lib/interviews'
-import { sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
+import { matchesTableSearch, sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
 import { buildApplicationsXlsx, triggerXlsxDownload } from '../lib/xlsxExport'
 import { NoteIcon, StarIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
@@ -67,6 +67,7 @@ export function TableView({
     () => new Set(EMPLOYMENT_TYPES.map((o) => o.value)),
   )
   const [selectedWorkModes, setSelectedWorkModes] = useState<Set<WorkMode>>(() => new Set(WORK_MODES.map((o) => o.value)))
+  const [searchQuery, setSearchQuery] = useState('')
 
   function handleHeaderClick(key: TableSortKey) {
     if (key === sortKey) {
@@ -86,9 +87,10 @@ export function TableView({
         (app) =>
           selectedStages.has(app.current_stage) &&
           (!app.employment_type || selectedEmploymentTypes.has(app.employment_type)) &&
-          (!app.work_mode || selectedWorkModes.has(app.work_mode)),
+          (!app.work_mode || selectedWorkModes.has(app.work_mode)) &&
+          matchesTableSearch(app, searchQuery),
       ),
-    [applications, selectedStages, selectedEmploymentTypes, selectedWorkModes],
+    [applications, selectedStages, selectedEmploymentTypes, selectedWorkModes, searchQuery],
   )
 
   const sorted = useMemo(
@@ -112,6 +114,14 @@ export function TableView({
     <div className="flex-1 overflow-y-auto p-6">
       {applications.length > 0 && (
         <div className="flex items-center gap-3 mb-4 text-sm">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search company or role…"
+            aria-label="Search company or role"
+            className="w-56 px-3 py-1 rounded-md border border-ink-300 text-ink-700 placeholder:text-ink-400 focus:outline-none focus:ring-1 focus:ring-ink-400 bg-white"
+          />
           <MultiSelectFilter
             label="Stage"
             options={STAGE_OPTIONS}
@@ -144,7 +154,7 @@ export function TableView({
       {applications.length === 0 ? (
         <p className="text-sm text-ink-400">No applications on this tracker yet.</p>
       ) : filteredApplications.length === 0 ? (
-        <p className="text-sm text-ink-400">No applications match the selected filters.</p>
+        <p className="text-sm text-ink-400">No applications match the selected filters or search.</p>
       ) : (
         <table className="w-full text-sm border-collapse">
           <thead>
