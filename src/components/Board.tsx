@@ -580,7 +580,16 @@ export function Board() {
     const { active, over } = event
     setActiveId(null)
     if (!over) return
-    moveApplicationStage(String(active.id), over.id as ApplicationStage).catch((err) =>
+    const stage = over.id as ApplicationStage
+    const draggedId = String(active.id)
+    // Dragging one card of a multi-selection carries the whole selection
+    // with it -- dragging a card outside any selection still just moves
+    // that one card, same as before multi-select existed.
+    if (selectedIds.has(draggedId) && selectedIds.size > 1) {
+      handleBulkMove(stage)
+      return
+    }
+    moveApplicationStage(draggedId, stage).catch((err) =>
       showError(err, 'Could not move the application. Please try again.'),
     )
   }
