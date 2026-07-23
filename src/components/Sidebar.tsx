@@ -10,6 +10,7 @@ import {
   UserPlusIcon,
   CoffeeIcon,
   BellIcon,
+  FeedbackIcon,
 } from './icons'
 import { LogoMark } from './Logo'
 import { DONATION_URL } from '../lib/constants'
@@ -24,6 +25,7 @@ interface SidebarProps {
   onSignOut: () => void
   onSignUp: () => void
   onLogIn: () => void
+  onOpenFeedback: () => void
   remindersEnabled: boolean
   remindersBlocked: boolean
   onToggleReminders: () => void
@@ -73,6 +75,7 @@ export function Sidebar({
   onSignOut,
   onSignUp,
   onLogIn,
+  onOpenFeedback,
   remindersEnabled,
   remindersBlocked,
   onToggleReminders,
@@ -143,6 +146,7 @@ export function Sidebar({
         onClick={() => window.open(DONATION_URL, '_blank', 'noopener,noreferrer')}
         expanded={expanded}
       />
+      <NavItem icon={<FeedbackIcon />} label="Feedback" onClick={onOpenFeedback} expanded={expanded} />
 
       <button
         type="button"

@@ -131,3 +131,11 @@ export function CoffeeIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function FeedbackIcon(props: IconProps) {
+  return (
+    <svg {...base} {...props}>
+      <path d="M4 5h16v11H9l-4 3.5V16H4Z" />
+    </svg>
+  )
+}
