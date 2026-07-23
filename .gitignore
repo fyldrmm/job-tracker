@@ -33,3 +33,6 @@ pnpm-debug.log*
 # Vite
 .vite/
 *.local
+
+# Graphify (local knowledge-graph tool output, regenerate with `graphify update .`)
+graphify-out/
