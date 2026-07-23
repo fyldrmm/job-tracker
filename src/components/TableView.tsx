@@ -4,7 +4,8 @@ import { formatDate, formatDateTime } from '../lib/format'
 import { STAGE_ORDER, STAGE_LABELS } from '../lib/stages'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { interviewSummaryForApplication } from '../lib/interviews'
-import { matchesTableSearch, sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
+import { sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
+import { matchesCompanyOrRoleSearch } from '../lib/search'
 import { buildApplicationsXlsx, triggerXlsxDownload } from '../lib/xlsxExport'
 import { NoteIcon, StarIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
@@ -88,7 +89,7 @@ export function TableView({
           selectedStages.has(app.current_stage) &&
           (!app.employment_type || selectedEmploymentTypes.has(app.employment_type)) &&
           (!app.work_mode || selectedWorkModes.has(app.work_mode)) &&
-          matchesTableSearch(app, searchQuery),
+          matchesCompanyOrRoleSearch(app, searchQuery),
       ),
     [applications, selectedStages, selectedEmploymentTypes, selectedWorkModes, searchQuery],
   )

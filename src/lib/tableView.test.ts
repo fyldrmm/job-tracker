@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchesTableSearch, sortApplicationsForTable } from './tableView'
+import { sortApplicationsForTable } from './tableView'
 import type { Application } from '../types/application'
 
 function makeApplication(overrides: Partial<Application>): Application {
@@ -54,28 +54,5 @@ describe('sortApplicationsForTable', () => {
     const copy = [...apps]
     sortApplicationsForTable(apps, 'company', 'desc')
     expect(apps).toEqual(copy)
-  })
-})
-
-describe('matchesTableSearch', () => {
-  const app = makeApplication({ company: 'Acme Corp', role_title: 'Senior Engineer' })
-
-  it('matches an empty query', () => {
-    expect(matchesTableSearch(app, '')).toBe(true)
-    expect(matchesTableSearch(app, '   ')).toBe(true)
-  })
-
-  it('matches a company substring, case-insensitively', () => {
-    expect(matchesTableSearch(app, 'acme')).toBe(true)
-    expect(matchesTableSearch(app, 'ACME')).toBe(true)
-  })
-
-  it('matches a role substring, case-insensitively', () => {
-    expect(matchesTableSearch(app, 'engineer')).toBe(true)
-    expect(matchesTableSearch(app, 'senior')).toBe(true)
-  })
-
-  it('does not match unrelated text', () => {
-    expect(matchesTableSearch(app, 'nonexistent')).toBe(false)
   })
 })

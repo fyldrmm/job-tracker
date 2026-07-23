@@ -3,6 +3,7 @@ import type { Application, ArchiveReason, EmploymentType, Tracker, WorkMode } fr
 import { formatDate } from '../lib/format'
 import { ARCHIVE_REASON_LABELS, ARCHIVE_REASONS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
+import { matchesCompanyOrRoleSearch } from '../lib/search'
 import { NoteIcon, TrashIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
 
@@ -133,6 +134,7 @@ export function ArchiveView({
   const [selectedWorkModes, setSelectedWorkModes] = useState<Set<WorkMode>>(
     () => new Set(WORK_MODES.map((o) => o.value)),
   )
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Applications with no value for a given field (employment_type/work_mode
   // are optional; archive_reason should always be set but this stays
@@ -145,9 +147,10 @@ export function ArchiveView({
         (app) =>
           (!app.archive_reason || selectedReasons.has(app.archive_reason)) &&
           (!app.employment_type || selectedEmploymentTypes.has(app.employment_type)) &&
-          (!app.work_mode || selectedWorkModes.has(app.work_mode)),
+          (!app.work_mode || selectedWorkModes.has(app.work_mode)) &&
+          matchesCompanyOrRoleSearch(app, searchQuery),
       ),
-    [applications, selectedReasons, selectedEmploymentTypes, selectedWorkModes],
+    [applications, selectedReasons, selectedEmploymentTypes, selectedWorkModes, searchQuery],
   )
 
   const trackerNameById = useMemo(() => new Map(trackers.map((t) => [t.id, t.name])), [trackers])
@@ -180,6 +183,14 @@ export function ArchiveView({
         <h2 className="text-lg font-medium text-ink-800">Archive</h2>
         {applications.length > 0 && (
           <div className="flex items-center gap-4 text-sm">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search company or role…"
+              aria-label="Search company or role"
+              className="w-56 px-3 py-1 rounded-md border border-ink-300 text-ink-700 placeholder:text-ink-400 focus:outline-none focus:ring-1 focus:ring-ink-400 bg-white"
+            />
             <label className="flex items-center gap-1.5 text-ink-600 cursor-pointer">
               <input
                 type="checkbox"
@@ -228,7 +239,7 @@ export function ArchiveView({
       {applications.length === 0 ? (
         <p className="text-sm text-ink-400">No archived applications yet.</p>
       ) : filteredApplications.length === 0 ? (
-        <p className="text-sm text-ink-400">No archived applications match the selected filters.</p>
+        <p className="text-sm text-ink-400">No archived applications match the selected filters or search.</p>
       ) : groupByTracker ? (
         <div className="max-w-2xl space-y-6">
           {groups.map(({ tracker, applications: trackerApps }) => (

@@ -43,9 +43,3 @@ export function sortApplicationsForTable(
   const sorted = [...applications].sort((a, b) => compare(a, b, sortKey))
   return direction === 'asc' ? sorted : sorted.reverse()
 }
-
-export function matchesTableSearch(application: Application, query: string): boolean {
-  const trimmed = query.trim().toLowerCase()
-  if (!trimmed) return true
-  return application.company.toLowerCase().includes(trimmed) || application.role_title.toLowerCase().includes(trimmed)
-}
