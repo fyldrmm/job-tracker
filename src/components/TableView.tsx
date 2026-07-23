@@ -4,11 +4,13 @@ import { formatDate } from '../lib/format'
 import { STAGE_ORDER, STAGE_LABELS } from '../lib/stages'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
+import { buildApplicationsXlsx, triggerXlsxDownload } from '../lib/xlsxExport'
 import { NoteIcon, StarIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
 
 interface TableViewProps {
   applications: Application[]
+  trackerName: string
   onCardOpen: (application: Application) => void
   onStageChange: (application: Application, stage: ApplicationStage) => void
   onTogglePriority: (application: Application) => void
@@ -47,9 +49,16 @@ function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
   return new Set(set).add(value)
 }
 
-export function TableView({ applications, onCardOpen, onStageChange, onTogglePriority }: TableViewProps) {
+export function TableView({
+  applications,
+  trackerName,
+  onCardOpen,
+  onStageChange,
+  onTogglePriority,
+}: TableViewProps) {
   const [sortKey, setSortKey] = useState<TableSortKey>('date_applied')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [exporting, setExporting] = useState(false)
   const [selectedStages, setSelectedStages] = useState<Set<ApplicationStage>>(() => new Set(ALL_STAGES))
   const [selectedEmploymentTypes, setSelectedEmploymentTypes] = useState<Set<EmploymentType>>(
     () => new Set(EMPLOYMENT_TYPES.map((o) => o.value)),
@@ -84,10 +93,30 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
     [filteredApplications, sortKey, sortDirection],
   )
 
+  async function handleExportXlsx() {
+    setExporting(true)
+    try {
+      const buffer = await buildApplicationsXlsx(sorted)
+      const slug = trackerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      const date = new Date().toISOString().slice(0, 10)
+      triggerXlsxDownload(`jobtracker-${slug}-${date}.xlsx`, buffer)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="flex-1 overflow-y-auto p-6">
       {applications.length > 0 && (
         <div className="flex items-center gap-3 mb-4 text-sm">
+          <button
+            type="button"
+            onClick={handleExportXlsx}
+            disabled={sorted.length === 0 || exporting}
+            className="px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {exporting ? 'Exporting…' : 'Export XLSX'}
+          </button>
           <MultiSelectFilter
             label="Stage"
             options={STAGE_OPTIONS}

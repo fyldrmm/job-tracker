@@ -927,6 +927,7 @@ export function Board() {
       ) : view === 'table' ? (
         <TableView
           applications={activeApplications}
+          trackerName={trackers.find((t) => t.id === activeTrackerId)?.name ?? 'tracker'}
           onCardOpen={setDetailApplication}
           onStageChange={handleStageChange}
           onTogglePriority={handleTogglePriority}
