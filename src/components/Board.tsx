@@ -766,7 +766,17 @@ export function Board() {
   }
 
   const pageTitle =
-    view === 'archive' ? 'Archive' : view === 'insights' ? 'Insights' : view === 'privacy' ? 'Privacy policy' : null
+    view === 'board'
+      ? 'Board'
+      : view === 'table'
+        ? 'Table'
+        : view === 'archive'
+          ? 'Archive'
+          : view === 'insights'
+            ? 'Insights'
+            : view === 'privacy'
+              ? 'Privacy policy'
+              : null
 
   return (
     <div className="h-screen bg-ink-50 flex">

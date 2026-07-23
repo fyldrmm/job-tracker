@@ -29,6 +29,12 @@ const COLUMNS: ColumnDef[] = [
   { key: 'date_applied', label: 'Date applied' },
 ]
 
+const RIGHT_COLUMNS: ColumnDef[] = [
+  { key: 'location', label: 'Location' },
+  { key: 'employment_type', label: 'Employment' },
+  { key: 'work_mode', label: 'Work mode' },
+]
+
 // Same "don't let the last selection disappear with no way back" rule as
 // ArchiveView's filters.
 function toggleSetValue<T>(set: Set<T>, value: T): Set<T> {
@@ -125,9 +131,18 @@ export function TableView({ applications, onCardOpen, onStageChange, onTogglePri
                 </th>
               ))}
               <th className="text-left py-2 pr-4 font-medium text-ink-500">Salary</th>
-              <th className="text-left py-2 pr-4 font-medium text-ink-500">Location</th>
-              <th className="text-left py-2 pr-4 font-medium text-ink-500">Employment</th>
-              <th className="text-left py-2 pr-4 font-medium text-ink-500">Work mode</th>
+              {RIGHT_COLUMNS.map((column) => (
+                <th key={column.key} className="text-left py-2 pr-4">
+                  <button
+                    type="button"
+                    onClick={() => handleHeaderClick(column.key)}
+                    className="font-medium text-ink-500 hover:text-ink-700 inline-flex items-center gap-1"
+                  >
+                    {column.label}
+                    {sortKey === column.key && <span aria-hidden="true">{sortDirection === 'asc' ? '▲' : '▼'}</span>}
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
