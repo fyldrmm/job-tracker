@@ -109,14 +109,6 @@ export function TableView({
     <div className="flex-1 overflow-y-auto p-6">
       {applications.length > 0 && (
         <div className="flex items-center gap-3 mb-4 text-sm">
-          <button
-            type="button"
-            onClick={handleExportXlsx}
-            disabled={sorted.length === 0 || exporting}
-            className="px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {exporting ? 'Exporting…' : 'Export XLSX'}
-          </button>
           <MultiSelectFilter
             label="Stage"
             options={STAGE_OPTIONS}
@@ -135,6 +127,14 @@ export function TableView({
             selected={selectedWorkModes}
             onToggle={(mode) => setSelectedWorkModes((prev) => toggleSetValue(prev, mode))}
           />
+          <button
+            type="button"
+            onClick={handleExportXlsx}
+            disabled={sorted.length === 0 || exporting}
+            className="ml-auto px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {exporting ? 'Exporting…' : 'Export XLSX'}
+          </button>
         </div>
       )}
 
