@@ -26,8 +26,7 @@ All code changes are written and locally verified, but **not committed**. Workin
 
 ## Next action
 
-1. Commit the working tree (see Verify section for the exact diff to expect first).
-2. If the user is ready to actually submit: they still need a privacy policy URL (nothing drafted this session) and at least one real screenshot before the Web Store listing form can be completed. Ask which is missing before assuming either is ready.
+Draft/locate the privacy policy — explicit user instruction to start here immediately after `/clear`. Ask first whether they want one drafted from scratch or already have something; then figure out hosting (check whether the existing "Privacy policy" view in `Board.tsx`/the live site already covers what the extension needs, before writing a new page). Screenshots for the listing are the next thing after that, not yet requested.
 
 ## Learned this session
 
@@ -39,10 +38,13 @@ All code changes are written and locally verified, but **not committed**. Workin
 
 ## Open questions
 
-- **Trader vs. non-trader**: recommended trader, but the user hasn't said which they picked. Worth confirming next session before assuming the dashboard flow has moved past that screen.
-- **Privacy policy URL**: the Web Store listing needs one (the extension sends page content to `jobtracker.fazare.dev`) — nothing drafted or discussed yet. Needs a fresh ask: does the user want help drafting a short privacy-policy page, or do they already have one?
-- **Screenshots**: the listing needs at least one (1280x800 or 640x400) — not produced this session.
-- A separate, unrelated forked conversation exists (per the user's own note mid-session: "this conversation is forked... the forked version will wait for verification") — not something this session's code touches, just flagging so a future session doesn't assume it's stale/irrelevant without checking.
+- **Privacy policy URL** — this is the very next thing to do, per explicit user request ("we can look at privacy policy thing first thing after /clear"). The Web Store listing needs one (the extension sends page content to `jobtracker.fazare.dev`) — nothing drafted yet. Start by asking whether the user wants help drafting a short privacy-policy page or already has one, then figure out where it needs to be hosted (the existing `jobtracker.fazare.dev` deploy, presumably — check `Board.tsx`'s existing "Privacy policy" nav view, referenced elsewhere in `PLAN.md`, before assuming a new page is needed from scratch).
+- **Screenshots**: the listing needs at least one (1280x800 or 640x400) — not produced this session, not yet requested by the user either.
+
+## Resolved this session (after the fact, before /clear)
+
+- **Trader vs. non-trader**: user confirmed they selected **trader**, matching the recommendation.
+- **The forked conversation** mentioned mid-session is **not** stale/unrelated — it's the *same* Chrome Web Store developer-account signup, waiting on Google's own verification step. Nothing for this session/repo to act on; it'll resolve on Google's own timeline, not something to chase.
 
 ## Verify
 
