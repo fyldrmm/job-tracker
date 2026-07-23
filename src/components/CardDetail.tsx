@@ -8,6 +8,7 @@ import { ARCHIVE_REASON_LABELS } from '../lib/archive'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { interviewsForApplication } from '../lib/interviews'
 import { buildGoogleCalendarUrl, downloadInterviewIcs } from '../lib/icsExport'
+import { canScheduleInterviews } from '../lib/entitlements'
 import { ArchiveSplitButton } from './ArchiveSplitButton'
 import { InterviewRoundModal } from './InterviewRoundModal'
 import { TrashIcon, StarIcon } from './icons'
@@ -145,13 +146,18 @@ export function CardDetail({
         <div className="pt-3 border-t border-ink-100">
           <div className="flex items-center justify-between">
             <h3 className="text-ink-400 text-xs uppercase tracking-wide">Interviews</h3>
-            <button
-              type="button"
-              onClick={() => setRoundModal({ mode: 'add' })}
-              className="text-sm font-medium text-ink-600 hover:text-ink-800 hover:underline"
-            >
-              + Add round
-            </button>
+            {/* Gated on canScheduleInterviews() -- viewing/editing/deleting an
+                already-scheduled round below is never gated, only starting a
+                NEW one. */}
+            {canScheduleInterviews() && (
+              <button
+                type="button"
+                onClick={() => setRoundModal({ mode: 'add' })}
+                className="text-sm font-medium text-ink-600 hover:text-ink-800 hover:underline"
+              >
+                + Add round
+              </button>
+            )}
           </div>
           {rounds.length === 0 ? (
             <p className="text-sm text-ink-400 mt-2">No interviews scheduled yet.</p>

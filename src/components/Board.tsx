@@ -16,6 +16,7 @@ import { useTrackers } from '../hooks/useTrackers'
 import { useStageHistory } from '../hooks/useStageHistory'
 import { useInterviews, type InterviewInput } from '../hooks/useInterviews'
 import { nextUpcomingInterview } from '../lib/interviews'
+import { canScheduleInterviews } from '../lib/entitlements'
 import { useAuth } from '../hooks/useAuth'
 import { useStaleReminders } from '../hooks/useStaleReminders'
 import { getRemindersEnabled, setRemindersEnabled } from '../lib/reminders'
@@ -293,8 +294,11 @@ export function Board() {
   // -- a dismissed or errored modal must not be able to strand a card
   // mid-drag). ids that no longer resolve to a known application (a rare
   // race with a concurrent delete) are silently dropped from the queue
-  // rather than shown with blank fields.
+  // rather than shown with blank fields. Gated on canScheduleInterviews()
+  // -- the move itself still happens either way, only the prompt to
+  // schedule a NEW round is what the entitlement seam covers.
   function enqueueInterviewPrompts(ids: string[]) {
+    if (!canScheduleInterviews()) return
     const entries = ids
       .map((id) => applications.find((app) => app.id === id))
       .filter((app): app is Application => Boolean(app))
@@ -808,7 +812,7 @@ export function Board() {
   // the prompt a drag would have triggered.
   async function handleCreateApplication(input: ApplicationInput, trackerId: string) {
     const created = await createApplication(input, trackerId)
-    if (created.current_stage === 'interview') {
+    if (created.current_stage === 'interview' && canScheduleInterviews()) {
       setInterviewQueue([{ id: created.id, company: created.company, role_title: created.role_title }])
       setInterviewQueueIndex(0)
     }
