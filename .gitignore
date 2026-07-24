@@ -34,6 +34,9 @@ pnpm-debug.log*
 .vite/
 *.local
 
+# Wrangler
+.wrangler/
+
 # Graphify (local knowledge-graph tool output, regenerate with `graphify update .`)
 graphify-out/
 
