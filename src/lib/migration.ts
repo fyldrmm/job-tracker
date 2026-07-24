@@ -91,6 +91,27 @@ export function consumePendingSignup(user: { email?: string; created_at: string 
  * foreign key. Callers are expected to have already checked
  * hasAnyLocalGuestData().
  */
+// Diagnostic-only: the migration-race investigation (2026-07-23/24, see
+// PLAN-ARCHIVE.md's M13 entry and HANDOFF.md) found migration failing once
+// then succeeding on a bare retry, with the real Postgres/PostgREST error
+// never captured -- the generic toast in Board.tsx's catch block is all
+// that's shown to the user. This logs the actual error PLUS whether the
+// client-side session looks hydrated at the moment of failure, straight to
+// the console, so the next time this happens (live, no special repro
+// needed) the detail needed to confirm or rule out the leading
+// session-hydration-race theory is sitting in the browser console instead
+// of lost to history. Does not change control flow -- the error is still
+// re-thrown unchanged right after.
+async function logMigrationFailure(table: string, error: unknown): Promise<void> {
+  const { data } = await supabase.auth.getSession()
+  console.error(`[migration] ${table} upsert failed`, {
+    error,
+    hasSession: !!data.session,
+    sessionUserId: data.session?.user.id ?? null,
+    accessTokenExpiresAt: data.session?.expires_at ?? null,
+  })
+}
+
 export async function migrateGuestDataToAccount(userId: string): Promise<void> {
   await backfillDefaultTracker()
 
@@ -113,13 +134,19 @@ export async function migrateGuestDataToAccount(userId: string): Promise<void> {
   if (guestTrackers.length > 0) {
     const stampedTrackers = guestTrackers.map((t) => ({ ...t, user_id: userId }))
     const { error } = await supabase.from('trackers').upsert(stampedTrackers)
-    if (error) throw error
+    if (error) {
+      await logMigrationFailure('trackers', error)
+      throw error
+    }
   }
 
   if (guestApplications.length > 0) {
     const stampedApplications = guestApplications.map((app) => ({ ...app, user_id: userId }))
     const { error } = await supabase.from('applications').upsert(stampedApplications)
-    if (error) throw error
+    if (error) {
+      await logMigrationFailure('applications', error)
+      throw error
+    }
   }
 
   if (guestStageHistory.length > 0) {
@@ -129,7 +156,10 @@ export async function migrateGuestDataToAccount(userId: string): Promise<void> {
     // there's nothing to update anyway; skipping already-inserted rows is
     // correct and avoids a permanent RLS-violation loop.
     const { error } = await supabase.from('stage_history').upsert(guestStageHistory, { ignoreDuplicates: true })
-    if (error) throw error
+    if (error) {
+      await logMigrationFailure('stage_history', error)
+      throw error
+    }
   }
 
   if (guestInterviews.length > 0) {
@@ -137,7 +167,10 @@ export async function migrateGuestDataToAccount(userId: string): Promise<void> {
     // interviews.sql), so a plain upsert -- not ignoreDuplicates -- is both
     // safe on retry and correct if a round was edited between attempts.
     const { error } = await supabase.from('interviews').upsert(guestInterviews)
-    if (error) throw error
+    if (error) {
+      await logMigrationFailure('interviews', error)
+      throw error
+    }
   }
 
   await claimLocalGuestDataForUser(userId)
