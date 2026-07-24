@@ -6,47 +6,48 @@
 
 ## Session scope
 
-Built M13 — Interview scheduling + calendar export — end to end across 6 planned stages plus a follow-up entitlement-seam fix, all in one session. Full technical write-up lives in `PLAN-ARCHIVE.md` (search "M13"); this file covers only what a person can't reconstruct from the diff. Session ended on a live guest→signup migration test (user's explicit ask) that surfaced an unresolved, low-confidence bug signal — see "Open questions" below.
+Five small, user-requested, non-milestone features in one session, each building on the last: a combined company/role search bar (Table, then Archive), a responsive-grid layout fix for Archive, and full multi-select + bulk-action bottom bars for both Archive and Table views. Full technical write-up for each lives in `PLAN.md`'s "Current status" (search for "2026-07-24"); this file covers only what a person can't reconstruct from the diff.
 
 ## Commits this session
 
 All pushed to `origin/main`, in order:
 
-- `5154f3a` — Add interview scheduling with calendar export (M13) — stages 1–5: `interviews` table/migration, `useInterviews` hook, `.ics`/Google Calendar export, the post-move scheduling-prompt queue, CardDetail's Interviews section (add/edit/delete rounds), the Kanban card badge, Table/CSV/XLSX columns
-- `ad14c27` — Carry interviews through JSON export and guest→account migration — stage 6
-- `5a600e2` — Add the paid-tier entitlement seam for interview scheduling, close out M13 — `src/lib/entitlements.ts` (`canScheduleInterviews()`, stubbed `true`), wired into `Board.tsx` and `CardDetail.tsx`; PLAN.md/PLAN-ARCHIVE.md updated in the same commit
+- `259e704` — Add a combined search bar to the Table view
+- `2bbcb1e` — Add the same company/role search bar to the Archive view
+- `e8c3dd0` — Lay out Archive cards in a responsive grid instead of one narrow column
+- `15b49f6` — Add multi-select and a bottom action bar to the Archive view
+- `373f891` — Add multi-select, filter-scoped select-all, and a bottom action bar to the Table view
 
-Nothing stashed, nothing on a scratch branch. `git status` is clean.
+Nothing stashed, nothing on a scratch branch. `git status` is clean and matches `origin/main` exactly.
 
 ## Exact stopping point
 
-Nothing in progress, nothing broken, nothing half-done in the codebase. Working tree is clean and matches `origin/main` exactly. All 6 planned stages of M13 are built, tested, and live-verified in the browser preview; the entitlement seam (originally planned item #6, initially missed across stages 1–6, caught and fixed before session end) is also in.
+Nothing in progress, nothing broken, nothing half-done. Every feature above is built, typechecked, linted, unit-tested, and live-verified in the browser preview (details of each verification are in `PLAN.md`, not repeated here). No stubs, no TODOs left in the diff.
 
-The one loose end is **not in the code** — it's an open question about a live migration test, detailed under "Open questions" below. No file is stubbed, broken, or mid-edit because of it.
-
-`supabase/migrations/0013_interviews.sql` has already been run by the user against the live Supabase project (confirmed, before the migration test below).
+Notable cross-file refactors this session left behind (all clean, all tests passing):
+- `src/lib/search.ts` (`matchesCompanyOrRoleSearch`) — shared by `TableView.tsx` and `ArchiveView.tsx`.
+- `src/lib/dom.ts` (`isTextEntryTarget`) — moved out of `Board.tsx`, now shared by `Board.tsx`, `ArchiveView.tsx`, and `TableView.tsx` for their Escape-clears-selection keydown guards.
+- `Board.tsx`'s `handleBulkMove`, `handleBulkArchive`, `handleBulkSetPriority` now take an explicit `ids: string[]` first argument instead of closing over the board's own `selectedIds` — `TableView.tsx` calls these same functions directly (passed down as `onBulkMove`/`onBulkArchive`/`onBulkSetPriority` props) for its own, separate selection. Board's own call sites (`buildBulkMenuItems`, `handleBulkToggleStar`, the drag-a-multi-selection branch in `handleDragEnd`) were all updated to grab `[...selectedIds]`, call `clearSelection()`, then call the ids-explicit function.
+- `ArchiveViewProps.onDeleteRequest` and the new `TableViewProps.onDeleteRequest` both take `(applications: Application[]) => void` now (not a single `Application`) — both wire straight to `setDeleteApplicationTargets` in `Board.tsx` with no wrapper closure needed, since that setter already accepted an array.
+- `SelectionToolbar.tsx`'s `starActive`/`onToggleStar` props are now optional — the star button only renders when `onToggleStar` is passed (Archive's bar omits it; Board's and Table's both pass it).
 
 ## Next action
 
-No committed next step — M13 is done and the user has not named the next milestone. Two live options on the table from this session, neither started:
-
-1. **Chase the migration-race signal** (see "Open questions") — reproduce a fresh signup with the browser's network-request log captured from the very first request, to catch the actual server error the first automatic migration attempt threw. Only worth doing if the user wants confidence before this ships to real users signing up with real guest data.
-2. **Clean up the leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications, created during the migration test) — user's own dashboard action, not blocking anything.
-
-Otherwise: wait for the user to name what's next. `PLAN.md`'s "Postponed / deferred" section has no other open items beyond the two above.
+No committed next step — none of this session's 5 items were a named milestone, and the user hasn't named what's next. Two open items carried forward unchanged from before this session (see "Open questions" below); otherwise wait for the user to name the next piece of work.
 
 ## Learned this session
 
-- **Claude cannot create accounts or enter credentials, full stop — not even for a disposable temp-mail test account the user explicitly authorizes in the moment.** This came up directly: the user asked Claude to test the guest→signup flow live using a temp-mail address, and Claude had to decline the account-creation and login steps specifically while still being able to observe/verify state via the browser console before and after. Worth remembering the exact split next time this comes up: Claude can open the sign-up form, verify pre/post state via `javascript_tool` (session checks, IndexedDB reads, direct Supabase queries once authenticated), and even re-invoke app functions like `migrateGuestDataToAccount()` directly from the console — but cannot type credentials into a form or click the account-creating submit button itself, regardless of how low-stakes the account is.
-- **`clearLocalStore()` firing on an unexpected/silent sign-out wiped all local guest test fixtures mid-investigation.** While investigating the migration-test failure, the browser's Supabase session silently expired/signed out between two console calls (exact trigger unconfirmed — possibly a token-refresh edge case, possibly something in how a mid-session dynamic `import()` of `supabase.ts` interacts with Vite HMR's module state). This correctly triggered the app's own `clearLocalStore()` (by design, so a shared device never leaks one account's cached data into guest mode) — which meant all 9 guest applications / 3 trackers / 2 interview rounds used for every prior stage's live verification vanished from that browser. No real data was lost (all of it was disposable test fixtures created during this session), but it's worth remembering that this app's sign-out behavior is aggressive by design, and a console-driven test session can trigger it unexpectedly if the auth session isn't as stable as it looks.
-- **Browser console `read_console_messages` output can be stale/buffered across a long session** — several times this session, errors that looked like live regressions (a `Cannot read properties of undefined (reading 'filter')` in `Column.tsx`, specifically) turned out to be buffered from a transient mid-edit HMR moment tens of minutes earlier, identifiable by the stale `?t=<timestamp>` query string Vite appends to hot-reloaded module URLs. The reliable check is always: open a brand-new tab (`tabs_create` + `navigate`) and read its console fresh — never trust `read_console_messages` on a tab that's been open through multiple edits without cross-checking timestamps first.
-- **`read_network_requests`' log rotates/clears over a long session** — by the time the migration-test failure was being investigated, the network request that would have shown the actual Supabase error response for the failed application-upload upsert had already fallen out of the buffer. If a live-testing session needs to capture a specific network error, check the log immediately after the failure, not minutes later once other investigation has happened in between.
+- **The browser-preview tool's `computer` action with `modifiers: "ctrl"` did not reliably produce a `ctrlKey`/`metaKey`-true click that React's synthetic event system picked up**, when testing Cmd/Ctrl+click multi-select on Archive rows. Clicking via `ref` or `coordinate` with `modifiers: "ctrl"` set left the row unselected every time. Had to fall back to `javascript_tool` dispatching a real `new MouseEvent('click', { ctrlKey: true, ... })` directly on the DOM node — that worked immediately, both for single-select and for selecting a second row. Worth trying `javascript_tool`'s synthetic-event approach first next time a modifier-click needs testing, rather than the `computer` tool's `modifiers` param.
+- **Board card single-click-to-open-detail is still unreliable through this repo's browser-preview tool** (previously documented as a `Card.tsx` 250ms click-debounce issue) — confirmed again this session. Opening a card's detail modal via a Table-view row click worked every time instead; that's the reliable path for any future live-testing that needs `CardDetail` open (e.g. to reach the Archive button) without touching the Kanban board's drag/click machinery.
+- **Destructive bulk-action testing needs a disposable extra fixture.** To prove Table view's filter-scoped select-all actually excludes filtered-out rows (not just "selects everything and happens to look right"), a 3rd application ("Amazon Test Co", work_mode=remote) was added specifically so search could narrow to exactly one of three rows. It was cleaned up at the end using the *very feature just built* (bulk delete via the new Table Actions menu) — a good self-verifying loop, but worth remembering if a future session needs a similar throwaway fixture: add one distinguishable row, don't reuse the two long-lived test rows (`Gate Test Co`/`Gated Interview Co`) for anything destructive.
+- **No new decisions needed from the user this session** — all 5 pieces were small, incremental, and approved implicitly (the user moved straight to the next request each time with no pushback), so there's nothing pending sign-off.
 
 ## Open questions
 
-**The live guest→signup migration test found a real, unconfirmed bug signal.** Sequence: real signup via temp-mail (user-performed) → automatic post-signup migration fired and failed on its first attempt (the app's own real error toast: "We couldn't finish syncing your guest data") → a bare manual retry of `migrateGuestDataToAccount()` from the console, with zero code changes, succeeded immediately. Trackers had migrated correctly on the very first attempt (3-for-3, confirmed directly against Supabase); applications had not. Root cause is **unconfirmed** — the leading theory is a race condition on the very first Supabase request right after the email-confirmation redirect (session not yet fully hydrated), not a logic bug in `migration.ts` itself, since that code is unit-tested (`migration.test.ts`) and was independently verified working via the guest-mode `buildExportData()` path. This needs a decision: is it worth reproducing cleanly (fresh signup, network log captured from the very start) to pin down, or is it low-enough-stakes to leave as a known soft spot? Full detail in `PLAN-ARCHIVE.md`'s M13 entry under "Live guest→signup migration test."
+Unchanged from before this session — neither was touched:
 
-No other open questions. Nothing else was deferred mid-decision this session.
+1. **Migration-race investigation** (from M13's live guest→signup test): automatic post-signup migration failed once then succeeded on a bare retry, root cause unconfirmed (leading theory: session-hydration race right after email confirmation). Full detail in `PLAN-ARCHIVE.md`'s M13 entry. Still not reproduced cleanly.
+2. **Leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications) from that same migration test — still sitting in the live project's `auth.users` table, safe to delete via the dashboard whenever convenient. Not blocking anything.
 
 ## Verify
 
@@ -54,22 +55,25 @@ No other open questions. Nothing else was deferred mid-decision this session.
 git status --short
 # expect: nothing (clean tree, matches origin/main)
 
-git log --oneline -3
+git log --oneline -5
 # expect (top to bottom):
-# 5a600e2 Add the paid-tier entitlement seam for interview scheduling, close out M13
-# ad14c27 Carry interviews through JSON export and guest→account migration
-# 5154f3a Add interview scheduling with calendar export (M13)
+# 373f891 Add multi-select, filter-scoped select-all, and a bottom action bar to the Table view
+# 15b49f6 Add multi-select and a bottom action bar to the Archive view
+# e8c3dd0 Lay out Archive cards in a responsive grid instead of one narrow column
+# 2bbcb1e Add the same company/role search bar to the Archive view
+# 259e704 Add a combined search bar to the Table view
 
-npm test
-# expect: Test Files 24 passed (24), Tests 180 passed (180)
+npm test -- --run
+# expect: Test Files 25 passed (25), Tests 184 passed (184)
 
 npx tsc -b --noEmit
 # expect: no errors
 
 npx oxlint
 # expect: exactly one warning, pre-existing and unrelated to this session --
-# src/components/Board.tsx:403:11 react-hooks(exhaustive-deps) re: handleUndo.
-# Do not assume a fresh session introduced this; it predates M13.
+# src/components/Board.tsx:397:11 react-hooks(exhaustive-deps) re: handleUndo.
+# Do not assume a fresh session introduced this; it predates this session
+# (the line number shifts slightly whenever Board.tsx gains/loses lines above it).
 ```
 
-To see the shipped work live: open the app, move any card into the Interview column (drag, double-click to advance, or the column's own "+") and confirm the scheduling prompt appears; open a card already in Interview and confirm its "Interviews" section shows `.ics`/Google/Edit/Delete per round plus "+ Add round"; check that a card with an upcoming interview shows an `R{n} · {date}` badge on the board and matching "Next interview"/"Rounds" columns in Table view.
+To see the shipped work live: open the app, go to Table view — a search box narrows rows by company/role, checkboxes plus a header "select all" (scoped to whatever's currently filtered) drive a bottom action bar with Move/Archive/Delete + a star toggle. Go to Archive — same search box, cards now lay out in a responsive grid instead of one narrow column, and Cmd/Ctrl+click on a card drives the same kind of bottom action bar (Un-archive/Delete only, no star).
