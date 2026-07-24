@@ -344,11 +344,13 @@ export function Board() {
     undoTimerRef.current = window.setTimeout(() => setUndoState(null), UNDO_WINDOW_MS)
   }
 
-  async function handleBulkArchive(reason: ArchiveReason) {
-    const ids = [...selectedIds]
+  // Takes an explicit id list (rather than reading `selectedIds` itself) so
+  // both the board's own selection and Table view's separate, view-scoped
+  // selection can share this one archive/undo-toast implementation --
+  // callers are responsible for clearing their own selection afterward.
+  async function handleBulkArchive(ids: string[], reason: ArchiveReason) {
     if (ids.length === 0) return
     const companies = applications.filter((app) => ids.includes(app.id)).map((app) => app.company)
-    clearSelection()
     try {
       await Promise.all(ids.map((id) => archiveApplication(id, reason)))
     } catch (err) {
@@ -639,7 +641,9 @@ export function Board() {
     // with it -- dragging a card outside any selection still just moves
     // that one card, same as before multi-select existed.
     if (selectedIds.has(draggedId) && selectedIds.size > 1) {
-      handleBulkMove(stage)
+      const ids = [...selectedIds]
+      clearSelection()
+      handleBulkMove(ids, stage)
       return
     }
     moveApplicationStage(draggedId, stage)
@@ -691,9 +695,8 @@ export function Board() {
     )
   }
 
-  function handleBulkMove(stage: ApplicationStage) {
-    const ids = [...selectedIds]
-    clearSelection()
+  // Same ids-explicit sharing rationale as handleBulkArchive above.
+  function handleBulkMove(ids: string[], stage: ApplicationStage) {
     Promise.all(ids.map((id) => moveApplicationStage(id, stage)))
       .then(() => {
         if (stage === 'interview') enqueueInterviewPrompts(ids)
@@ -701,9 +704,7 @@ export function Board() {
       .catch((err) => showError(err, 'Could not move the selected applications. Please try again.'))
   }
 
-  function handleBulkSetPriority(value: boolean) {
-    const ids = [...selectedIds]
-    clearSelection()
+  function handleBulkSetPriority(ids: string[], value: boolean) {
     Promise.all(ids.map((id) => togglePriority(id, value))).catch((err) =>
       showError(err, 'Could not update the selected applications. Please try again.'),
     )
@@ -720,7 +721,9 @@ export function Board() {
   const allSelectedArePriority = selectedApplications.length > 0 && selectedApplications.every((app) => app.is_priority)
 
   function handleBulkToggleStar() {
-    handleBulkSetPriority(!allSelectedArePriority)
+    const ids = [...selectedIds]
+    clearSelection()
+    handleBulkSetPriority(ids, !allSelectedArePriority)
   }
 
   function handleBulkDeleteRequest() {
@@ -734,17 +737,32 @@ export function Board() {
   // top-level choices (Move / Archive / Delete) rather than one flat list,
   // so choosing one doesn't require scanning past the other two kinds of
   // action. Most-wanted isn't in here at all -- it's the toolbar's star icon.
+  // Board-scoped: closes over `selectedIds` and clears it after dispatching,
+  // since this is the board view's own selection (Table view builds its own
+  // equivalent menu against its own selection, calling the same ids-explicit
+  // handlers above).
   function buildBulkMenuItems(): ContextMenuItem[] {
     return [
       {
         label: 'Move to stage',
-        items: STAGE_ORDER.map((s) => ({ label: STAGE_LABELS[s], onSelect: () => handleBulkMove(s) })),
+        items: STAGE_ORDER.map((s) => ({
+          label: STAGE_LABELS[s],
+          onSelect: () => {
+            const ids = [...selectedIds]
+            clearSelection()
+            handleBulkMove(ids, s)
+          },
+        })),
       },
       {
         label: 'Archive',
         items: ARCHIVE_REASONS.map((reason) => ({
           label: reason.label,
-          onSelect: () => handleBulkArchive(reason.value),
+          onSelect: () => {
+            const ids = [...selectedIds]
+            clearSelection()
+            handleBulkArchive(ids, reason.value)
+          },
         })),
       },
       { label: 'Delete', onSelect: handleBulkDeleteRequest, danger: true },
@@ -1018,6 +1036,10 @@ export function Board() {
           onCardOpen={setDetailApplication}
           onStageChange={handleStageChange}
           onTogglePriority={handleTogglePriority}
+          onBulkMove={handleBulkMove}
+          onBulkArchive={handleBulkArchive}
+          onBulkSetPriority={handleBulkSetPriority}
+          onDeleteRequest={setDeleteApplicationTargets}
         />
       ) : (
         <main className="flex-1 overflow-x-auto py-6">

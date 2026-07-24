@@ -56,6 +56,10 @@ function renderTableView(applications: Application[], interviews: Interview[]) {
       onCardOpen={vi.fn()}
       onStageChange={vi.fn()}
       onTogglePriority={vi.fn()}
+      onBulkMove={vi.fn()}
+      onBulkArchive={vi.fn()}
+      onBulkSetPriority={vi.fn()}
+      onDeleteRequest={vi.fn()}
     />,
   )
 }
@@ -65,10 +69,10 @@ describe('TableView interview columns', () => {
     renderTableView([makeApplication()], [])
     const row = screen.getByText('Acme').closest('tr')!
     const cells = within(row).getAllByRole('cell')
-    // 0: star, 1: Company, 2: Role, 3: Stage, 4: Date applied,
-    // 5: Next interview, 6: Rounds, 7: Salary, 8: Location, ...
-    expect(cells[5]).toHaveTextContent('—')
+    // 0: checkbox, 1: star, 2: Company, 3: Role, 4: Stage, 5: Date applied,
+    // 6: Next interview, 7: Rounds, 8: Salary, 9: Location, ...
     expect(cells[6]).toHaveTextContent('—')
+    expect(cells[7]).toHaveTextContent('—')
   })
 
   it('shows the soonest upcoming interview date and the total round count', () => {
@@ -79,7 +83,7 @@ describe('TableView interview columns', () => {
     renderTableView([makeApplication()], interviews)
     const row = screen.getByText('Acme').closest('tr')!
     const cells = within(row).getAllByRole('cell')
-    expect(cells[5]).toHaveTextContent('Jun 15')
-    expect(cells[6]).toHaveTextContent('2')
+    expect(cells[6]).toHaveTextContent('Jun 15')
+    expect(cells[7]).toHaveTextContent('2')
   })
 })

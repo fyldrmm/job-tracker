@@ -1,14 +1,18 @@
-import { useMemo, useState } from 'react'
-import type { Application, ApplicationStage, EmploymentType, Interview, WorkMode } from '../types/application'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Application, ApplicationStage, ArchiveReason, EmploymentType, Interview, WorkMode } from '../types/application'
 import { formatDate, formatDateTime } from '../lib/format'
 import { STAGE_ORDER, STAGE_LABELS } from '../lib/stages'
+import { ARCHIVE_REASONS } from '../lib/archive'
+import { isTextEntryTarget } from '../lib/dom'
 import { EMPLOYMENT_TYPE_LABELS, EMPLOYMENT_TYPES, WORK_MODE_LABELS, WORK_MODES } from '../lib/employment'
 import { interviewSummaryForApplication } from '../lib/interviews'
 import { sortApplicationsForTable, type SortDirection, type TableSortKey } from '../lib/tableView'
 import { matchesCompanyOrRoleSearch } from '../lib/search'
 import { buildApplicationsXlsx, triggerXlsxDownload } from '../lib/xlsxExport'
+import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { NoteIcon, StarIcon } from './icons'
 import { MultiSelectFilter } from './MultiSelectFilter'
+import { SelectionToolbar } from './SelectionToolbar'
 
 interface TableViewProps {
   applications: Application[]
@@ -17,6 +21,10 @@ interface TableViewProps {
   onCardOpen: (application: Application) => void
   onStageChange: (application: Application, stage: ApplicationStage) => void
   onTogglePriority: (application: Application) => void
+  onBulkMove: (ids: string[], stage: ApplicationStage) => void
+  onBulkArchive: (ids: string[], reason: ArchiveReason) => void
+  onBulkSetPriority: (ids: string[], value: boolean) => void
+  onDeleteRequest: (applications: Application[]) => void
 }
 
 const STAGE_OPTIONS = STAGE_ORDER.map((value) => ({ value, label: STAGE_LABELS[value] }))
@@ -59,6 +67,10 @@ export function TableView({
   onCardOpen,
   onStageChange,
   onTogglePriority,
+  onBulkMove,
+  onBulkArchive,
+  onBulkSetPriority,
+  onDeleteRequest,
 }: TableViewProps) {
   const [sortKey, setSortKey] = useState<TableSortKey>('date_applied')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
@@ -69,6 +81,31 @@ export function TableView({
   )
   const [selectedWorkModes, setSelectedWorkModes] = useState<Set<WorkMode>>(() => new Set(WORK_MODES.map((o) => o.value)))
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const selectAllRef = useRef<HTMLInputElement>(null)
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
+
+  function clearSelection() {
+    setSelectedIds(new Set())
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (isTextEntryTarget(event.target)) return
+      if (event.key === 'Escape' && selectedIds.size > 0) clearSelection()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [selectedIds])
 
   function handleHeaderClick(key: TableSortKey) {
     if (key === sortKey) {
@@ -98,6 +135,79 @@ export function TableView({
     () => sortApplicationsForTable(filteredApplications, sortKey, sortDirection),
     [filteredApplications, sortKey, sortDirection],
   )
+
+  // "Select all" only ever reaches for what's actually on screen -- ids
+  // filtered/searched out are simply never candidates, whether it's about to
+  // select or deselect. Clicking selects exactly the visible set (replacing
+  // the prior selection, not merging into it); clicking again when every
+  // visible row is already selected clears everything, visible or not.
+  const visibleIds = useMemo(() => sorted.map((app) => app.id), [sorted])
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id))
+  const someVisibleSelected = visibleIds.some((id) => selectedIds.has(id))
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected && !allVisibleSelected
+    }
+  }, [someVisibleSelected, allVisibleSelected])
+
+  function handleToggleSelectAll() {
+    if (allVisibleSelected) {
+      clearSelection()
+    } else {
+      setSelectedIds(new Set(visibleIds))
+    }
+  }
+
+  const selectedApplications = useMemo(
+    () => applications.filter((app) => selectedIds.has(app.id)),
+    [applications, selectedIds],
+  )
+  const allSelectedArePriority = selectedApplications.length > 0 && selectedApplications.every((app) => app.is_priority)
+
+  function handleBulkToggleStar() {
+    const ids = [...selectedIds]
+    clearSelection()
+    onBulkSetPriority(ids, !allSelectedArePriority)
+  }
+
+  function handleBulkDeleteRequest() {
+    if (selectedApplications.length === 0) return
+    const targets = selectedApplications
+    clearSelection()
+    onDeleteRequest(targets)
+  }
+
+  // Same 3-group structure as the board's own bulk menu (Move to stage /
+  // Archive / Delete) -- most-wanted stays out of it, same as there, since
+  // it's the toolbar's star icon instead.
+  function buildBulkMenuItems(): ContextMenuItem[] {
+    return [
+      {
+        label: 'Move to stage',
+        items: STAGE_ORDER.map((s) => ({
+          label: STAGE_LABELS[s],
+          onSelect: () => {
+            const ids = [...selectedIds]
+            clearSelection()
+            onBulkMove(ids, s)
+          },
+        })),
+      },
+      {
+        label: 'Archive',
+        items: ARCHIVE_REASONS.map((reason) => ({
+          label: reason.label,
+          onSelect: () => {
+            const ids = [...selectedIds]
+            clearSelection()
+            onBulkArchive(ids, reason.value)
+          },
+        })),
+      },
+      { label: 'Delete', onSelect: handleBulkDeleteRequest, danger: true },
+    ]
+  }
 
   async function handleExportXlsx() {
     setExporting(true)
@@ -160,6 +270,16 @@ export function TableView({
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="border-b border-ink-200">
+              <th className="w-8">
+                <input
+                  ref={selectAllRef}
+                  type="checkbox"
+                  checked={allVisibleSelected}
+                  onChange={handleToggleSelectAll}
+                  aria-label="Select all rows in view"
+                  className="rounded border-ink-300"
+                />
+              </th>
               <th className="w-8" />
               {COLUMNS.map((column) => (
                 <th key={column.key} className="text-left py-2 pr-4">
@@ -193,12 +313,31 @@ export function TableView({
           <tbody>
             {sorted.map((application) => {
               const { nextInterview, roundCount } = interviewSummaryForApplication(interviews, application.id)
+              const selected = selectedIds.has(application.id)
               return (
               <tr
                 key={application.id}
                 onClick={() => onCardOpen(application)}
-                className="border-b border-ink-100 hover:bg-ink-50 cursor-pointer"
+                onContextMenu={(e) => {
+                  // Only a selected row opens the bulk menu -- an unselected
+                  // row has no per-row context menu of its own, same rule as
+                  // ArchiveRow.
+                  if (!selected) return
+                  e.preventDefault()
+                  setMenuAnchor({ x: e.clientX, y: e.clientY })
+                }}
+                className={`border-b border-ink-100 cursor-pointer ${selected ? 'bg-ink-50' : 'hover:bg-ink-50'}`}
               >
+                <td className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={selected}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => toggleSelect(application.id)}
+                    aria-label={`Select ${application.company}`}
+                    className="rounded border-ink-300"
+                  />
+                </td>
                 <td className="w-8">
                   <button
                     type="button"
@@ -257,6 +396,19 @@ export function TableView({
             })}
           </tbody>
         </table>
+      )}
+
+      {selectedIds.size > 0 && (
+        <SelectionToolbar
+          count={selectedIds.size}
+          onClear={clearSelection}
+          buildMenuItems={buildBulkMenuItems}
+          starActive={allSelectedArePriority}
+          onToggleStar={handleBulkToggleStar}
+        />
+      )}
+      {menuAnchor && (
+        <ContextMenu x={menuAnchor.x} y={menuAnchor.y} items={buildBulkMenuItems()} onClose={() => setMenuAnchor(null)} />
       )}
     </div>
   )
