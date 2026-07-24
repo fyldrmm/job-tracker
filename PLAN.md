@@ -112,7 +112,7 @@ Link auto-parsing · email reminders (push reminders shipped as M9) · alternate
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-~~M13 — Interview scheduling + calendar export~~ — **done, 2026-07-23/24**, moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md). One open thread from it, not yet resolved: a live guest→signup migration test found the automatic post-signup migration failing once then succeeding on a bare retry — root cause unconfirmed (leading theory: a session-hydration race right after email confirmation). See the archive entry for full detail. A leftover Supabase test account (`jaliba2323@barumart.com`) from that test is still in the live project's `auth.users` table, safe to delete via the dashboard whenever convenient.
+~~M13 — Interview scheduling + calendar export~~ — **done, 2026-07-23/24**, moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md). One open thread from it: a live guest→signup migration test found the automatic post-signup migration failing once then succeeding on a bare retry — root cause unconfirmed (leading theory: a session-hydration race right after email confirmation). **User decided (2026-07-24) to chase this down** — next session's likely next action is reproducing a fresh signup with the network log captured from the very first request; see `HANDOFF.md`'s "Next action" for the concrete plan. The leftover Supabase test account (`jaliba2323@barumart.com`) from that earlier test is the user's own cleanup, not Claude's.
 
 ### Candidate next milestones (user flagged 2026-07-22)
 

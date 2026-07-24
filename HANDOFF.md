@@ -33,7 +33,9 @@ Notable cross-file refactors this session left behind (all clean, all tests pass
 
 ## Next action
 
-No committed next step — none of this session's 5 items were a named milestone, and the user hasn't named what's next. Two open items carried forward unchanged from before this session (see "Open questions" below); otherwise wait for the user to name the next piece of work.
+**User decided (end of this session): chase the migration-race investigation next.** Reproduce a fresh guest→signup migration with the browser's network-request log captured from the very first request after email confirmation, to catch the actual server error the first automatic migration attempt throws (leading theory: a session-hydration race right after the redirect — see "Open questions" below for full context). This needs a real signup (temp-mail address works, as M13 did) — Claude can open the sign-up form and observe state via `javascript_tool`/network logs but cannot type credentials or click the account-creating submit button itself, so the signup step needs the user's participation same as last time.
+
+The leftover Supabase test account `jaliba2323@barumart.com` is **not** Claude's to clean up — user will delete it themselves via the dashboard.
 
 ## Learned this session
 
@@ -44,10 +46,10 @@ No committed next step — none of this session's 5 items were a named milestone
 
 ## Open questions
 
-Unchanged from before this session — neither was touched:
+Both resolved at the end of this session — **decided, not just carried forward**:
 
-1. **Migration-race investigation** (from M13's live guest→signup test): automatic post-signup migration failed once then succeeded on a bare retry, root cause unconfirmed (leading theory: session-hydration race right after email confirmation). Full detail in `PLAN-ARCHIVE.md`'s M13 entry. Still not reproduced cleanly.
-2. **Leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications) from that same migration test — still sitting in the live project's `auth.users` table, safe to delete via the dashboard whenever convenient. Not blocking anything.
+1. **Migration-race investigation** (from M13's live guest→signup test): automatic post-signup migration failed once then succeeded on a bare retry, root cause unconfirmed (leading theory: session-hydration race right after email confirmation). Full detail in `PLAN-ARCHIVE.md`'s M13 entry. **User chose to chase it** — see "Next action" above for the concrete repro plan. Not yet started.
+2. **Leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications) from that same migration test — still sitting in the live project's `auth.users` table. **User will delete it themselves** via the dashboard; not a Claude task.
 
 ## Verify
 
