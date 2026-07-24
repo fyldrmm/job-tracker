@@ -30,10 +30,7 @@ Given both of those, the session pivoted from "reproduce and watch" to **instrum
 
 **Nothing is queued.** The migration-race investigation is now in a wait-and-watch state — next time a real user (or the account owner) hits it, the console will have the actual error instead of a generic toast. Pick a fresh task, or if this comes up again, check the browser console first before doing anything else.
 
-Three leftover Supabase test accounts from investigation attempts (this session and last) are **not Claude's to clean up** — user will delete via the dashboard whenever convenient:
-- `jaliba2323@barumart.com` (from the original M13 test, 3 trackers/no applications)
-- `najol56111@candaba.com` (this session, contaminated first attempt)
-- `vegehi2903@barumart.com` (this session, clean second attempt — migrated successfully, has one real test tracker/application)
+The three leftover Supabase test accounts from investigation attempts (`jaliba2323@barumart.com`, `najol56111@candaba.com`, `vegehi2903@barumart.com`) have been **deleted by the user** — nothing left to clean up.
 
 ## Learned this session
 
@@ -45,8 +42,8 @@ Three leftover Supabase test accounts from investigation attempts (this session 
 
 ## Open questions
 
-- **Migration-race root cause** — still unknown. Now instrumented to self-diagnose on next real occurrence rather than needing another reproduction session. Not blocking anything.
-- **The empty-IndexedDB observation** (see "Learned this session") — unconfirmed as a real bug, flagged for a second look only if it recurs cleanly.
+- **Migration-race root cause** — still unknown, but **closed per user decision (2026-07-24)**: not expected to recur, not being actively watched. The instrumentation stays in place regardless in case it does.
+- **The empty-IndexedDB observation** (see "Learned this session") — acknowledged by the user, no action requested unless it recurs.
 - Everything else outstanding as of last session (see `PLAN.md`'s "Decisions & notes" / "Postponed" sections) is unchanged by this session.
 
 ## Verify

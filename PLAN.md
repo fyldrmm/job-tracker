@@ -113,13 +113,12 @@ Link auto-parsing · email reminders (push reminders shipped as M9) · alternate
 
 Things explicitly pushed to later rather than built now or ruled out. Pick any of these up whenever — none are blocking.
 
-~~M13 — Interview scheduling + calendar export~~ — **done, 2026-07-23/24**, moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md). One open thread from it: a live guest→signup migration test found the automatic post-signup migration failing once then succeeding on a bare retry — root cause unconfirmed. **Chased on 2026-07-24 — see "Current status" above for the full account.** Live reproduction didn't hit the original failure again (too low-frequency to reliably retrigger) and the network-log approach turned out to be a dead end in this environment (the browser tool can't see cross-origin Supabase calls at all). Pivoted to `logMigrationFailure()` (commit `d0201b9`) instead — the real error will be in the browser console next time this happens for real. Two leftover Supabase test accounts from this session's attempts (emails `najol56111@candaba.com` and `vegehi2903@barumart.com`, both temp-mail) plus the earlier `jaliba2323@barumart.com` are all the user's own cleanup, not Claude's — same precedent as before.
+~~M13 — Interview scheduling + calendar export~~ — **done, 2026-07-23/24**, moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md). One open thread from it: a live guest→signup migration test found the automatic post-signup migration failing once then succeeding on a bare retry — root cause unconfirmed. **Chased on 2026-07-24 — see "Current status" above for the full account.** Live reproduction didn't hit the original failure again, and the browser tool used to watch for it turned out unable to see Supabase network traffic at all. Pivoted to `logMigrationFailure()` (commit `d0201b9`) so the real error lands in the console if this ever happens again — **user's call (2026-07-24): doesn't expect it to recur, so this is now closed rather than actively watched.** All three leftover Supabase test accounts from the investigation (`jaliba2323@barumart.com`, `najol56111@candaba.com`, `vegehi2903@barumart.com`) have been deleted by the user.
 
 ### Candidate next milestones (user flagged 2026-07-22)
 
 Follow-up reminders picked and built as M9. Alternate views built as M10. Mobile-first polish built as M11. None remain from this list — next milestone, if any, needs a fresh user ask.
 
-- **Unexplained data loss in the `applications` table** — see "Decisions & notes". Investigated and unresolved; test data only, so the user chose to move on.
 ~~M12 Insights correctness audit (Stages 1-5)~~ — **fully closed**, see "Current status" above.
 
 ~~`AUDIT.md`~~ — **fully closed, 2026-07-22** (moved to [PLAN-ARCHIVE.md](PLAN-ARCHIVE.md), see "Current status" above) — not deferred, not to be revisited.
