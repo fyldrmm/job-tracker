@@ -2,54 +2,52 @@
 
 **Purpose:** Everything the next session needs to continue with zero re-explanation. Read this together with `PLAN.md` (the long-lived source of truth) and `job-tracker-mvp-brief.md` (original spec) — or just run `/continue`, which reads all three in the right order.
 
----
-
 ## Session scope
 
-Five small, user-requested, non-milestone features in one session, each building on the last: a combined company/role search bar (Table, then Archive), a responsive-grid layout fix for Archive, and full multi-select + bulk-action bottom bars for both Archive and Table views. Full technical write-up for each lives in `PLAN.md`'s "Current status" (search for "2026-07-24"); this file covers only what a person can't reconstruct from the diff.
+Two small pieces: (1) confirmed the three manual steps from the previous session's char-cap/truncation-tracking work were actually done (migration `0011`, `extract-job-details` redeploy, extension reload — all verified, none needed redoing); (2) chased the migration-race investigation queued up last session, which didn't land where expected — see below.
 
 ## Commits this session
 
-All pushed to `origin/main`, in order:
+Both pushed to `origin/main`, in order:
 
-- `259e704` — Add a combined search bar to the Table view
-- `2bbcb1e` — Add the same company/role search bar to the Archive view
-- `e8c3dd0` — Lay out Archive cards in a responsive grid instead of one narrow column
-- `15b49f6` — Add multi-select and a bottom action bar to the Archive view
-- `373f891` — Add multi-select, filter-scoped select-all, and a bottom action bar to the Table view
+- `1a27f2a` — Record M8 char-cap manual steps as confirmed done in PLAN.md
+- `d0201b9` — Log the real error on a failed guest-data migration
 
-Nothing stashed, nothing on a scratch branch. `git status` is clean and matches `origin/main` exactly.
+Nothing stashed, nothing on a scratch branch. `git status` is clean.
 
 ## Exact stopping point
 
-Nothing in progress, nothing broken, nothing half-done. Every feature above is built, typechecked, linted, unit-tested, and live-verified in the browser preview (details of each verification are in `PLAN.md`, not repeated here). No stubs, no TODOs left in the diff.
+Nothing in progress, nothing broken. Both commits are typechecked, linted, and unit-tested (184/184 passing). No stubs, no TODOs.
 
-Notable cross-file refactors this session left behind (all clean, all tests passing):
-- `src/lib/search.ts` (`matchesCompanyOrRoleSearch`) — shared by `TableView.tsx` and `ArchiveView.tsx`.
-- `src/lib/dom.ts` (`isTextEntryTarget`) — moved out of `Board.tsx`, now shared by `Board.tsx`, `ArchiveView.tsx`, and `TableView.tsx` for their Escape-clears-selection keydown guards.
-- `Board.tsx`'s `handleBulkMove`, `handleBulkArchive`, `handleBulkSetPriority` now take an explicit `ids: string[]` first argument instead of closing over the board's own `selectedIds` — `TableView.tsx` calls these same functions directly (passed down as `onBulkMove`/`onBulkArchive`/`onBulkSetPriority` props) for its own, separate selection. Board's own call sites (`buildBulkMenuItems`, `handleBulkToggleStar`, the drag-a-multi-selection branch in `handleDragEnd`) were all updated to grab `[...selectedIds]`, call `clearSelection()`, then call the ids-explicit function.
-- `ArchiveViewProps.onDeleteRequest` and the new `TableViewProps.onDeleteRequest` both take `(applications: Application[]) => void` now (not a single `Application`) — both wire straight to `setDeleteApplicationTargets` in `Board.tsx` with no wrapper closure needed, since that setter already accepted an array.
-- `SelectionToolbar.tsx`'s `starActive`/`onToggleStar` props are now optional — the star button only renders when `onToggleStar` is passed (Archive's bar omits it; Board's and Table's both pass it).
+**The migration-race investigation itself is still unresolved** — that was expected going in (it's a genuinely low-frequency race), but two things worth knowing before picking it up again:
+
+1. **This repo's browser-preview tool cannot see Supabase API traffic.** `read_network_requests` only captures same-origin dev-server requests — confirmed by checking it right after a signup we knew for a fact made real `supabase.co` calls (session established, rows written); nothing showed. Don't plan a future investigation around "watch the network log" in this tool — it won't work, independent of reproduction luck.
+2. **A live retry this session succeeded cleanly** (fresh guest data → sign up → confirm → migration completed with the correct `user_id` on both tracker and application, no error). That's good news for the app, bad news for reproducing the bug — the race is real but rare enough that one retry proves nothing either way.
+
+Given both of those, the session pivoted from "reproduce and watch" to **instrumenting the failure path directly**: `src/lib/migration.ts` now has `logMigrationFailure()`, called from all four upsert error branches inside `migrateGuestDataToAccount`. On any real failure it logs the actual Postgres/PostgREST error plus whether the client session looked hydrated at that moment (session presence, user id, token expiry) — directly testing the leading session-hydration-race theory. No control-flow change; the error is still re-thrown unchanged right after logging.
 
 ## Next action
 
-**User decided (end of this session): chase the migration-race investigation next.** Reproduce a fresh guest→signup migration with the browser's network-request log captured from the very first request after email confirmation, to catch the actual server error the first automatic migration attempt throws (leading theory: a session-hydration race right after the redirect — see "Open questions" below for full context). This needs a real signup (temp-mail address works, as M13 did) — Claude can open the sign-up form and observe state via `javascript_tool`/network logs but cannot type credentials or click the account-creating submit button itself, so the signup step needs the user's participation same as last time.
+**Nothing is queued.** The migration-race investigation is now in a wait-and-watch state — next time a real user (or the account owner) hits it, the console will have the actual error instead of a generic toast. Pick a fresh task, or if this comes up again, check the browser console first before doing anything else.
 
-The leftover Supabase test account `jaliba2323@barumart.com` is **not** Claude's to clean up — user will delete it themselves via the dashboard.
+Three leftover Supabase test accounts from investigation attempts (this session and last) are **not Claude's to clean up** — user will delete via the dashboard whenever convenient:
+- `jaliba2323@barumart.com` (from the original M13 test, 3 trackers/no applications)
+- `najol56111@candaba.com` (this session, contaminated first attempt)
+- `vegehi2903@barumart.com` (this session, clean second attempt — migrated successfully, has one real test tracker/application)
 
 ## Learned this session
 
-- **The browser-preview tool's `computer` action with `modifiers: "ctrl"` did not reliably produce a `ctrlKey`/`metaKey`-true click that React's synthetic event system picked up**, when testing Cmd/Ctrl+click multi-select on Archive rows. Clicking via `ref` or `coordinate` with `modifiers: "ctrl"` set left the row unselected every time. Had to fall back to `javascript_tool` dispatching a real `new MouseEvent('click', { ctrlKey: true, ... })` directly on the DOM node — that worked immediately, both for single-select and for selecting a second row. Worth trying `javascript_tool`'s synthetic-event approach first next time a modifier-click needs testing, rather than the `computer` tool's `modifiers` param.
-- **Board card single-click-to-open-detail is still unreliable through this repo's browser-preview tool** (previously documented as a `Card.tsx` 250ms click-debounce issue) — confirmed again this session. Opening a card's detail modal via a Table-view row click worked every time instead; that's the reliable path for any future live-testing that needs `CardDetail` open (e.g. to reach the Archive button) without touching the Kanban board's drag/click machinery.
-- **Destructive bulk-action testing needs a disposable extra fixture.** To prove Table view's filter-scoped select-all actually excludes filtered-out rows (not just "selects everything and happens to look right"), a 3rd application ("Amazon Test Co", work_mode=remote) was added specifically so search could narrow to exactly one of three rows. It was cleaned up at the end using the *very feature just built* (bulk delete via the new Table Actions menu) — a good self-verifying loop, but worth remembering if a future session needs a similar throwaway fixture: add one distinguishable row, don't reuse the two long-lived test rows (`Gate Test Co`/`Gated Interview Co`) for anything destructive.
-- **No new decisions needed from the user this session** — all 5 pieces were small, incremental, and approved implicitly (the user moved straight to the next request each time with no pushback), so there's nothing pending sign-off.
+- **`read_network_requests` in this repo's browser-preview tool is same-origin-only.** It captures the dev server's own module fetches (`localhost:5173/src/...`) but never cross-origin `fetch`/XHR calls, including to `supabase.co`. Confirmed by testing against a known-real API call, not assumed. Worth remembering for any future investigation that needs to see a third-party API's actual response — this tool can't show it; `console.error` logging from app code, or asking the user to check their own browser's DevTools Network tab, are the two paths that actually work.
+- **A contaminated reproduction attempt found a genuinely empty IndexedDB** (0 trackers, 0 applications) in a guest-mode tab, right after a signup+confirmation round-trip that bounced between the user's own real browser and this tool's browser pane. Not written up as a confirmed bug — the multi-browser back-and-forth is a plausible mundane explanation — but flagged in `PLAN.md`'s "Current status" since it echoes the standing-unresolved "unexplained data loss in the applications table" item closely enough to be worth a second look if it recurs in a clean single-browser session.
+- **Verifying "was this manual step actually done" doesn't always need asking the user.** Two of the three outstanding manual steps from last session (migration `0011`, the `extract-job-details` redeploy) were confirmed live without dashboard access: a PostgREST control-test query (a real column returns `[]` under RLS; a nonexistent one returns a `42703` error — the contrast confirms the migration ran) and a `curl -sI -X OPTIONS` read of the `x-function-version` header (confirms the deployed function matches the exact commit). Worth reaching for these before assuming a manual step needs re-doing or re-asking.
+- **Graphify usage rule updated (not app code, tooling):** per explicit user instruction this session, added a standing rule to reach for a graphify query before a multi-round `grep`/Explore-agent sweep for structural questions in this repo (where something's defined, what calls/imports it, dependency chains) — saved to Claude's cross-session memory (`feedback_graphify_auto_update.md`), not this file. Graph was also refreshed this session (`graphify update .`, now 807 nodes / 1712 edges / 73 communities, current as of the session's starting commit).
+- **This session started by discovering a stale-checkout trap, not a code issue:** `/continue` was first run against `/Users/burak2/Documents/GitHub/job-tracker`, a local clone 75 commits behind `origin/main`, whose own `PLAN.md`/`HANDOFF.md` looked internally consistent but described a stopping point 15 commits stale relative to *that checkout's* HEAD, which was itself 60 commits further stale relative to the real repo. The actual working directory for this session, `/Users/burak2/Desktop/Claude`, was the fully up-to-date checkout the whole time. Worth a sanity check (`git remote -v` + `git rev-list --left-right --count HEAD...origin/main`) if a future session's docs ever look surprisingly out of sync with git history — it may be the wrong checkout, not a stale doc.
 
 ## Open questions
 
-Both resolved at the end of this session — **decided, not just carried forward**:
-
-1. **Migration-race investigation** (from M13's live guest→signup test): automatic post-signup migration failed once then succeeded on a bare retry, root cause unconfirmed (leading theory: session-hydration race right after email confirmation). Full detail in `PLAN-ARCHIVE.md`'s M13 entry. **User chose to chase it** — see "Next action" above for the concrete repro plan. Not yet started.
-2. **Leftover Supabase test account** `jaliba2323@barumart.com` (3 trackers, no applications) from that same migration test — still sitting in the live project's `auth.users` table. **User will delete it themselves** via the dashboard; not a Claude task.
+- **Migration-race root cause** — still unknown. Now instrumented to self-diagnose on next real occurrence rather than needing another reproduction session. Not blocking anything.
+- **The empty-IndexedDB observation** (see "Learned this session") — unconfirmed as a real bug, flagged for a second look only if it recurs cleanly.
+- Everything else outstanding as of last session (see `PLAN.md`'s "Decisions & notes" / "Postponed" sections) is unchanged by this session.
 
 ## Verify
 
@@ -57,13 +55,11 @@ Both resolved at the end of this session — **decided, not just carried forward
 git status --short
 # expect: nothing (clean tree, matches origin/main)
 
-git log --oneline -5
+git log --oneline -3
 # expect (top to bottom):
-# 373f891 Add multi-select, filter-scoped select-all, and a bottom action bar to the Table view
-# 15b49f6 Add multi-select and a bottom action bar to the Archive view
-# e8c3dd0 Lay out Archive cards in a responsive grid instead of one narrow column
-# 2bbcb1e Add the same company/role search bar to the Archive view
-# 259e704 Add a combined search bar to the Table view
+# d0201b9 Log the real error on a failed guest-data migration
+# 1a27f2a Record M8 char-cap manual steps as confirmed done in PLAN.md
+# 6bd40fe Fix Cloudflare deploy: replace conflicting _redirects with wrangler.jsonc SPA config
 
 npm test -- --run
 # expect: Test Files 25 passed (25), Tests 184 passed (184)
@@ -73,9 +69,7 @@ npx tsc -b --noEmit
 
 npx oxlint
 # expect: exactly one warning, pre-existing and unrelated to this session --
-# src/components/Board.tsx:397:11 react-hooks(exhaustive-deps) re: handleUndo.
-# Do not assume a fresh session introduced this; it predates this session
-# (the line number shifts slightly whenever Board.tsx gains/loses lines above it).
+# src/components/Board.tsx, react-hooks(exhaustive-deps) re: handleUndo.
 ```
 
-To see the shipped work live: open the app, go to Table view — a search box narrows rows by company/role, checkboxes plus a header "select all" (scoped to whatever's currently filtered) drive a bottom action bar with Move/Archive/Delete + a star toggle. Go to Archive — same search box, cards now lay out in a responsive grid instead of one narrow column, and Cmd/Ctrl+click on a card drives the same kind of bottom action bar (Un-archive/Delete only, no star).
+No live/manual QA needed for this session's changes — `logMigrationFailure()` is diagnostic-only (adds console logging, no behavior change) and the PLAN.md edit is documentation. Nothing to redeploy; no migrations to run.
