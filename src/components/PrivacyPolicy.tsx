@@ -17,7 +17,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         <h2 className="text-lg font-medium text-ink-800">Privacy policy</h2>
 
         <p>
-          Job Application Tracker is a free tool for tracking job applications. This page explains
+          OfferTrail is a free tool for tracking job applications. This page explains
           what data we store and how you control it.
         </p>
 

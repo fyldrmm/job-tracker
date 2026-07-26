@@ -52,7 +52,7 @@ export function buildInterviewIcs(application: Application, interview: Interview
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//JobTracker//Interview Scheduling//EN',
+    'PRODID:-//OfferTrail//Interview Scheduling//EN',
     'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     `UID:${interview.id}@job-tracker`,

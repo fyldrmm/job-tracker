@@ -926,7 +926,7 @@ export function Board() {
           <span className="shrink-0 w-6 h-6 rounded-[6px] overflow-hidden">
             <LogoMark className="w-full h-full" />
           </span>
-          <h1 className="text-lg font-semibold text-ink-800">JobTracker</h1>
+          <h1 className="text-lg font-semibold text-ink-800">OfferTrail</h1>
           {pageTitle && (
             <span className="text-lg font-normal text-ink-300">
               / <span className="text-ink-500">{pageTitle}</span>

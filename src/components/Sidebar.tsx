@@ -103,7 +103,7 @@ export function Sidebar({
             expanded ? '!opacity-100' : ''
           }`}
         >
-          JobTracker
+          OfferTrail
         </span>
       </button>
       <NavItem
