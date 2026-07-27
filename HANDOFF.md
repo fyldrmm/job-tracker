@@ -4,74 +4,68 @@
 
 ## Session scope
 
-Built the entire OfferTrail Pro paywall end to end (Cloudflare Worker, subscriptions table, pricing page, export/extraction gates, account billing UI, Terms of Service + Privacy Policy updates), deployed it, then moved to live Stripe mode at the user's request and hit a checkout bug that's still open. See `PLAN.md`'s 2026-07-27 "Current status" entry for the full build account — this file covers only the live-debugging delta from the tail end of the session.
+Continuation of last session's open live-Stripe-checkout bug. Found and fixed two more root causes (unrelated to the key/Price-ID issues already fixed last time), deployed, and confirmed a real live-mode purchase now completes end to end and correctly upgrades the account to Pro.
 
 ## Commits this session
 
-- `32e14d5` — "Build and ship the OfferTrail Pro paywall end to end" (the full build, 37 files)
-- `1b43338` — "Switch Worker Price IDs from sandbox to live Stripe Products" (`wrangler.jsonc` only — swapped the four `STRIPE_PRICE_*` vars from sandbox to live Price IDs, redeployed)
+- `4586b31` — "Fix live Stripe checkout: array form-encoding and per-item current_period_end" (`worker/index.ts`, `worker/stripe.ts` only)
 
-Both pushed to `origin/main`. Nothing uncommitted, nothing stashed. Two pre-existing untracked directories (`extension/store-assets/`, `final/`) are unrelated to this work and were deliberately left out of both commits.
+Pushed to `origin/main`. Nothing uncommitted at handoff time.
+
+**Note on git history around this commit:** `git log` also shows `5f09bc9` and `3c4ea31` (logo work) sitting between last session's `75284e6` and this session's `4586b31`. Those are **not** from this conversation — they're from a separate, parallel forked session doing the display-name + logo swap that `PLAN.md`'s 2026-07-26 entry mentions was about to happen. Don't attribute that logo work to this session's summary above, and don't assume this conversation has context on what changed there — check that session's own handoff/PLAN.md updates if logo work needs touching.
 
 ## Exact stopping point
 
-**Live Stripe Checkout session creation is failing on production**, user-visible as a generic red "Something went wrong. Please try again." banner on the `/pricing` page (that's `PricingPage.tsx`'s catch-all in `handleSubscribe()`, which means whatever error actually happened didn't come back as a clean `{error: "..."}` JSON body the frontend could show verbatim — see `src/lib/billing.ts`'s `authorizedJsonPost`/`responseError`, which fall back to that generic string when `response.json()` itself fails to parse, i.e. the Worker returned something that wasn't valid JSON).
+**The paywall works.** A real live-mode Checkout session was completed (via a 100%-off Stripe promo code, so no actual charge), the webhook processed it successfully, and the account's `subscriptions` row updated / `isPro()` flipped — confirmed by the user seeing Pro reflected in the app after using Stripe's "Resend" on the previously-failed webhook event.
 
-**Two causes already found and fixed this session, in order:**
-1. `STRIPE_SECRET_KEY` was set to a value starting `mk_...` — not a real Stripe key prefix at all. Confirmed via `npx wrangler tail` live logs showing `Error: Stripe API error (401): {"error":{"message":"Invalid API Key provided: mk_1TxUl***..."}}`, thrown from `stripeRequest()` in `worker/stripe.ts:23`, called via `createCheckoutSession()` (`worker/stripe.ts:41`) from `handleCreateCheckoutSession()` (`worker/index.ts:60`). User re-pasted the key via `wrangler secret put STRIPE_SECRET_KEY` — turned out to be a **live** key, not test/sandbox.
-2. Stripe has renamed/restructured "Test mode" into fully separate **Sandboxes** (a bigger change than a toggle — a sandbox is a distinct environment, its own Products/Prices/webhooks, not a mode flag on the live account). The four Price IDs and the webhook destination had been created in a **sandbox**, so a live secret key couldn't see them. User then explicitly chose to go live rather than go back to the sandbox ("just bind it please i dont want to entagnle myself with these bullshit anymore") — acknowledged the "real money moves on a completed checkout" risk when I raised it earlier in the session.
+Two bugs fixed this session, both in `worker/stripe.ts` and `worker/index.ts`:
 
-**What's actually been done for the live switch:**
-- User created a live Product ("OfferTrail Pro (Monthly)" / "OfferTrail Pro (Quarterly)") + 4 live Prices in the Stripe dashboard (live mode), sent via `/Users/burak2/Downloads/prices.csv`:
-  - Monthly USD `price_1TxoJDAROImIFWYs0opw8kdP`, Monthly EUR `price_1TxoJ0AROImIFWYss6rcn2wL`
-  - Quarterly USD `price_1TxoK6AROImIFWYsYUTHknMz`, Quarterly EUR `price_1TxoJrAROImIFWYsTGuSzu4D`
-- `wrangler.jsonc`'s `vars.STRIPE_PRICE_*` updated to these four (commit `1b43338`), rebuilt, redeployed (`npx wrangler deploy` succeeded, confirmed via the deploy output showing the new Price IDs bound).
-- User registered a live webhook (Stripe dashboard, live mode, same URL `https://jobtracker.fazare.dev/api/stripe-webhook`, same 3 events, Snapshot payload style) and ran `wrangler secret put STRIPE_WEBHOOK_SECRET` with the live signing secret.
-- `npx wrangler secret list` confirms all three secrets present by name: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`. **Values were never re-verified after the corrections** — only that a name exists, not that the current value is actually the correct live one this time.
-- Sanity checks that DID pass after the live switch: `curl -X POST .../api/create-checkout-session` (no auth) → `{"error":"Not signed in"}` correctly; `curl -X POST .../api/stripe-webhook` (bad signature) → `{"error":"Invalid signature"}` correctly; `curl .../api/currency` → `{"currency":"eur"}` correctly. **These only prove the Worker is up and routing correctly — none of them exercise the actual Stripe API call path that's failing.**
+1. **`formEncode()` never handled arrays** (`worker/stripe.ts`, the helper right after `STRIPE_API`). `line_items` is an array of objects; the old code's `typeof value === 'object' && !Array.isArray(value)` check meant arrays fell into the plain `String(value)` branch, producing the literal string `[object Object]`. Stripe rejected every single checkout-session request with `400 invalid_request_error: {"message":"Invalid array","param":"line_items"}` — confirmed directly from a Stripe log the user pasted. This bug predates the live/sandbox switch entirely; it would have failed identically in sandbox mode too. Fixed by adding a proper array branch that emits `key[0][subkey]=value`-style bracketed keys.
+2. **`current_period_end` doesn't exist on the Subscription object under this account's billing mode.** Confirmed by having the user paste the raw Subscription JSON from the Stripe dashboard: `"billing_mode": {"type": "flexible", ...}`, and `current_period_end` appears only inside `items.data[0].current_period_end`, not at the top level. The old `syncSubscriptionRow()` read `subscription.current_period_end` → `undefined` → `new Date(undefined * 1000).toISOString()` → uncaught `RangeError: Invalid time value` → Stripe's webhook log showed a bodyless `500 Internal Server Error`. Fixed in `worker/index.ts`: `syncSubscriptionRow()` now reads `subscription.items.data[0].current_period_end`, same fix applied to the `customer.subscription.deleted` branch inline in `handleStripeWebhook()`. The `StripeSubscription` interface in `worker/stripe.ts` was updated to match (no top-level `current_period_end`, added to the `items.data[]` element type).
 
-**Where it was left:** a second `npx wrangler tail` session was started (`/tmp/wrangler-tail-live.log`, process killed at session end — **rerun `wrangler tail` fresh next session, don't rely on that log file, it may be stale/rotated**) and the user was asked to click "Subscribe monthly" on the live site while watching. The session ended (`/handoff` called) before that click happened or before any new log output was captured. **We do not yet know if the same `mk_...`/wrong-key class of error is still happening, or if it's now a different error** (e.g. a currency mismatch, a "no such price" if the Price IDs are somehow still resolving against the wrong mode, a Stripe Tax/automatic_tax config issue, or something in `customer_email` if `user.email` came back empty from Supabase's `/auth/v1/user`).
+Also added, same commit: the whole event-type dispatch inside `handleStripeWebhook()` (`worker/index.ts`) is now wrapped in try/catch, returning `json({error: err.message}, 500)` instead of letting an exception produce a bodyless 500 — this is what made bug #2 slow to diagnose (Stripe's log just said "Internal Server Error" with zero detail until this was in place... though in practice we diagnosed it by reading the raw Subscription JSON directly rather than needing this, since the fix hadn't deployed yet the first time it failed).
+
+**Also changed, deliberately kept (not reverted):** `createCheckoutSession()` now passes `allow_promotion_codes: true`. This was added specifically to let the user test a real live purchase for $0 via a 100%-off coupon instead of actual money. The user explicitly asked to keep it permanently rather than revert it after testing — it's a real feature now (lets you run promotions later), not test scaffolding. The stale "TEMPORARY, remove after testing" comment that was originally attached to it has been deleted.
+
+**Not yet done, flag if not handled by the time you read this:** the 100%-off coupon and its promotion code, created in the Stripe dashboard for this test purchase, were never confirmed deleted/expired. If still present, anyone who finds the code gets a free month. Check Stripe dashboard → Product catalog → Coupons.
 
 ## Next action
 
-1. Run `npx wrangler tail --format pretty` (or reuse the pattern from this session: background it, redirect to a log file, `cat` after a wait).
-2. Have the user sign in on `jobtracker.fazare.dev` and click "Subscribe monthly" or "Subscribe quarterly" on `/pricing` — creating a Checkout *session* doesn't charge anything, safe to repeat.
-3. Read the actual thrown error from the tail output — do not guess. Likely next candidates, roughly in order of likelihood: (a) the webhook/secret key values are still subtly wrong despite the name existing in `wrangler secret list` — consider having the user re-paste both `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` one more time, carefully, from the live dashboard; (b) the live Price IDs might not actually be active/might have a currency or billing-interval mismatch — check them directly in the Stripe dashboard (live mode) rather than assuming the CSV was accurate; (c) `customer_email` sent to Stripe could be empty — add a temporary log line in `handleCreateCheckoutSession` (`worker/index.ts:60`) to print what `user.email` actually resolved to, since Supabase's `/auth/v1/user` response shape was never explicitly re-verified after the live switch.
-4. Once checkout works, still need a **real completed purchase** (Claude will not do this step — executing a real payment is off-limits) to prove the webhook fires and `subscriptions` gets a real live-mode row, `isPro()` flips, and the Stripe Customer Portal ("Manage billing" in `AccountModal.tsx`) round-trips a real cancellation.
-5. **Separately, still pending from earlier in the session, not urgent but not forgotten:** the `extract-job-details` Edge Function's tier-aware-cap change is committed in `32e14d5` but likely not deployed (dashboard-only, no CLI link — see `PLAN.md`'s note). Redeploy it and bump `FUNCTION_VERSION` when picking this back up.
-6. **Also still pending, deliberately deferred mid-session:** Google sign-in — see `PLAN.md`'s "Postponed / deferred" section for the specific scope (OAuth client setup, migration-trigger verification, two doc updates).
+1. Confirm the test coupon/promo code from this session has been deleted or expired in the Stripe dashboard (live mode → Coupons) — if not, do that first, it's a real exposure.
+2. Resume the punch list from the previous handoff, unchanged:
+   - `extract-job-details` Edge Function's tier-aware-cap change (committed in `32e14d5`, several sessions ago) is still unverified as deployed — it's dashboard-deploy-only, no CLI link. Check `curl -sI -X OPTIONS <function-url>` for `x-function-version` before assuming it's live.
+   - Google sign-in is still deferred — scope is in `PLAN.md`'s "Postponed / deferred" section.
+3. No other live-mode paywall bugs are currently known. If a future Stripe webhook or Checkout call fails again, check the Stripe dashboard's own event/delivery log first (Developers → Webhooks → endpoint → Events) rather than `wrangler tail` — see below.
 
 ## Learned this session
 
-- **Stripe has replaced "Test mode" with "Sandboxes"** — not just a rename. A sandbox is a fully separate environment (own dashboard view, own Products/Prices/webhooks/API keys), not a toggle on the live account the way test mode used to be. Anything built/verified in a sandbox (Price IDs, webhook destinations, signing secrets) is invisible to the live account and vice versa — there's no shared namespace. Worth remembering for any future Stripe work: "which environment was this created in" is now a real, easy-to-get-wrong question with three-ish possible answers (a specific sandbox, or live), not two.
-- **A Stripe secret key that fails auth throws an uncaught exception all the way up through the Worker**, since `stripeRequest()` (`worker/stripe.ts:23`) has no try/catch around the `fetch` call's error path — it just throws `new Error(...)`, and nothing in `worker/index.ts`'s route handlers catches it either. The result is a raw Workers-runtime error response, not JSON — which is exactly why the frontend shows the generic fallback string instead of a real message. **This is a real gap worth fixing**: wrapping the route handlers (or at least `handleCreateCheckoutSession`/`handleCreatePortalSession`) in a try/catch that returns a proper `json({error: ...}, 500)` would make future Stripe-side failures actually debuggable from the browser instead of requiring `wrangler tail` every time. Not fixed this session — flagging as a real improvement, not just a one-off debugging need.
-- **`wrangler tail`'s reconnection behavior is noisy but not a problem** — during live debugging it logged several "Tail connection lost. Reconnecting..." cycles (including one explicit "did not respond to a keep-alive ping within 10000ms") with no missed events once reconnected. Don't mistake those warnings for a real issue; just let it reconnect.
-- **`npx wrangler secret list` only proves a secret's *name* exists, never its value.** Twice this session a secret was "set" (confirmed via `secret list`) but was actually wrong (first an invalid `mk_...` string, then a valid-but-wrong-environment live key). Don't treat `secret list` output as proof of correctness going forward — only as proof the variable name is wired up.
+- **`npx wrangler tail` does not work reliably in this sandboxed shell environment.** Tried twice, both as an unbackgrounded subshell (`(cmd &)`, which also silently dies between separate Bash tool calls since shell state doesn't persist) and properly via the Bash tool's `run_in_background: true`. Both times it printed `Successfully created tail... Connected to job-tracker, waiting for logs...` and then **never delivered a single event**, even against deliberately-triggered controlled requests (plain curls to `/api/create-checkout-session` and `/api/stripe-webhook`) sent seconds later. Root cause not investigated (likely the sandbox's networking doesn't support the long-lived duplex connection tail needs) — don't burn time on it again. **Use Stripe's own dashboard event/delivery log instead** (Developers → Webhooks → click the endpoint → Events tab) — it shows the exact HTTP status and, by clicking into an event, the raw request/response. This is what actually cracked both bugs this session, not live tailing.
+- **This Stripe account is on `billing_mode: "flexible"`**, a newer Stripe billing model where several fields (at minimum `current_period_end`) move from the Subscription object to the subscription item level. `worker/stripe.ts`'s `stripeRequest()` doesn't pin an API version (no `Stripe-Version` header), so it rides whatever the account's dashboard-configured default is — worth remembering if other "field went missing" bugs show up later; check the raw object in the dashboard rather than assuming the shape from Stripe's older docs/examples.
+- **Testing a real live-mode purchase for $0 via a 100%-off promotion code works well** and is now a repeatable pattern: `allow_promotion_codes: true` on the Checkout session, create a single-use 100%-off coupon+promo code in the dashboard, complete checkout with a real card (no charge), verify the webhook, then cancel the subscription via the Customer Portal (also exercises that path) and delete the coupon.
+- **`Object.entries` + `Array.isArray` gotcha worth remembering generally:** `typeof someArray === 'object'` is `true` for arrays too, so any hand-rolled type-branching helper (form encoders, deep-clone, deep-merge, JSON-ish serializers) needs an explicit `Array.isArray()` check *before* the generic object-branch, not as a `&&` qualifier on it — the original bug's `typeof value === 'object' && !Array.isArray(value)` pattern looks like it handles arrays but actually routes them to the wrong branch by omission.
 
 ## Open questions
 
-- Is the live-mode checkout failure the *same* root cause class as the two already fixed (a bad/mismatched key), or something new? Genuinely unknown — this is the first thing to resolve next session.
-- Are the four live Price IDs from `prices.csv` actually correct (right amounts, right currencies, right billing interval — especially that both "Quarterly" prices are really set to a 3-month interval and didn't silently default to monthly/yearly in the Stripe UI, a failure mode flagged as a real risk back when the sandbox Prices were first created)? Never independently re-verified after the live switch.
-- Once live checkout works, is there a plan for who does the first real end-to-end purchase (small live charge, presumably immediately refunded/canceled) versus leaving it fully unverified until an actual paying customer arrives? Not discussed.
+- None blocking. The paywall's core live path (Checkout → webhook → entitlement flip → Portal not yet re-verified this session, only Checkout+webhook were) is confirmed working.
+- Customer Portal ("Manage billing" in `AccountModal.tsx`) round-tripping a real cancellation was on the prior handoff's list and **still hasn't been explicitly re-verified** post-fix — the user has an active (free, promo-coded) test subscription live right now that would be the natural thing to cancel through it, closing that loop and cleaning up the test subscription in one action.
 
 ## Verify
 
 ```bash
-git log --oneline -3
-# expect: 1b43338 Switch Worker Price IDs..., 32e14d5 Build and ship..., 584c07c Rebrand display name...
+git log --oneline -5
+# expect: 4586b31 Fix live Stripe checkout..., then 3c4ea31/5f09bc9 (logo work, not this session), then 75284e6
 
 git status --short
 # expect: only extension/store-assets/ and final/ untracked, nothing else
 
-npx wrangler secret list
-# expect: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, SUPABASE_SERVICE_ROLE_KEY all present by name (does NOT prove values are correct -- see "Learned this session")
+npm test && npx tsc -b --noEmit && npx oxlint
+# expect: 216 tests passing, clean typecheck, only the two pre-existing react-hooks warnings in Board.tsx (~415/447)
 
 curl -s https://jobtracker.fazare.dev/api/currency
-# expect: {"currency":"eur"} or {"currency":"usd"} depending on request origin -- proves the Worker is deployed and routing
+# expect: {"currency":"eur"} or {"currency":"usd"} depending on request origin
 
-curl -s -X POST https://jobtracker.fazare.dev/api/create-checkout-session -d '{"plan":"monthly"}'
-# expect: {"error":"Not signed in"} -- proves auth-gating still works; does NOT exercise the actual bug, which only reproduces for a real signed-in user
-
-npm test && npx tsc -b --noEmit && npx oxlint
-# expect: 216 tests passing, clean typecheck, only the two pre-existing react-hooks warnings in Board.tsx (lines ~415/447, both pre-existing/documented, not regressions)
+npx wrangler deploy
+# expect: succeeds, Version ID changes -- current deployed version as of this handoff is 1e10d1ac-9b90-40cb-91a1-0c5992f06538
 ```
+
+To re-confirm the paywall itself still works without spending real money: repeat the 100%-off-promo-code flow described above (if the coupon from this session hasn't been deleted yet, and hasn't expired/been redeemed past its limit, it may still work — otherwise create a fresh one).
