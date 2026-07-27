@@ -13,7 +13,7 @@ import {
   FeedbackIcon,
   StarIcon,
 } from './icons'
-import { LogoMark } from './Logo'
+import { LogoMark, LogoFull } from './Logo'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
@@ -98,17 +98,21 @@ export function Sidebar({
         onClick={() => setExpanded((e) => !e)}
         aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
         aria-expanded={expanded}
-        className="flex items-center gap-3 w-full px-4 py-2 mb-1 rounded-md"
+        className="relative w-full h-9 px-4 py-2 mb-1 rounded-md"
       >
-        <span className="shrink-0 w-5 h-5 rounded-[5px] overflow-hidden">
+        <span
+          className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 rounded-[5px] overflow-hidden transition-opacity group-hover:opacity-0 ${
+            expanded ? '!opacity-0' : ''
+          }`}
+        >
           <LogoMark className="w-full h-full" />
         </span>
         <span
-          className={`text-sm font-semibold text-ink-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap ${
+          className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap ${
             expanded ? '!opacity-100' : ''
           }`}
         >
-          OfferTrail
+          <LogoFull className="h-full w-auto" />
         </span>
       </button>
       <NavItem

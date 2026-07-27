@@ -1,6 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 240 240">
-  <circle cx="120" cy="120" r="112" fill="#1c3a27"/>
-  <rect x="84" y="70" width="72" height="92" rx="10" fill="#fff"/>
-  <circle cx="150" cy="146" r="24" fill="#1fa04e"/>
-  <path d="M139 146l7 7 14-14" stroke="#fff" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-0.14 -1.14 1.28 1.28">
+  <title>OfferTrail</title>
+  <rect x="0" y="-1" width="1" height="1" rx="0.3" fill="#1fa04e"/>
+  <path transform="translate(0.2576,-0.23) scale(0.0008,-0.0008)" d="M317 -9Q279 -9 259.0 12.0Q239 33 239 71V577H62Q31 577 14.0 594.0Q-3 611 -3 641Q-3 672 14.0 688.5Q31 705 62 705H571Q602 705 619.0 688.5Q636 672 636 641Q636 611 619.0 594.0Q602 577 571 577H394V71Q394 33 374.5 12.0Q355 -9 317 -9Z" fill="#ffffff"/>
 </svg>
