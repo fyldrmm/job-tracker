@@ -40,7 +40,7 @@ import {
   consumePendingExtraction,
   type ExtensionHandoffPayload,
 } from '../lib/extensionHandoff'
-import { LogoMark } from './Logo'
+import { LogoMark, LogoOfferWord } from './Logo'
 import { Column } from './Column'
 import { SelectionToolbar } from './SelectionToolbar'
 import type { ContextMenuItem } from './ContextMenu'
@@ -981,7 +981,10 @@ export function Board() {
           <span className="shrink-0 w-6 h-6 rounded-[6px] overflow-hidden">
             <LogoMark className="w-full h-full" />
           </span>
-          <h1 className="text-lg font-semibold text-ink-800">OfferTrail</h1>
+          <h1 className="flex items-center text-ink-800">
+            <LogoOfferWord className="h-[18px] w-auto shrink-0" />
+            <span className="text-[21.4px] leading-none font-medium text-ink-600">Trail</span>
+          </h1>
           {pageTitle && (
             <span className="text-lg font-normal text-ink-300">
               / <span className="text-ink-500">{pageTitle}</span>
