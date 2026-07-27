@@ -12,6 +12,7 @@ import {
   BellIcon,
   FeedbackIcon,
   StarIcon,
+  NoteIcon,
 } from './icons'
 import { LogoMark, LogoFull } from './Logo'
 import { DONATION_URL } from '../lib/constants'
@@ -29,6 +30,7 @@ interface SidebarProps {
   onSignUp: () => void
   onLogIn: () => void
   onOpenFeedback: () => void
+  onOpenNewsletter: () => void
   remindersEnabled: boolean
   remindersBlocked: boolean
   onToggleReminders: () => void
@@ -38,12 +40,13 @@ interface NavItemProps {
   icon: ReactNode
   label: string
   badge?: number
+  tag?: string
   active?: boolean
   onClick: () => void
   expanded: boolean
 }
 
-function NavItem({ icon, label, badge, active, onClick, expanded }: NavItemProps) {
+function NavItem({ icon, label, badge, tag, active, onClick, expanded }: NavItemProps) {
   return (
     <button
       type="button"
@@ -63,6 +66,11 @@ function NavItem({ icon, label, badge, active, onClick, expanded }: NavItemProps
         {badge !== undefined && badge > 0 && (
           <span className="text-xs text-ink-400 font-normal">{badge}</span>
         )}
+        {tag && (
+          <span className="text-[10px] uppercase tracking-wide text-ink-500 bg-ink-200 rounded-full px-1.5 py-0.5 font-medium">
+            {tag}
+          </span>
+        )}
       </span>
     </button>
   )
@@ -81,6 +89,7 @@ export function Sidebar({
   onSignUp,
   onLogIn,
   onOpenFeedback,
+  onOpenNewsletter,
   remindersEnabled,
   remindersBlocked,
   onToggleReminders,
@@ -163,6 +172,13 @@ export function Sidebar({
         expanded={expanded}
       />
       <NavItem icon={<FeedbackIcon />} label="Feedback" onClick={onOpenFeedback} expanded={expanded} />
+      <NavItem
+        icon={<NoteIcon />}
+        label="AI CV Helper"
+        tag="Soon"
+        onClick={onOpenNewsletter}
+        expanded={expanded}
+      />
 
       <button
         type="button"

@@ -66,13 +66,22 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           from Account settings.
         </p>
 
+        <h3 className="font-medium text-ink-800 pt-2">Newsletter</h3>
+        <p>
+          If you opt in from the "AI CV Helper" sidebar item, your email address is added to our
+          newsletter list (managed by Resend) for occasional app updates and job-search content. This
+          is opt-in only — the consent checkbox is never pre-checked — and every newsletter email
+          includes an unsubscribe link. We don't use your email for anything else.
+        </p>
+
         <h3 className="font-medium text-ink-800 pt-2">Who else is involved</h3>
         <p>
           Running the app means a few other services handle your data on our behalf: Supabase
           (database and accounts), Anthropic (only the screenshots you submit for extraction, as
           above), Stripe (payment processing for Pro subscribers, as above), Resend (sends the
-          confirmation email when you request account deletion), and Cloudflare (hosting). We don't
-          share your data with anyone beyond what's needed to run these parts of the app.
+          confirmation email when you request account deletion, and manages the newsletter list if you
+          opt in, as above), and Cloudflare (hosting). We don't share your data with anyone beyond
+          what's needed to run these parts of the app.
         </p>
 
         <h3 className="font-medium text-ink-800 pt-2">Your controls</h3>

@@ -58,6 +58,7 @@ import { AccountNudgeBanner } from './AccountNudgeBanner'
 import { CheckoutReturnBanner } from './CheckoutReturnBanner'
 import { AccountModal } from './AccountModal'
 import { FeedbackModal } from './FeedbackModal'
+import { NewsletterModal } from './NewsletterModal'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
 import { TermsOfService } from './TermsOfService'
@@ -154,6 +155,7 @@ export function Board() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false)
+  const [newsletterModalOpen, setNewsletterModalOpen] = useState(false)
   const [undoState, setUndoState] = useState<{ ids: string[]; label: string } | null>(null)
   const undoTimerRef = useRef<number | null>(null)
   const [errorToast, setErrorToast] = useState<string | null>(null)
@@ -971,6 +973,7 @@ export function Board() {
         onSignUp={() => setAuthModalMode('sign-up')}
         onLogIn={() => setAuthModalMode('log-in')}
         onOpenFeedback={() => setFeedbackModalOpen(true)}
+        onOpenNewsletter={() => setNewsletterModalOpen(true)}
         remindersEnabled={remindersEnabled && notificationPermission === 'granted'}
         remindersBlocked={notificationPermission === 'denied'}
         onToggleReminders={handleToggleReminders}
@@ -1310,6 +1313,10 @@ export function Board() {
 
       {feedbackModalOpen && (
         <FeedbackModal userId={user?.id ?? null} onClose={() => setFeedbackModalOpen(false)} />
+      )}
+
+      {newsletterModalOpen && (
+        <NewsletterModal email={user?.email ?? ''} onClose={() => setNewsletterModalOpen(false)} />
       )}
 
       {deleteModalOpen && (
