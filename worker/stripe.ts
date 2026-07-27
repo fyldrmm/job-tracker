@@ -86,6 +86,7 @@ export interface StripeSubscription {
   id: string
   customer: string
   status: 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'unpaid' | 'paused'
+  cancel_at_period_end: boolean
   metadata: { user_id?: string }
   // current_period_end lives per-item, not on the subscription itself, under
   // Stripe's "flexible" billing_mode -- there is no reliable top-level field.

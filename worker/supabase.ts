@@ -34,6 +34,7 @@ interface SubscriptionRow {
   plan: 'monthly' | 'quarterly' | 'none'
   currency: 'usd' | 'eur' | 'none'
   current_period_end: string
+  cancel_at_period_end: boolean
 }
 
 // service-role key bypasses RLS -- this is the only writer to `subscriptions`

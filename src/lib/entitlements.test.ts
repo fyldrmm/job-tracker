@@ -74,6 +74,7 @@ describe('getSubscriptionSummary', () => {
       plan: 'none',
       currency: 'none',
       currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
     })
   })
 
@@ -85,6 +86,7 @@ describe('getSubscriptionSummary', () => {
       plan: 'quarterly',
       currency: 'eur',
       current_period_end: future,
+      cancel_at_period_end: false,
     })
     expect(summary).toEqual({
       isPro: true,
@@ -92,12 +94,34 @@ describe('getSubscriptionSummary', () => {
       plan: 'quarterly',
       currency: 'eur',
       currentPeriodEnd: future,
+      cancelAtPeriodEnd: false,
     })
   })
 
   it('reports isCompAccount separately from isPro so the UI can show "Unlimited (team account)"', async () => {
-    const summary = await summaryWith({ is_comp_account: true, status: 'none', plan: 'none', currency: 'none', current_period_end: null })
+    const summary = await summaryWith({
+      is_comp_account: true,
+      status: 'none',
+      plan: 'none',
+      currency: 'none',
+      current_period_end: null,
+      cancel_at_period_end: false,
+    })
     expect(summary.isPro).toBe(true)
     expect(summary.isCompAccount).toBe(true)
+  })
+
+  it('passes through cancel_at_period_end so the UI can distinguish "will cancel" from "renews normally"', async () => {
+    const future = new Date(Date.now() + 86_400_000).toISOString()
+    const summary = await summaryWith({
+      is_comp_account: false,
+      status: 'active',
+      plan: 'monthly',
+      currency: 'usd',
+      current_period_end: future,
+      cancel_at_period_end: true,
+    })
+    expect(summary.isPro).toBe(true)
+    expect(summary.cancelAtPeriodEnd).toBe(true)
   })
 })

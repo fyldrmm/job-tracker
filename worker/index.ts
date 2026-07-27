@@ -115,6 +115,7 @@ async function syncSubscriptionRow(env: Env, subscription: StripeSubscription, u
     plan,
     currency,
     current_period_end: new Date(item.current_period_end * 1000).toISOString(),
+    cancel_at_period_end: subscription.cancel_at_period_end,
   })
 }
 
@@ -149,6 +150,7 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
           plan: 'none',
           currency: 'none',
           current_period_end: new Date(subscription.items.data[0].current_period_end * 1000).toISOString(),
+          cancel_at_period_end: false,
         })
       }
     }

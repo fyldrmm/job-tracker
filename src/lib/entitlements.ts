@@ -22,6 +22,7 @@ export interface SubscriptionSummary {
   plan: 'monthly' | 'quarterly' | 'none'
   currency: 'usd' | 'eur' | 'none'
   currentPeriodEnd: string | null
+  cancelAtPeriodEnd: boolean
 }
 
 // No subscription row (guest, or a signed-in user who's never subscribed)
@@ -33,6 +34,7 @@ export const FREE_SUBSCRIPTION: SubscriptionSummary = {
   plan: 'none',
   currency: 'none',
   currentPeriodEnd: null,
+  cancelAtPeriodEnd: false,
 }
 
 // The real entitlement check (monetization-mvp-brief.md §5), used by the
@@ -42,7 +44,7 @@ export const FREE_SUBSCRIPTION: SubscriptionSummary = {
 export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
   const { data, error } = await supabase
     .from('subscriptions')
-    .select('is_comp_account, status, plan, currency, current_period_end')
+    .select('is_comp_account, status, plan, currency, current_period_end, cancel_at_period_end')
     .maybeSingle()
 
   if (error || !data) return FREE_SUBSCRIPTION
@@ -56,6 +58,7 @@ export async function getSubscriptionSummary(): Promise<SubscriptionSummary> {
     plan: data.plan,
     currency: data.currency,
     currentPeriodEnd: data.current_period_end,
+    cancelAtPeriodEnd: data.cancel_at_period_end,
   }
 }
 

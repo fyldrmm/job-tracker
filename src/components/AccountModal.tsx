@@ -155,7 +155,10 @@ export function AccountModal({
             <>
               <p className="mt-1 text-sm text-ink-600">
                 Pro {subscription.plan === 'quarterly' ? 'quarterly' : 'monthly'}
-                {subscription.currentPeriodEnd && ` — renews ${formatDateOnly(subscription.currentPeriodEnd)}`}
+                {subscription.currentPeriodEnd &&
+                  (subscription.cancelAtPeriodEnd
+                    ? ` — cancels ${formatDateOnly(subscription.currentPeriodEnd)}`
+                    : ` — renews ${formatDateOnly(subscription.currentPeriodEnd)}`)}
               </p>
               <button
                 type="button"
