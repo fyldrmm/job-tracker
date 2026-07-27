@@ -100,7 +100,8 @@ async function handleCreatePortalSession(request: Request, env: Env): Promise<Re
 }
 
 async function syncSubscriptionRow(env: Env, subscription: StripeSubscription, userId: string): Promise<void> {
-  const priceId = subscription.items.data[0]?.price.id
+  const item = subscription.items.data[0]
+  const priceId = item?.price.id
   const { plan, currency } = priceId ? planAndCurrencyForPriceId(env, priceId) : { plan: 'none' as const, currency: 'none' as const }
 
   await upsertSubscription(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
@@ -113,7 +114,7 @@ async function syncSubscriptionRow(env: Env, subscription: StripeSubscription, u
     status: subscription.status === 'active' || subscription.status === 'canceled' || subscription.status === 'past_due' ? subscription.status : 'none',
     plan,
     currency,
-    current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+    current_period_end: new Date(item.current_period_end * 1000).toISOString(),
   })
 }
 
@@ -126,29 +127,36 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
 
   const event = JSON.parse(payload) as { type: string; data: { object: Record<string, unknown> } }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object as { subscription: string; metadata?: { user_id?: string } }
-    const subscription = await retrieveSubscription(env.STRIPE_SECRET_KEY, session.subscription)
-    const userId = subscription.metadata.user_id
-    if (userId) await syncSubscriptionRow(env, subscription, userId)
-  } else if (event.type === 'customer.subscription.updated') {
-    const subscription = event.data.object as unknown as StripeSubscription
-    const userId = subscription.metadata.user_id ?? (await findUserIdByStripeCustomerId(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, subscription.customer))
-    if (userId) await syncSubscriptionRow(env, subscription, userId)
-  } else if (event.type === 'customer.subscription.deleted') {
-    const subscription = event.data.object as unknown as StripeSubscription
-    const userId = subscription.metadata.user_id ?? (await findUserIdByStripeCustomerId(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, subscription.customer))
-    if (userId) {
-      await upsertSubscription(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-        user_id: userId,
-        stripe_customer_id: subscription.customer,
-        stripe_subscription_id: subscription.id,
-        status: 'canceled',
-        plan: 'none',
-        currency: 'none',
-        current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      })
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as { subscription: string; metadata?: { user_id?: string } }
+      const subscription = await retrieveSubscription(env.STRIPE_SECRET_KEY, session.subscription)
+      const userId = subscription.metadata.user_id
+      if (userId) await syncSubscriptionRow(env, subscription, userId)
+    } else if (event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object as unknown as StripeSubscription
+      const userId = subscription.metadata.user_id ?? (await findUserIdByStripeCustomerId(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, subscription.customer))
+      if (userId) await syncSubscriptionRow(env, subscription, userId)
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object as unknown as StripeSubscription
+      const userId = subscription.metadata.user_id ?? (await findUserIdByStripeCustomerId(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, subscription.customer))
+      if (userId) {
+        await upsertSubscription(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+          user_id: userId,
+          stripe_customer_id: subscription.customer,
+          stripe_subscription_id: subscription.id,
+          status: 'canceled',
+          plan: 'none',
+          currency: 'none',
+          current_period_end: new Date(subscription.items.data[0].current_period_end * 1000).toISOString(),
+        })
+      }
     }
+  } catch (err) {
+    // Stripe retries on any non-2xx, and a bare uncaught exception here
+    // previously surfaced as an opaque 500 with no body in Stripe's webhook
+    // logs -- return real JSON so failures are diagnosable from the dashboard.
+    return json({ error: err instanceof Error ? err.message : String(err) }, 500)
   }
 
   return json({ received: true })

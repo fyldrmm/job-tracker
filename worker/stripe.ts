@@ -11,7 +11,16 @@ function formEncode(params: Record<string, unknown>, prefix = ''): string[] {
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === null) continue
     const fullKey = prefix ? `${prefix}[${key}]` : key
-    if (typeof value === 'object' && !Array.isArray(value)) {
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => {
+        const indexedKey = `${fullKey}[${index}]`
+        if (typeof item === 'object' && item !== null) {
+          pairs.push(...formEncode(item as Record<string, unknown>, indexedKey))
+        } else {
+          pairs.push(`${encodeURIComponent(indexedKey)}=${encodeURIComponent(String(item))}`)
+        }
+      })
+    } else if (typeof value === 'object') {
       pairs.push(...formEncode(value as Record<string, unknown>, fullKey))
     } else {
       pairs.push(`${encodeURIComponent(fullKey)}=${encodeURIComponent(String(value))}`)
@@ -58,6 +67,7 @@ export function createCheckoutSession(
     subscription_data: { metadata: { user_id: params.userId } },
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
+    allow_promotion_codes: true,
   }) as Promise<{ url: string }>
 }
 
@@ -76,9 +86,10 @@ export interface StripeSubscription {
   id: string
   customer: string
   status: 'active' | 'past_due' | 'canceled' | 'incomplete' | 'incomplete_expired' | 'trialing' | 'unpaid' | 'paused'
-  current_period_end: number
   metadata: { user_id?: string }
-  items: { data: Array<{ price: { id: string } }> }
+  // current_period_end lives per-item, not on the subscription itself, under
+  // Stripe's "flexible" billing_mode -- there is no reliable top-level field.
+  items: { data: Array<{ price: { id: string }; current_period_end: number }> }
 }
 
 // Stripe signs webhook payloads as `t=<timestamp>,v1=<hex hmac>` in the
