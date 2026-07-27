@@ -40,11 +40,15 @@ vi.mock('../lib/supabase', () => ({
     // comments). That's enough to render a signed-in board without
     // stubbing the full remoteStore surface. Every remote WRITE (used by
     // migrateGuestDataToAccount) succeeds, so migration can actually run.
+    // maybeSingle() covers useEntitlement's getSubscriptionSummary() query
+    // shape too (no .eq() in that chain -- it relies on RLS); Board falls
+    // back to the free tier, same fail-closed behavior as everything else.
     from: () => ({
       select: () => ({
         eq: () => ({
           order: () => Promise.resolve({ data: null, error: new Error('mocked: no network in tests') }),
         }),
+        maybeSingle: () => Promise.resolve({ data: null, error: new Error('mocked: no network in tests') }),
       }),
       upsert: () => Promise.resolve({ error: null }),
     }),

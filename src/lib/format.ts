@@ -19,3 +19,11 @@ export function formatDateTime(iso: string): string {
   const ampm = hour24 >= 12 ? 'PM' : 'AM'
   return `${month} ${day}, ${hour12}:${minutes} ${ampm}`
 }
+
+// Date-only sibling of formatDateTime, for subscriptions.current_period_end
+// (account settings' "renews on" display) -- same manual-formatting
+// rationale (deterministic, no toLocaleString locale variance).
+export function formatDateOnly(iso: string): string {
+  const d = new Date(iso)
+  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
+}

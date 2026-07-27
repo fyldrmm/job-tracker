@@ -17,7 +17,9 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
         <h2 className="text-lg font-medium text-ink-800">Privacy policy</h2>
 
         <p>
-          OfferTrail is a free tool for tracking job applications. This page explains
+          OfferTrail is a free tool for tracking job applications, with an optional paid Pro plan for
+          heavier AI-extraction use and power-user exports — the core board, manual entry, archive,
+          interview tracking, and calendar export stay free forever regardless. This page explains
           what data we store and how you control it.
         </p>
 
@@ -42,7 +44,7 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           to Anthropic's API so the job details can be read out of it and used to pre-fill the form.
           This only happens when you explicitly choose a screenshot — nothing is sent otherwise. We
           don't store the screenshot itself; we record only the time of each extraction and how many
-          tokens it used, so we can enforce the monthly free limit.
+          tokens it used, so we can enforce your monthly limit (5/month free, 500/month on Pro).
         </p>
 
         <h3 className="font-medium text-ink-800 pt-2">Browser extension</h3>
@@ -55,13 +57,22 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           it used.
         </p>
 
+        <h3 className="font-medium text-ink-800 pt-2">Billing</h3>
+        <p>
+          If you subscribe to Pro, payment is processed by Stripe — we never see or store your card
+          details. We store your subscription's plan, status, and renewal date so the app can unlock
+          Pro features for your account; that's the only billing data we hold. You can review your
+          plan and manage or cancel your subscription (via Stripe's own billing portal) at any time
+          from Account settings.
+        </p>
+
         <h3 className="font-medium text-ink-800 pt-2">Who else is involved</h3>
         <p>
           Running the app means a few other services handle your data on our behalf: Supabase
           (database and accounts), Anthropic (only the screenshots you submit for extraction, as
-          above), Resend (sends the confirmation email when you request account deletion), and
-          Cloudflare (hosting). We don't share your data with anyone beyond what's needed to run
-          these parts of the app.
+          above), Stripe (payment processing for Pro subscribers, as above), Resend (sends the
+          confirmation email when you request account deletion), and Cloudflare (hosting). We don't
+          share your data with anyone beyond what's needed to run these parts of the app.
         </p>
 
         <h3 className="font-medium text-ink-800 pt-2">Your controls</h3>

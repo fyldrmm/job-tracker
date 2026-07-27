@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import type { Application, ApplicationStage, EmploymentType, WorkMode } from '../types/application'
 import type { ApplicationInput } from '../hooks/useApplications'
 import { extractJobDetails, getExtractionUsageThisMonth, type ExtractedJobFields } from '../lib/remoteStore'
-import { PER_USER_MONTHLY_LIMIT } from '../lib/extraction'
+import { PER_USER_MONTHLY_LIMIT, PRO_MONTHLY_LIMIT } from '../lib/extraction'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 
@@ -10,6 +10,8 @@ interface ApplicationFormProps {
   initial: Application | null
   defaultStage: ApplicationStage
   userId: string | null
+  isPro: boolean
+  onUpgradeRequest: () => void
   onSubmit: (input: ApplicationInput) => Promise<void>
   onRequestSignUp: () => void
   onClose: () => void
@@ -34,12 +36,15 @@ export function ApplicationForm({
   initial,
   defaultStage,
   userId,
+  isPro,
+  onUpgradeRequest,
   onSubmit,
   onRequestSignUp,
   onClose,
   prefill,
 }: ApplicationFormProps) {
   const isSignedIn = userId !== null
+  const extractionLimit = isPro ? PRO_MONTHLY_LIMIT : PER_USER_MONTHLY_LIMIT
   const [company, setCompany] = useState(initial?.company ?? prefill?.company ?? '')
   const [roleTitle, setRoleTitle] = useState(initial?.role_title ?? prefill?.role_title ?? '')
   const [dateApplied, setDateApplied] = useState(initial?.date_applied ?? today())
@@ -72,7 +77,7 @@ export function ApplicationForm({
     let cancelled = false
     getExtractionUsageThisMonth(userId)
       .then((used) => {
-        if (!cancelled) setExtractionsLeft(Math.max(0, PER_USER_MONTHLY_LIMIT - used))
+        if (!cancelled) setExtractionsLeft(Math.max(0, extractionLimit - used))
       })
       .catch(() => {
         /* leave the counter hidden on failure */
@@ -80,7 +85,7 @@ export function ApplicationForm({
     return () => {
       cancelled = true
     }
-  }, [isEdit, userId])
+  }, [isEdit, userId, extractionLimit])
 
   async function handleScreenshotSelected(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -178,8 +183,23 @@ export function ApplicationForm({
               {extractionsLeft !== null && (
                 <p className="mt-1 text-xs text-ink-400">
                   {extractionsLeft === 0
-                    ? "You've used all your free AI extractions this month."
-                    : `${extractionsLeft} of ${PER_USER_MONTHLY_LIMIT} free AI extractions left this month.`}
+                    ? isPro
+                      ? "You've used all your Pro AI extractions this month."
+                      : "You've used all your free AI extractions this month."
+                    : `${extractionsLeft} of ${extractionLimit} ${isPro ? '' : 'free '}AI extractions left this month.`}
+                  {extractionsLeft === 0 && !isPro && (
+                    <>
+                      {' '}
+                      <button
+                        type="button"
+                        onClick={onUpgradeRequest}
+                        className="font-medium underline hover:no-underline"
+                      >
+                        Upgrade to Pro
+                      </button>{' '}
+                      for {PRO_MONTHLY_LIMIT}/month.
+                    </>
+                  )}
                 </p>
               )}
               {extractError && <p className="mt-1 text-sm text-red-600">{extractError}</p>}

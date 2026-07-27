@@ -58,12 +58,16 @@ vi.mock('../lib/supabase', () => ({
     // Every remote table read fails -- useApplications/useTrackers fall
     // back to the local IndexedDB cache by design. Writes succeed, so
     // tracker creation (the extraction handoff's "ensure a tracker exists"
-    // step) actually goes through.
+    // step) actually goes through. maybeSingle() covers the same failure
+    // for useEntitlement's getSubscriptionSummary() query shape (no .eq()
+    // in that chain -- it relies on RLS) -- Board falls back to the free
+    // tier, same fail-closed behavior as everything else here.
     from: () => ({
       select: () => ({
         eq: () => ({
           order: () => Promise.resolve({ data: null, error: new Error('mocked: no network in tests') }),
         }),
+        maybeSingle: () => Promise.resolve({ data: null, error: new Error('mocked: no network in tests') }),
       }),
       upsert: () => Promise.resolve({ error: null }),
     }),

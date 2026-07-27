@@ -11,17 +11,20 @@ import {
   CoffeeIcon,
   BellIcon,
   FeedbackIcon,
+  StarIcon,
 } from './icons'
 import { LogoMark } from './Logo'
 import { DONATION_URL } from '../lib/constants'
 
 interface SidebarProps {
-  view: 'board' | 'archive' | 'table' | 'insights' | 'privacy'
+  view: 'board' | 'archive' | 'table' | 'insights' | 'privacy' | 'pricing' | 'terms'
   onNavigate: (view: 'board' | 'archive' | 'table' | 'insights') => void
   archivedCount: number
   isSignedIn: boolean
   displayName: string
+  isPro: boolean
   onOpenAccount: () => void
+  onOpenPricing: () => void
   onSignOut: () => void
   onSignUp: () => void
   onLogIn: () => void
@@ -71,7 +74,9 @@ export function Sidebar({
   archivedCount,
   isSignedIn,
   displayName,
+  isPro,
   onOpenAccount,
+  onOpenPricing,
   onSignOut,
   onSignUp,
   onLogIn,
@@ -133,6 +138,13 @@ export function Sidebar({
         label="Insights"
         active={view === 'insights'}
         onClick={() => onNavigate('insights')}
+        expanded={expanded}
+      />
+      <NavItem
+        icon={<StarIcon />}
+        label={isPro ? 'Pro' : 'Upgrade to Pro'}
+        active={view === 'pricing'}
+        onClick={onOpenPricing}
         expanded={expanded}
       />
 

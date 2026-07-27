@@ -7,7 +7,9 @@
 // constants below rather than a settings table; revisit only if they need to
 // change without a redeploy.
 //
-// PER_USER_MONTHLY_LIMIT is the free-tier ceiling per account.
+// PER_USER_MONTHLY_LIMIT is the free-tier ceiling per account; PRO_MONTHLY_LIMIT
+// (monetization-mvp-brief.md §5) applies instead for an active Pro subscriber
+// or comp account, looked up from `subscriptions` right before reserving.
 // GLOBAL_MONTHLY_LIMIT bounds total spend across all users; at Haiku rates
 // (~0.4c/extraction) 5,000/month is roughly $20. During initial testing the
 // Anthropic account only has a small prepaid balance with auto-reload OFF,
@@ -31,7 +33,12 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const PER_USER_MONTHLY_LIMIT = 20
+const PER_USER_MONTHLY_LIMIT = 5
+// Pro tier's cap (monetization-mvp-brief.md §5) -- flat 500/month regardless
+// of monthly vs. quarterly plan; does not pool into 1,500 for a quarterly
+// subscriber. Comp accounts (is_comp_account) also get this cap, not an
+// unlimited bypass -- still a real, if generous, ceiling on Anthropic spend.
+const PRO_MONTHLY_LIMIT = 500
 const GLOBAL_MONTHLY_LIMIT = 5000
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 // Bounds worst-case input-token spend for the text path (browser-extension
@@ -46,7 +53,7 @@ const MAX_TEXT_CHARS = 8000
 // CLI link, so nothing else can tell you which build is actually live
 // (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
 // Caveat: this only detects drift if it actually gets bumped.
-const FUNCTION_VERSION = 'extract-job-details@2026-07-23.1'
+const FUNCTION_VERSION = 'extract-job-details@2026-07-26.1'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -177,11 +184,31 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Not authenticated' }, 401)
   }
 
+  // Tier-aware cap (monetization-mvp-brief.md §5): a missing row, a query
+  // error, or a lapsed/non-active status all fall through to the free
+  // limit -- mirrors src/lib/entitlements.ts's getSubscriptionSummary()
+  // fail-closed behavior. The two can't share code (this runs on Deno
+  // Deploy, the frontend on Vite/Cloudflare), so keep this in sync by hand
+  // if that logic ever changes.
+  const { data: subscription } = await admin
+    .from('subscriptions')
+    .select('is_comp_account, status, current_period_end')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  const isPro =
+    !!subscription?.is_comp_account ||
+    (subscription?.status === 'active' &&
+      subscription?.current_period_end !== null &&
+      new Date(subscription?.current_period_end ?? 0) > new Date())
+
+  const perUserLimit = isPro ? PRO_MONTHLY_LIMIT : PER_USER_MONTHLY_LIMIT
+
   const monthStart = startOfCurrentMonthUtc()
 
   const { data: reservation, error: reserveError } = await admin.rpc('reserve_extraction', {
     p_user_id: user.id,
-    p_per_user_limit: PER_USER_MONTHLY_LIMIT,
+    p_per_user_limit: perUserLimit,
     p_global_limit: GLOBAL_MONTHLY_LIMIT,
     p_month_start: monthStart,
   })
@@ -190,7 +217,14 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Failed to check extraction quota' }, 500)
   }
   if (reservation.status === 'per_user') {
-    return jsonResponse({ error: `You've used your ${PER_USER_MONTHLY_LIMIT} free AI extractions this month.` }, 429)
+    return jsonResponse(
+      {
+        error: isPro
+          ? `You've used your ${perUserLimit} AI extractions this month.`
+          : `You've used your ${perUserLimit} free AI extractions this month. Upgrade to Pro for ${PRO_MONTHLY_LIMIT}/month.`,
+      },
+      429,
+    )
   }
   if (reservation.status === 'global') {
     return jsonResponse(

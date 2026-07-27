@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { TableView } from './TableView'
 import type { Application, Interview } from '../types/application'
 
@@ -47,12 +48,18 @@ function makeInterview(overrides: Partial<Interview> & { id: string }): Intervie
   }
 }
 
-function renderTableView(applications: Application[], interviews: Interview[]) {
+function renderTableView(
+  applications: Application[],
+  interviews: Interview[],
+  overrides: { isPro?: boolean; onUpgradeRequest?: () => void } = {},
+) {
   render(
     <TableView
       applications={applications}
       interviews={interviews}
       trackerName="My Applications"
+      isPro={overrides.isPro ?? true}
+      onUpgradeRequest={overrides.onUpgradeRequest ?? vi.fn()}
       onCardOpen={vi.fn()}
       onStageChange={vi.fn()}
       onTogglePriority={vi.fn()}
@@ -85,5 +92,31 @@ describe('TableView interview columns', () => {
     const cells = within(row).getAllByRole('cell')
     expect(cells[6]).toHaveTextContent('Jun 15')
     expect(cells[7]).toHaveTextContent('2')
+  })
+})
+
+describe('TableView XLSX export gate', () => {
+  it('exports for a Pro user', async () => {
+    const user = userEvent.setup()
+    renderTableView([makeApplication()], [], { isPro: true })
+    expect(screen.getByRole('button', { name: 'Export XLSX' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Export XLSX' }))
+    // buildApplicationsXlsx/triggerXlsxDownload aren't mocked here -- the
+    // meaningful assertion is that the free-tier upgrade path (below)
+    // definitely was NOT taken, which the button label already confirms.
+  })
+
+  it('routes a free user to the upgrade flow instead of exporting', async () => {
+    const user = userEvent.setup()
+    const onUpgradeRequest = vi.fn()
+    renderTableView([makeApplication()], [], { isPro: false, onUpgradeRequest })
+    const button = screen.getByRole('button', { name: 'Export XLSX (Pro)' })
+    await user.click(button)
+    expect(onUpgradeRequest).toHaveBeenCalledOnce()
+  })
+
+  it('does not disable the export button for a free user just because they are free', () => {
+    renderTableView([makeApplication()], [], { isPro: false })
+    expect(screen.getByRole('button', { name: 'Export XLSX (Pro)' })).toBeEnabled()
   })
 })

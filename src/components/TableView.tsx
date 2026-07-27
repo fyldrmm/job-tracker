@@ -18,6 +18,8 @@ interface TableViewProps {
   applications: Application[]
   interviews: Interview[]
   trackerName: string
+  isPro: boolean
+  onUpgradeRequest: () => void
   onCardOpen: (application: Application) => void
   onStageChange: (application: Application, stage: ApplicationStage) => void
   onTogglePriority: (application: Application) => void
@@ -64,6 +66,8 @@ export function TableView({
   applications,
   interviews,
   trackerName,
+  isPro,
+  onUpgradeRequest,
   onCardOpen,
   onStageChange,
   onTogglePriority,
@@ -209,7 +213,15 @@ export function TableView({
     ]
   }
 
+  // Pro-gated (monetization-mvp-brief.md §2) -- a free user clicking this
+  // is routed to the pricing page instead of getting a file, same as the
+  // CSV export in InsightsView. Free JSON export (AccountModal) is the
+  // portability guarantee and stays ungated.
   async function handleExportXlsx() {
+    if (!isPro) {
+      onUpgradeRequest()
+      return
+    }
     setExporting(true)
     try {
       const buffer = await buildApplicationsXlsx(sorted, interviews)
@@ -255,9 +267,10 @@ export function TableView({
             type="button"
             onClick={handleExportXlsx}
             disabled={sorted.length === 0 || exporting}
+            title={isPro ? undefined : 'Export XLSX is a Pro feature'}
             className="ml-auto px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {exporting ? 'Exporting…' : 'Export XLSX'}
+            {exporting ? 'Exporting…' : isPro ? 'Export XLSX' : 'Export XLSX (Pro)'}
           </button>
         </div>
       )}

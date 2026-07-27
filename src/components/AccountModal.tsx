@@ -1,13 +1,18 @@
 import { useState, type FormEvent } from 'react'
 import { useModalDismiss } from '../hooks/useModalDismiss'
+import { createPortalSession } from '../lib/billing'
+import { formatDateOnly } from '../lib/format'
+import type { SubscriptionSummary } from '../lib/entitlements'
 
 interface AccountModalProps {
   name: string
   email: string
+  subscription: SubscriptionSummary
   onUpdateName: (name: string) => Promise<void>
   onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>
   onExport: () => void
   onOpenDeleteAccount: () => void
+  onOpenPricing: () => void
   onSignOut: () => void
   onClose: () => void
 }
@@ -15,10 +20,12 @@ interface AccountModalProps {
 export function AccountModal({
   name,
   email,
+  subscription,
   onUpdateName,
   onChangePassword,
   onExport,
   onOpenDeleteAccount,
+  onOpenPricing,
   onSignOut,
   onClose,
 }: AccountModalProps) {
@@ -33,11 +40,26 @@ export function AccountModal({
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSaved, setPasswordSaved] = useState(false)
+
+  const [billingLoading, setBillingLoading] = useState(false)
+  const [billingError, setBillingError] = useState<string | null>(null)
   // Escape only, no backdrop-click-to-close -- avoids discarding a
   // half-typed name/password change on a stray click.
   useModalDismiss(onClose)
 
   const nameChanged = nameValue.trim().length > 0 && nameValue.trim() !== name
+
+  async function handleManageBilling() {
+    setBillingLoading(true)
+    setBillingError(null)
+    try {
+      const url = await createPortalSession()
+      window.location.href = url
+    } catch (err) {
+      setBillingError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setBillingLoading(false)
+    }
+  }
 
   async function handleSaveName() {
     setNameSubmitting(true)
@@ -123,6 +145,40 @@ export function AccountModal({
           <p className="mt-1 px-3 py-2 text-sm text-ink-500 bg-ink-50 rounded-md border border-ink-200">
             {email}
           </p>
+        </div>
+
+        <div className="pt-3 border-t border-ink-200">
+          <label className="block text-sm font-medium text-ink-700">Plan</label>
+          {subscription.isCompAccount ? (
+            <p className="mt-1 text-sm text-ink-600">Unlimited (team account)</p>
+          ) : subscription.isPro ? (
+            <>
+              <p className="mt-1 text-sm text-ink-600">
+                Pro {subscription.plan === 'quarterly' ? 'quarterly' : 'monthly'}
+                {subscription.currentPeriodEnd && ` — renews ${formatDateOnly(subscription.currentPeriodEnd)}`}
+              </p>
+              <button
+                type="button"
+                onClick={handleManageBilling}
+                disabled={billingLoading}
+                className="mt-1 text-sm font-medium text-ink-600 underline hover:no-underline disabled:opacity-50"
+              >
+                {billingLoading ? 'Opening billing…' : 'Manage billing'}
+              </button>
+              {billingError && <p className="mt-1 text-sm text-rose-600">{billingError}</p>}
+            </>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-ink-600">Free</p>
+              <button
+                type="button"
+                onClick={onOpenPricing}
+                className="mt-1 text-sm font-medium text-ink-600 underline hover:no-underline"
+              >
+                Upgrade to Pro
+              </button>
+            </>
+          )}
         </div>
 
         <form onSubmit={handleChangePassword} className="space-y-2 pt-3 border-t border-ink-200">

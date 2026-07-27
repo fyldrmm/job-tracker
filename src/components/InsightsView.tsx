@@ -41,6 +41,8 @@ interface InsightsViewProps {
   interviews: Interview[]
   stageHistory: StageHistoryEntry[]
   trackers: Tracker[]
+  isPro: boolean
+  onUpgradeRequest: () => void
 }
 
 // Fixed hue order (categorical identity, never cycled or reassigned by
@@ -90,7 +92,7 @@ function ChartCard({ title, empty, children }: { title: string; empty?: string; 
 
 const tooltipStyle = { fontSize: 13, borderRadius: 6, borderColor: '#cdd7cf' }
 
-export function InsightsView({ applications, interviews, stageHistory, trackers }: InsightsViewProps) {
+export function InsightsView({ applications, interviews, stageHistory, trackers, isPro, onUpgradeRequest }: InsightsViewProps) {
   const [scope, setScope] = useState<InsightsScope>('global')
 
   const scoped = useMemo(() => filterApplicationsForScope(applications, scope), [applications, scope])
@@ -121,7 +123,14 @@ export function InsightsView({ applications, interviews, stageHistory, trackers 
   const scopeSlug =
     scope === 'global' ? 'all-trackers' : (trackers.find((t) => t.id === scope)?.name ?? scope).toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
+  // Pro-gated (monetization-mvp-brief.md §2), same pattern as TableView's
+  // XLSX export -- a free user is routed to the pricing page instead of
+  // getting a file.
   const handleExportCsv = () => {
+    if (!isPro) {
+      onUpgradeRequest()
+      return
+    }
     const csv = buildApplicationsCsv(scoped, trackers, interviews)
     const date = new Date().toISOString().slice(0, 10)
     triggerCsvDownload(`jobtracker-${scopeSlug}-${date}.csv`, csv)
@@ -136,9 +145,10 @@ export function InsightsView({ applications, interviews, stageHistory, trackers 
             type="button"
             onClick={handleExportCsv}
             disabled={scoped.length === 0}
+            title={isPro ? undefined : 'Export CSV is a Pro feature'}
             className="text-sm px-3 py-1 rounded-md border border-ink-300 text-ink-700 hover:bg-ink-50 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Export CSV
+            {isPro ? 'Export CSV' : 'Export CSV (Pro)'}
           </button>
           <label className="flex items-center gap-1.5 text-sm text-ink-600">
             Tracker

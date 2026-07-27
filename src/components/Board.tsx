@@ -15,6 +15,7 @@ import { useApplications, type ApplicationInput } from '../hooks/useApplications
 import { useTrackers } from '../hooks/useTrackers'
 import { useStageHistory } from '../hooks/useStageHistory'
 import { useInterviews, type InterviewInput } from '../hooks/useInterviews'
+import { useEntitlement } from '../hooks/useEntitlement'
 import { nextUpcomingInterview } from '../lib/interviews'
 import { canScheduleInterviews } from '../lib/entitlements'
 import { useAuth } from '../hooks/useAuth'
@@ -54,10 +55,13 @@ import { ErrorToast } from './ErrorToast'
 import { AuthModal } from './AuthModal'
 import { SetNewPasswordModal } from './SetNewPasswordModal'
 import { AccountNudgeBanner } from './AccountNudgeBanner'
+import { CheckoutReturnBanner } from './CheckoutReturnBanner'
 import { AccountModal } from './AccountModal'
 import { FeedbackModal } from './FeedbackModal'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
+import { TermsOfService } from './TermsOfService'
+import { PricingPage } from './PricingPage'
 import { Sidebar } from './Sidebar'
 import { TrackerTabs } from './TrackerTabs'
 import { DeleteTrackerModal } from './DeleteTrackerModal'
@@ -72,7 +76,14 @@ type FormState =
   | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
   | { mode: 'edit'; application: Application }
   | null
-type View = 'board' | 'archive' | 'table' | 'insights' | 'privacy'
+type View = 'board' | 'archive' | 'table' | 'insights' | 'privacy' | 'pricing' | 'terms'
+
+function viewForPathname(pathname: string): View {
+  if (pathname === '/privacy') return 'privacy'
+  if (pathname === '/pricing') return 'pricing'
+  if (pathname === '/terms') return 'terms'
+  return 'board'
+}
 
 const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
@@ -104,6 +115,7 @@ export function Board() {
   } = useTrackers(user?.id ?? null)
   const { stageHistory, refresh: refreshStageHistory } = useStageHistory(user?.id ?? null)
   const { interviews, scheduleInterview, updateInterview, removeInterview } = useInterviews(user?.id ?? null)
+  const subscription = useEntitlement(user?.id ?? null)
   const [activeTrackerId, setActiveTrackerId] = useState<string | null>(null)
   const [deleteTrackerTarget, setDeleteTrackerTarget] = useState<Tracker | null>(null)
   const [deleteApplicationTargets, setDeleteApplicationTargets] = useState<Application[] | null>(null)
@@ -130,9 +142,15 @@ export function Board() {
     setDetailApplicationId(application?.id ?? null)
   }
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [view, setView] = useState<View>(() =>
-    window.location.pathname === '/privacy' ? 'privacy' : 'board',
-  )
+  const [view, setView] = useState<View>(() => viewForPathname(window.location.pathname))
+  // Read from the URL exactly once, at mount, BEFORE the view/URL effect
+  // below can rewrite the location. Stripe redirects back to /?checkout=...
+  // after Checkout; the param is stripped in an effect so a refresh or a
+  // Back navigation doesn't replay the banner.
+  const [checkoutReturn, setCheckoutReturn] = useState<'success' | 'canceled' | null>(() => {
+    const value = new URLSearchParams(window.location.search).get('checkout')
+    return value === 'success' || value === 'canceled' ? value : null
+  })
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [accountModalOpen, setAccountModalOpen] = useState(false)
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false)
@@ -408,10 +426,41 @@ export function Board() {
   useEffect(() => clearUndoTimer, [])
   useEffect(() => clearErrorTimer, [])
 
-  // Only the privacy view gets a real, directly-linkable URL (Chrome Web
-  // Store needs one) -- every other view stays plain client state.
+  // Drop ?checkout= once it's been captured into state, so refreshing or
+  // navigating Back doesn't show the banner a second time. replaceState (not
+  // pushState) -- this shouldn't add a history entry the user can go "back"
+  // into. Runs once; checkoutReturn is intentionally not a dependency.
   useEffect(() => {
-    const path = view === 'privacy' ? '/privacy' : '/'
+    if (!new URLSearchParams(window.location.search).has('checkout')) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete('checkout')
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  }, [])
+
+  // The banner's copy promises Pro "unlocks as soon as the confirmation
+  // reaches us" -- this is what makes that true without a manual refresh.
+  // The checkout.session.completed webhook is usually near-instant but not
+  // guaranteed to beat the redirect back here, so one retry a few seconds
+  // later covers the common case where the first fetch lands too early.
+  useEffect(() => {
+    if (checkoutReturn !== 'success') return
+    subscription.refresh()
+    const timer = window.setTimeout(() => subscription.refresh(), 4000)
+    return () => window.clearTimeout(timer)
+    // Deliberately keyed on checkoutReturn alone, not the whole `subscription`
+    // object -- refresh() is stable across renders (useCallback), and
+    // depending on `subscription` would refire this every time entitlement
+    // changes, including the change this effect itself causes.
+  }, [checkoutReturn])
+
+  // Only privacy, pricing, and terms get real, directly-linkable URLs
+  // (privacy for the Chrome Web Store listing; pricing so an upgrade link
+  // can be shared or bookmarked; terms so it can be linked from the
+  // pricing page's disclosure) -- every other view stays plain client
+  // state.
+  useEffect(() => {
+    const path =
+      view === 'privacy' ? '/privacy' : view === 'pricing' ? '/pricing' : view === 'terms' ? '/terms' : '/'
     if (window.location.pathname !== path) {
       window.history.pushState(null, '', path)
     }
@@ -419,7 +468,7 @@ export function Board() {
 
   useEffect(() => {
     const onPopState = () => {
-      setView(window.location.pathname === '/privacy' ? 'privacy' : 'board')
+      setView(viewForPathname(window.location.pathname))
     }
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
@@ -901,7 +950,11 @@ export function Board() {
             ? 'Insights'
             : view === 'privacy'
               ? 'Privacy policy'
-              : null
+              : view === 'pricing'
+                ? 'Pro'
+                : view === 'terms'
+                  ? 'Terms of Service'
+                  : null
 
   return (
     <div className="h-screen bg-ink-50 flex">
@@ -911,7 +964,9 @@ export function Board() {
         archivedCount={archivedApplications.length}
         isSignedIn={!!user}
         displayName={displayName}
+        isPro={subscription.isPro}
         onOpenAccount={() => setAccountModalOpen(true)}
+        onOpenPricing={() => setView('pricing')}
         onSignOut={handleSignOut}
         onSignUp={() => setAuthModalMode('sign-up')}
         onLogIn={() => setAuthModalMode('log-in')}
@@ -960,6 +1015,10 @@ export function Board() {
         </div>
       </header>
 
+      {checkoutReturn && (
+        <CheckoutReturnBanner outcome={checkoutReturn} onDismiss={() => setCheckoutReturn(null)} />
+      )}
+
       {!user && !bannerDismissed && (
         <AccountNudgeBanner
           onSignUp={() => setAuthModalMode('sign-up')}
@@ -993,8 +1052,25 @@ export function Board() {
         />
       ) : view === 'privacy' ? (
         <PrivacyPolicy onBack={() => setView('board')} />
+      ) : view === 'terms' ? (
+        <TermsOfService onBack={() => setView('board')} />
+      ) : view === 'pricing' ? (
+        <PricingPage
+          userId={user?.id ?? null}
+          subscription={subscription}
+          onBack={() => setView('board')}
+          onRequireAuth={() => setAuthModalMode('sign-up')}
+          onOpenTerms={() => setView('terms')}
+        />
       ) : view === 'insights' ? (
-        <InsightsView applications={applications} interviews={interviews} stageHistory={stageHistory} trackers={trackers} />
+        <InsightsView
+          applications={applications}
+          interviews={interviews}
+          stageHistory={stageHistory}
+          trackers={trackers}
+          isPro={subscription.isPro}
+          onUpgradeRequest={() => setView('pricing')}
+        />
       ) : trackers.length === 0 || !activeTrackerId ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-sm flex flex-col items-center">
@@ -1033,6 +1109,8 @@ export function Board() {
           applications={activeApplications}
           interviews={interviews}
           trackerName={trackers.find((t) => t.id === activeTrackerId)?.name ?? 'tracker'}
+          isPro={subscription.isPro}
+          onUpgradeRequest={() => setView('pricing')}
           onCardOpen={setDetailApplication}
           onStageChange={handleStageChange}
           onTogglePriority={handleTogglePriority}
@@ -1094,10 +1172,13 @@ export function Board() {
         </main>
       )}
 
-      {view !== 'privacy' && (
+      {view !== 'privacy' && view !== 'terms' && (
         <footer className="px-6 py-3 border-t border-ink-200 flex items-center justify-center gap-4 text-xs text-ink-400">
           <button type="button" onClick={() => setView('privacy')} className="hover:text-ink-600 hover:underline">
             Privacy policy
+          </button>
+          <button type="button" onClick={() => setView('terms')} className="hover:text-ink-600 hover:underline">
+            Terms of Service
           </button>
           <a href="mailto:fazare@fazare.dev" className="hover:text-ink-600 hover:underline">
             Contact
@@ -1112,6 +1193,8 @@ export function Board() {
           defaultStage={formState.mode === 'add' ? formState.stage : 'applied'}
           prefill={formState.mode === 'add' ? formState.prefill : null}
           userId={user?.id ?? null}
+          isPro={subscription.isPro}
+          onUpgradeRequest={() => setView('pricing')}
           onSubmit={
             formState.mode === 'edit'
               ? (input) => updateApplication(formState.application.id, input)
@@ -1202,12 +1285,17 @@ export function Board() {
         <AccountModal
           name={displayName}
           email={user.email ?? ''}
+          subscription={subscription}
           onUpdateName={updateName}
           onChangePassword={handleChangePassword}
           onExport={handleExport}
           onOpenDeleteAccount={() => {
             setAccountModalOpen(false)
             setDeleteModalOpen(true)
+          }}
+          onOpenPricing={() => {
+            setAccountModalOpen(false)
+            setView('pricing')
           }}
           onSignOut={() => {
             setAccountModalOpen(false)
