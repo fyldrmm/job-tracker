@@ -154,6 +154,13 @@ export function Sidebar({
         expanded={expanded}
       />
       <NavItem
+        icon={<NoteIcon />}
+        label="AI CV Helper"
+        tag="Soon"
+        onClick={onOpenNewsletter}
+        expanded={expanded}
+      />
+      <NavItem
         icon={<StarIcon />}
         label={isPro ? 'Pro' : 'Upgrade to Pro'}
         active={view === 'pricing'}
@@ -172,13 +179,6 @@ export function Sidebar({
         expanded={expanded}
       />
       <NavItem icon={<FeedbackIcon />} label="Feedback" onClick={onOpenFeedback} expanded={expanded} />
-      <NavItem
-        icon={<NoteIcon />}
-        label="AI CV Helper"
-        tag="Soon"
-        onClick={onOpenNewsletter}
-        expanded={expanded}
-      />
 
       <button
         type="button"
