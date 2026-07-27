@@ -27,15 +27,22 @@ Also added, same commit: the whole event-type dispatch inside `handleStripeWebho
 
 **Also changed, deliberately kept (not reverted):** `createCheckoutSession()` now passes `allow_promotion_codes: true`. This was added specifically to let the user test a real live purchase for $0 via a 100%-off coupon instead of actual money. The user explicitly asked to keep it permanently rather than revert it after testing — it's a real feature now (lets you run promotions later), not test scaffolding. The stale "TEMPORARY, remove after testing" comment that was originally attached to it has been deleted.
 
-**Not yet done, flag if not handled by the time you read this:** the 100%-off coupon and its promotion code, created in the Stripe dashboard for this test purchase, were never confirmed deleted/expired. If still present, anyone who finds the code gets a free month. Check Stripe dashboard → Product catalog → Coupons.
+**Coupon cleanup: resolved, no action needed.** The promo code was created as single-use and Stripe auto-deactivated it after the one test redemption — user confirmed. Not a lingering exposure.
+
+**New bug found right at the end of this session, this is the first thing to chase next session:** user canceled the test Pro subscription via the Customer Portal ("Manage billing" in `AccountModal.tsx`), but the app's own Account settings modal still shows **"Pro monthly — renews Aug 27, 2026"** — i.e. the UI did not pick up the cancellation. Not yet diagnosed at all. Two candidate causes, unconfirmed:
+- The `customer.subscription.deleted` (or `.updated` with `cancel_at_period_end`/`status`) webhook never fired / failed silently — check Stripe's dashboard event log for this cancellation the same way the two bugs above were diagnosed (Developers → Webhooks → endpoint → Events), look for a non-2xx response.
+- The webhook fired and succeeded, but the app's read path (`useEntitlement`/`getSubscriptionSummary()` in `src/hooks/useEntitlement.ts`/`src/lib/entitlements.ts`) is caching/not re-fetching, so the UI is just stale (e.g. a hard refresh might already show it correctly — worth trying before assuming it's a webhook bug).
+- Also worth checking: does canceling via the Portal fire `customer.subscription.updated` (with `cancel_at_period_end: true`, subscription stays `active` until period end — in which case "renews Aug 27" might actually be *correct* Stripe behavior for a period-end cancellation, and the real bug would be that the UI doesn't distinguish "will cancel at period end" from "renews normally") versus `customer.subscription.deleted` (immediate cancellation). Don't assume which one the Portal's default cancel flow uses — check what actually happened in Stripe's dashboard for this subscription first.
 
 ## Next action
 
-1. Confirm the test coupon/promo code from this session has been deleted or expired in the Stripe dashboard (live mode → Coupons) — if not, do that first, it's a real exposure.
+1. **Start here:** diagnose why Account settings still shows "renews Aug 27, 2026" after the user canceled via the Customer Portal. See the three candidate causes above — check Stripe's dashboard event log for the cancellation first, then try a hard refresh, before changing any code.
 2. Resume the punch list from the previous handoff, unchanged:
    - `extract-job-details` Edge Function's tier-aware-cap change (committed in `32e14d5`, several sessions ago) is still unverified as deployed — it's dashboard-deploy-only, no CLI link. Check `curl -sI -X OPTIONS <function-url>` for `x-function-version` before assuming it's live.
    - Google sign-in is still deferred — scope is in `PLAN.md`'s "Postponed / deferred" section.
-3. No other live-mode paywall bugs are currently known. If a future Stripe webhook or Checkout call fails again, check the Stripe dashboard's own event/delivery log first (Developers → Webhooks → endpoint → Events) rather than `wrangler tail` — see below.
+3. No other live-mode paywall bugs are currently known beyond the cancellation-display issue above. If a future Stripe webhook or Checkout call fails again, check the Stripe dashboard's own event/delivery log first (Developers → Webhooks → endpoint → Events) rather than `wrangler tail` — see below.
+
+**On the parallel logo fork:** user confirmed that fork only touches visuals (no code changes), so it won't produce its own `/handoff` or `PLAN.md` update — the `5f09bc9`/`3c4ea31` commits noted below are the extent of what to expect from it, no separate handoff doc to go looking for.
 
 ## Learned this session
 
@@ -47,7 +54,7 @@ Also added, same commit: the whole event-type dispatch inside `handleStripeWebho
 ## Open questions
 
 - None blocking. The paywall's core live path (Checkout → webhook → entitlement flip → Portal not yet re-verified this session, only Checkout+webhook were) is confirmed working.
-- Customer Portal ("Manage billing" in `AccountModal.tsx`) round-tripping a real cancellation was on the prior handoff's list and **still hasn't been explicitly re-verified** post-fix — the user has an active (free, promo-coded) test subscription live right now that would be the natural thing to cancel through it, closing that loop and cleaning up the test subscription in one action.
+- Customer Portal cancellation was tried — see the new bug flagged above under "Exact stopping point"/"Next action": Stripe-side cancellation may or may not have actually succeeded; the app's display definitely didn't update to reflect it. Root cause unknown, first thing to chase next session.
 
 ## Verify
 
