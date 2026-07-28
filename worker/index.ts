@@ -157,8 +157,13 @@ async function handleStripeWebhook(request: Request, env: Env): Promise<Response
   } catch (err) {
     // Stripe retries on any non-2xx, and a bare uncaught exception here
     // previously surfaced as an opaque 500 with no body in Stripe's webhook
-    // logs -- return real JSON so failures are diagnosable from the dashboard.
-    return json({ error: err instanceof Error ? err.message : String(err) }, 500)
+    // logs -- return real JSON so failures are diagnosable. Security review
+    // 2026-07-28, Finding #9: the actual error (which could include
+    // upstream Supabase/Stripe response bodies) used to go straight into
+    // that JSON body -- now it's logged instead (Cloudflare observability
+    // is already enabled, per wrangler.jsonc) and the response stays fixed.
+    console.error('stripe webhook: handler failed', err)
+    return json({ error: 'Webhook processing failed' }, 500)
   }
 
   return json({ received: true })

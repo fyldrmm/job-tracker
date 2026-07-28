@@ -4,6 +4,7 @@ import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from './employment'
 import { ARCHIVE_REASON_LABELS } from './archive'
 import { formatDateTime } from './format'
 import { interviewSummaryForApplication } from './interviews'
+import { sanitizeExportField } from './exportSanitize'
 
 const CSV_HEADER = [
   'Company',
@@ -41,21 +42,21 @@ export function buildApplicationsCsv(
   const rows = applications.map((app) => {
     const { nextInterview, roundCount } = interviewSummaryForApplication(interviews, app.id)
     const fields = [
-      app.company,
-      app.role_title,
+      sanitizeExportField(app.company),
+      sanitizeExportField(app.role_title),
       trackerNameById.get(app.tracker_id) ?? '',
       STAGE_LABELS[app.current_stage],
       app.date_applied,
-      app.salary_range ?? '',
-      app.location ?? '',
+      sanitizeExportField(app.salary_range ?? ''),
+      sanitizeExportField(app.location ?? ''),
       app.employment_type ? EMPLOYMENT_TYPE_LABELS[app.employment_type] : '',
       app.work_mode ? WORK_MODE_LABELS[app.work_mode] : '',
       app.is_priority ? 'Yes' : 'No',
       app.is_archived ? 'Yes' : 'No',
       app.archive_reason ? ARCHIVE_REASON_LABELS[app.archive_reason] : '',
       app.archived_at ?? '',
-      app.job_link ?? '',
-      app.notes ?? '',
+      sanitizeExportField(app.job_link ?? ''),
+      sanitizeExportField(app.notes ?? ''),
       nextInterview ? formatDateTime(nextInterview.scheduled_at) : '',
       String(roundCount),
     ]

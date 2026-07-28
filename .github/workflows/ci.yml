@@ -18,3 +18,7 @@ jobs:
       - run: npx tsc -b --noEmit
       - run: npx oxlint
       - run: npm test
+      # Security review 2026-07-28, Finding #4: fails the build on any new
+      # production-dependency advisory, regardless of which library it's
+      # in -- catches drift instead of relying on someone noticing later.
+      - run: npm audit --omit=dev

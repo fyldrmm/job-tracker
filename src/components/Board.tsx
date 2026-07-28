@@ -935,7 +935,7 @@ export function Board() {
     // server-side) -- that propagates straight to AccountModal's own catch
     // block, which surfaces it inline and stops here, before any of the
     // sign-out below runs.
-    await changePassword(currentPassword, newPassword)
+    const sessionsRevoked = await changePassword(currentPassword, newPassword)
     // The Edge Function already revoked every session for this account,
     // including this one (AUDIT.md M5) -- the local sign-out just cleans
     // up this browser's client-side state to match. Reuses handleSignOut
@@ -944,7 +944,16 @@ export function Board() {
     // this account's data (see the H1 comment on handleSignOut above).
     setAccountModalOpen(false)
     await handleSignOut()
-    setAuthModalNotice('Password changed — please log in again.')
+    // Security review 2026-07-28, Finding #10: sessionsRevoked can be false
+    // if the server-side revoke failed after a retry -- the password itself
+    // still changed and this browser is still signed out locally either
+    // way, but other devices may not be. Say so instead of implying a full
+    // sign-out everywhere.
+    setAuthModalNotice(
+      sessionsRevoked
+        ? 'Password changed — please log in again.'
+        : "Password changed, but we couldn't confirm your other devices were signed out. Please log in again — if this keeps happening, contact support.",
+    )
     setAuthModalMode('log-in')
   }
 

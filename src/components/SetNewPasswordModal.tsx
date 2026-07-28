@@ -10,7 +10,7 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canSubmit = newPassword.length >= 6 && newPassword === confirmPassword
+  const canSubmit = newPassword.length >= 10 && newPassword === confirmPassword
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -43,7 +43,7 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
               id="new-password"
               type="password"
               required
-              minLength={6}
+              minLength={10}
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -66,8 +66,8 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
             />
           </div>
 
-          {newPassword.length > 0 && newPassword.length < 6 && (
-            <p className="text-xs text-ink-400">At least 6 characters.</p>
+          {newPassword.length > 0 && newPassword.length < 10 && (
+            <p className="text-xs text-ink-400">At least 10 characters.</p>
           )}
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
             <p className="text-xs text-rose-600">Passwords don't match.</p>

@@ -62,7 +62,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
 // Caveat: this only detects drift if it actually gets bumped. Forgetting
 // to bump is the same class of mistake as forgetting to deploy.
-const FUNCTION_VERSION = 'account-action@2026-07-21.1'
+const FUNCTION_VERSION = 'account-action@2026-07-28.1'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -162,6 +162,22 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Not authenticated' }, 401)
   }
 
+  // Rate limit: a stolen session token alone must not be enough to grind
+  // the password check indefinitely (security review 2026-07-28, Finding
+  // #3 -- confirmed live before this fix: 6 rapid wrong-password attempts
+  // all processed identically). Checked via the service-role client so the
+  // gate itself can't be bypassed by a caller forging RPC params.
+  const { data: attemptGate, error: attemptGateError } = await admin.rpc('check_password_attempt', {
+    p_user_id: user.id,
+  })
+  if (attemptGateError) {
+    console.error('account-action: password attempt check failed', attemptGateError)
+    return jsonResponse({ error: 'Could not complete that action.' }, 500)
+  }
+  if (attemptGate?.locked) {
+    return jsonResponse({ error: 'Too many attempts. Try again in a few minutes.' }, 429)
+  }
+
   // The reusable gate: verify the password on a SEPARATE plain client so it
   // doesn't disturb the caller's own session above.
   const verifier = createClient(supabaseUrl, supabaseAnonKey)
@@ -169,6 +185,7 @@ Deno.serve(async (req: Request) => {
     email: user.email,
     password,
   })
+  await admin.rpc('record_password_result', { p_user_id: user.id, p_success: !passwordError })
   if (passwordError) {
     // Was completely silent before this (AUDIT.md D5) -- no attempt
     // counter, no lockout, no logging anywhere on this path, so a stolen
@@ -186,29 +203,46 @@ Deno.serve(async (req: Request) => {
       // user's email no longer exists to send to.
       await sendDeletionEmail(user.email)
       const { error } = await supabase.rpc('delete_own_account')
-      if (error) return jsonResponse({ error: error.message }, 500)
+      if (error) {
+        // Security review 2026-07-28, Finding #9: this used to return
+        // error.message straight to the client, which can surface internal
+        // SQL/GoTrue wording to anyone holding a stolen token. Log the
+        // detail server-side (same PII discipline as the password-failure
+        // log above), return a fixed string.
+        console.error('account-action: delete failed', { userId: user.id, message: error.message })
+        return jsonResponse({ error: 'Could not complete that action.' }, 500)
+      }
       return jsonResponse({ success: true })
     }
     case 'change-password': {
-      if (!newPassword || newPassword.length < 6) {
-        return jsonResponse({ error: 'New password must be at least 6 characters.' }, 400)
+      if (!newPassword || newPassword.length < 10) {
+        return jsonResponse({ error: 'New password must be at least 10 characters.' }, 400)
       }
       const { error } = await admin.auth.admin.updateUserById(user.id, { password: newPassword })
-      if (error) return jsonResponse({ error: error.message }, 500)
+      if (error) {
+        console.error('account-action: change-password failed', { userId: user.id, message: error.message })
+        return jsonResponse({ error: 'Could not complete that action.' }, 500)
+      }
 
       // Revoke every session for this user, including the caller's own --
       // see the comment above this switch for why scope=global and not
-      // scope=others. Best-effort: the password change itself already
-      // succeeded, and a revoke failure here shouldn't be reported as the
-      // whole action failing (the client forces its own local sign-out
-      // regardless -- see Board.tsx).
+      // scope=others. The password change itself already succeeded either
+      // way, so this always returns 200 -- but (Finding #10) a revocation
+      // failure used to be silently swallowed and reported as unconditional
+      // success, leaving a stolen session valid with nothing to show for
+      // it. Retry once (GoTrue hiccups are usually transient); if it still
+      // fails, say so honestly instead of claiming full success.
       const callerToken = authHeader.replace(/^Bearer\s+/i, '')
-      const { error: signOutError } = await admin.auth.admin.signOut(callerToken, 'global')
+      let { error: signOutError } = await admin.auth.admin.signOut(callerToken, 'global')
+      if (signOutError) {
+        ;({ error: signOutError } = await admin.auth.admin.signOut(callerToken, 'global'))
+      }
       if (signOutError) {
         console.error('account-action: failed to revoke sessions after password change', signOutError)
+        return jsonResponse({ success: true, sessionsRevoked: false })
       }
 
-      return jsonResponse({ success: true })
+      return jsonResponse({ success: true, sessionsRevoked: true })
     }
     default:
       return jsonResponse({ error: `Unknown action: ${action}` }, 400)

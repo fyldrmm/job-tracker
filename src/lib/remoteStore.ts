@@ -100,8 +100,8 @@ async function invokeEdgeFunction<T = void>(name: string, body: Record<string, u
 // bypassed by a direct API call with just a stolen session token. Any
 // future password-gated action is another `action` value there, not a new
 // function.
-async function callAccountAction(body: Record<string, unknown>): Promise<void> {
-  await invokeEdgeFunction('account-action', body)
+async function callAccountAction<T = void>(body: Record<string, unknown>): Promise<T> {
+  return invokeEdgeFunction<T>('account-action', body)
 }
 
 // Deletes the caller's account (cascades through applications ->
@@ -112,8 +112,17 @@ export async function deleteOwnAccount(password: string): Promise<void> {
 }
 
 // Changes the caller's password after verifying the current one server-side.
-export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
-  await callAccountAction({ action: 'change-password', password: currentPassword, newPassword })
+// Returns false if the password change itself succeeded but the function
+// couldn't confirm every other session was revoked (Finding #10, security
+// review 2026-07-28) -- the caller should tell the user honestly instead of
+// implying every device was signed out.
+export async function changePassword(currentPassword: string, newPassword: string): Promise<boolean> {
+  const { sessionsRevoked } = await callAccountAction<{ sessionsRevoked?: boolean }>({
+    action: 'change-password',
+    password: currentPassword,
+    newPassword,
+  })
+  return sessionsRevoked !== false
 }
 
 export async function getAllRemoteTrackers(userId: string): Promise<Tracker[]> {

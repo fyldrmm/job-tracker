@@ -43,7 +43,12 @@ function makeInterview(overrides: Partial<Interview> & { id: string }): Intervie
   }
 }
 
-async function readBackFirstDataRow(buffer: ArrayBuffer): Promise<Record<string, unknown>> {
+// Reads the written file back to verify its contents. exceljs is only a
+// devDependency now (security review 2026-07-28, Finding #4) -- it never
+// ships in the browser bundle and only ever reads a file this test itself
+// just wrote, so its parser-side advisories don't apply here.
+async function readBackFirstDataRow(blob: Blob): Promise<Record<string, unknown>> {
+  const buffer = await blob.arrayBuffer()
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer)
   const sheet = workbook.getWorksheet('Applications')!
@@ -59,8 +64,8 @@ async function readBackFirstDataRow(buffer: ArrayBuffer): Promise<Record<string,
 
 describe('buildApplicationsXlsx', () => {
   it('includes Next interview and Rounds columns, blank/zero when none scheduled', async () => {
-    const buffer = await buildApplicationsXlsx([makeApplication()], [])
-    const row = await readBackFirstDataRow(buffer)
+    const blob = await buildApplicationsXlsx([makeApplication()], [])
+    const row = await readBackFirstDataRow(blob)
     expect(row['Next interview']).toBeFalsy()
     expect(row['Rounds']).toBe(0)
   })
@@ -70,9 +75,19 @@ describe('buildApplicationsXlsx', () => {
       makeInterview({ id: 'past', round: 1, scheduled_at: '2026-01-01T00:00:00.000Z' }),
       makeInterview({ id: 'future', round: 2, scheduled_at: '2099-06-15T14:00:00.000Z' }),
     ]
-    const buffer = await buildApplicationsXlsx([makeApplication()], interviews)
-    const row = await readBackFirstDataRow(buffer)
+    const blob = await buildApplicationsXlsx([makeApplication()], interviews)
+    const row = await readBackFirstDataRow(blob)
     expect(row['Rounds']).toBe(2)
     expect(String(row['Next interview'])).toContain('Jun 15')
+  })
+
+  it('prefixes a leading apostrophe on fields that start with a formula-injection character', async () => {
+    const blob = await buildApplicationsXlsx(
+      [makeApplication({ company: '=HYPERLINK("https://evil.example","click")', notes: '@SUM(1,1)' })],
+      [],
+    )
+    const row = await readBackFirstDataRow(blob)
+    expect(String(row['Company'])).toMatch(/^'=HYPERLINK/)
+    expect(String(row['Notes'])).toMatch(/^'@SUM/)
   })
 })

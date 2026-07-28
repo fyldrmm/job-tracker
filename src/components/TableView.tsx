@@ -224,10 +224,10 @@ export function TableView({
     }
     setExporting(true)
     try {
-      const buffer = await buildApplicationsXlsx(sorted, interviews)
+      const blob = await buildApplicationsXlsx(sorted, interviews)
       const slug = trackerName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
       const date = new Date().toISOString().slice(0, 10)
-      triggerXlsxDownload(`jobtracker-${slug}-${date}.xlsx`, buffer)
+      triggerXlsxDownload(`jobtracker-${slug}-${date}.xlsx`, blob)
     } finally {
       setExporting(false)
     }
