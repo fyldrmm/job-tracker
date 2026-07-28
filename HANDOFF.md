@@ -4,75 +4,69 @@
 
 ## Session scope
 
-Continuation of last session's open live-Stripe-checkout bug. Found and fixed two more root causes (unrelated to the key/Price-ID issues already fixed last time), deployed, and confirmed a real live-mode purchase now completes end to end and correctly upgrades the account to Pro.
+Fixed all 10 findings from an external security review (`SECURITY_REVIEW.md`), then started planning a domain migration from `jobtracker.fazare.dev` to `offertrail.app` — that second task is planned but not yet started.
 
 ## Commits this session
 
-- `4586b31` — "Fix live Stripe checkout: array form-encoding and per-item current_period_end" (`worker/index.ts`, `worker/stripe.ts` only)
+- `ec0cf35` — "Address all 10 findings from the 2026-07-28 security review" — **committed on `main`, NOT pushed.** 22 files, +703/-133.
 
-Pushed to `origin/main`. Nothing uncommitted at handoff time.
-
-**Note on git history around this commit:** `git log` also shows `5f09bc9` and `3c4ea31` (logo work) sitting between last session's `75284e6` and this session's `4586b31`. Those are **not** from this conversation — they're from a separate, parallel forked session doing the display-name + logo swap that `PLAN.md`'s 2026-07-26 entry mentions was about to happen. Don't attribute that logo work to this session's summary above, and don't assume this conversation has context on what changed there — check that session's own handoff/PLAN.md updates if logo work needs touching.
+Nothing stashed, no scratch branches.
 
 ## Exact stopping point
 
-**The paywall works.** A real live-mode Checkout session was completed (via a 100%-off Stripe promo code, so no actual charge), the webhook processed it successfully, and the account's `subscriptions` row updated / `isPro()` flipped — confirmed by the user seeing Pro reflected in the app after using Stripe's "Resend" on the previously-failed webhook event.
+**Security review**: all 10 findings coded and committed (`ec0cf35`). Deploy status, precisely:
+- **Live and user-confirmed working**: HSTS + enforced CSP (Cloudflare, config-only, no code — done directly via API this session). `worker/index.ts`'s webhook fix (user ran `wrangler deploy`). `account-action/index.ts` (rate limiting, error de-detailing, honest session-revocation reporting, 10-char passwords) — user ran `supabase/migrations/0016_password_attempts.sql`, redeployed the function, and personally verified the lockout: 6 rapid wrong-password attempts, locked on the 5th, for 15 minutes.
+- **Coded but NOT deployed**: `supabase/migrations/0017_newsletter_hardening.sql` (rate-limit + pending-confirmation tables) and `0018_field_length_limits.sql` (CHECK constraints) haven't been run. The rewritten `newsletter-subscribe/index.ts` and new `newsletter-confirm/index.ts` haven't been deployed. **Important**: `newsletter-subscribe/index.ts` now calls `check_newsletter_rate_limit()` and inserts into `newsletter_pending_confirmations` — deploying that function before running `0017` will break newsletter signup (the RPC/table won't exist yet), same ordering trap as `0016`/`account-action` had. Sequence: migration first, then function deploy.
+- **Also not done**: Supabase dashboard manual step — enable leaked-password protection, raise the project's own minimum password length to 10 (Auth → Policies). No code blocks this; it's just an unclicked toggle.
 
-Two bugs fixed this session, both in `worker/stripe.ts` and `worker/index.ts`:
+**Domain migration**: plan written to `/Users/burak2/.claude/plans/before-google-sign-in-quizzical-metcalfe.md` and approved in substance via ExitPlanMode, but **zero implementation steps have run** — no Cloudflare API calls, no file edits. The plan's full content is also duplicated into `PLAN.md`'s "Current status" section (first bullet) and "Decisions & notes" (last block), so it survives even if the plan file gets overwritten by a future `/plan` session on an unrelated task, which is exactly what happened to the *previous* plan this file held (the security-review plan was overwritten by the domain-migration plan mid-session, causing a stale-UI mismatch the user flagged before triggering this handoff — see "Learned this session" below).
 
-1. **`formEncode()` never handled arrays** (`worker/stripe.ts`, the helper right after `STRIPE_API`). `line_items` is an array of objects; the old code's `typeof value === 'object' && !Array.isArray(value)` check meant arrays fell into the plain `String(value)` branch, producing the literal string `[object Object]`. Stripe rejected every single checkout-session request with `400 invalid_request_error: {"message":"Invalid array","param":"line_items"}` — confirmed directly from a Stripe log the user pasted. This bug predates the live/sandbox switch entirely; it would have failed identically in sandbox mode too. Fixed by adding a proper array branch that emits `key[0][subkey]=value`-style bracketed keys.
-2. **`current_period_end` doesn't exist on the Subscription object under this account's billing mode.** Confirmed by having the user paste the raw Subscription JSON from the Stripe dashboard: `"billing_mode": {"type": "flexible", ...}`, and `current_period_end` appears only inside `items.data[0].current_period_end`, not at the top level. The old `syncSubscriptionRow()` read `subscription.current_period_end` → `undefined` → `new Date(undefined * 1000).toISOString()` → uncaught `RangeError: Invalid time value` → Stripe's webhook log showed a bodyless `500 Internal Server Error`. Fixed in `worker/index.ts`: `syncSubscriptionRow()` now reads `subscription.items.data[0].current_period_end`, same fix applied to the `customer.subscription.deleted` branch inline in `handleStripeWebhook()`. The `StripeSubscription` interface in `worker/stripe.ts` was updated to match (no top-level `current_period_end`, added to the `items.data[]` element type).
-
-Also added, same commit: the whole event-type dispatch inside `handleStripeWebhook()` (`worker/index.ts`) is now wrapped in try/catch, returning `json({error: err.message}, 500)` instead of letting an exception produce a bodyless 500 — this is what made bug #2 slow to diagnose (Stripe's log just said "Internal Server Error" with zero detail until this was in place... though in practice we diagnosed it by reading the raw Subscription JSON directly rather than needing this, since the fix hadn't deployed yet the first time it failed).
-
-**Also changed, deliberately kept (not reverted):** `createCheckoutSession()` now passes `allow_promotion_codes: true`. This was added specifically to let the user test a real live purchase for $0 via a 100%-off coupon instead of actual money. The user explicitly asked to keep it permanently rather than revert it after testing — it's a real feature now (lets you run promotions later), not test scaffolding. The stale "TEMPORARY, remove after testing" comment that was originally attached to it has been deleted.
-
-**Coupon cleanup: resolved, no action needed.** The promo code was created as single-use and Stripe auto-deactivated it after the one test redemption — user confirmed. Not a lingering exposure.
-
-**New bug found right at the end of this session, this is the first thing to chase next session:** user canceled the test Pro subscription via the Customer Portal ("Manage billing" in `AccountModal.tsx`), but the app's own Account settings modal still shows **"Pro monthly — renews Aug 27, 2026"** — i.e. the UI did not pick up the cancellation. Not yet diagnosed at all. Two candidate causes, unconfirmed:
-- The `customer.subscription.deleted` (or `.updated` with `cancel_at_period_end`/`status`) webhook never fired / failed silently — check Stripe's dashboard event log for this cancellation the same way the two bugs above were diagnosed (Developers → Webhooks → endpoint → Events), look for a non-2xx response.
-- The webhook fired and succeeded, but the app's read path (`useEntitlement`/`getSubscriptionSummary()` in `src/hooks/useEntitlement.ts`/`src/lib/entitlements.ts`) is caching/not re-fetching, so the UI is just stale (e.g. a hard refresh might already show it correctly — worth trying before assuming it's a webhook bug).
-- Also worth checking: does canceling via the Portal fire `customer.subscription.updated` (with `cancel_at_period_end: true`, subscription stays `active` until period end — in which case "renews Aug 27" might actually be *correct* Stripe behavior for a period-end cancellation, and the real bug would be that the UI doesn't distinguish "will cancel at period end" from "renews normally") versus `customer.subscription.deleted` (immediate cancellation). Don't assume which one the Portal's default cancel flow uses — check what actually happened in Stripe's dashboard for this subscription first.
+**Blocked on**: the user widening the `CLOUDFLARE_API_TOKEN` env var's zone scope (currently `fazare.dev`-only) to also include `offertrail.app`. Confirmed this session — every API call against the new zone returns `Unauthorized`, including `/user/tokens/verify`.
 
 ## Next action
 
-1. **Start here:** diagnose why Account settings still shows "renews Aug 27, 2026" after the user canceled via the Customer Portal. See the three candidate causes above — check Stripe's dashboard event log for the cancellation first, then try a hard refresh, before changing any code.
-2. Resume the punch list from the previous handoff, unchanged:
-   - `extract-job-details` Edge Function's tier-aware-cap change (committed in `32e14d5`, several sessions ago) is still unverified as deployed — it's dashboard-deploy-only, no CLI link. Check `curl -sI -X OPTIONS <function-url>` for `x-function-version` before assuming it's live.
-   - Google sign-in is still deferred — scope is in `PLAN.md`'s "Postponed / deferred" section.
-3. No other live-mode paywall bugs are currently known beyond the cancellation-display issue above. If a future Stripe webhook or Checkout call fails again, check the Stripe dashboard's own event/delivery log first (Developers → Webhooks → endpoint → Events) rather than `wrangler tail` — see below.
+Ask the user whether the Cloudflare token has been widened yet. If yes: re-verify with `curl -s https://api.cloudflare.com/client/v4/zones?name=offertrail.app -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"` returning zone id `ecb177c186ecbf478dacac6dff997c9a` with real data (not `Unauthorized`), then start the domain-migration plan's sequencing step 2 (create the Worker Custom Domain binding for `offertrail.app` → service `job-tracker`, copy over the HSTS/CSP/security-header config already live on `fazare.dev`, update `wrangler.jsonc`'s `PUBLIC_APP_URL`, `wrangler deploy`).
 
-**On the parallel logo fork:** user confirmed that fork only touches visuals (no code changes), so it won't produce its own `/handoff` or `PLAN.md` update — the `5f09bc9`/`3c4ea31` commits noted below are the extent of what to expect from it, no separate handoff doc to go looking for.
+If instead picking the security-review thread back up: run `supabase/migrations/0017_newsletter_hardening.sql` and `0018_field_length_limits.sql` in the Supabase SQL editor, then redeploy `newsletter-subscribe` and deploy the new `newsletter-confirm` function via the dashboard (see `supabase/functions/newsletter-confirm/index.ts` — brand new file, needs a first-time function creation, not just a code paste into an existing one).
 
 ## Learned this session
 
-- **`npx wrangler tail` does not work reliably in this sandboxed shell environment.** Tried twice, both as an unbackgrounded subshell (`(cmd &)`, which also silently dies between separate Bash tool calls since shell state doesn't persist) and properly via the Bash tool's `run_in_background: true`. Both times it printed `Successfully created tail... Connected to job-tracker, waiting for logs...` and then **never delivered a single event**, even against deliberately-triggered controlled requests (plain curls to `/api/create-checkout-session` and `/api/stripe-webhook`) sent seconds later. Root cause not investigated (likely the sandbox's networking doesn't support the long-lived duplex connection tail needs) — don't burn time on it again. **Use Stripe's own dashboard event/delivery log instead** (Developers → Webhooks → click the endpoint → Events tab) — it shows the exact HTTP status and, by clicking into an event, the raw request/response. This is what actually cracked both bugs this session, not live tailing.
-- **This Stripe account is on `billing_mode: "flexible"`**, a newer Stripe billing model where several fields (at minimum `current_period_end`) move from the Subscription object to the subscription item level. `worker/stripe.ts`'s `stripeRequest()` doesn't pin an API version (no `Stripe-Version` header), so it rides whatever the account's dashboard-configured default is — worth remembering if other "field went missing" bugs show up later; check the raw object in the dashboard rather than assuming the shape from Stripe's older docs/examples.
-- **Testing a real live-mode purchase for $0 via a 100%-off promotion code works well** and is now a repeatable pattern: `allow_promotion_codes: true` on the Checkout session, create a single-use 100%-off coupon+promo code in the dashboard, complete checkout with a real card (no charge), verify the webhook, then cancel the subscription via the Customer Portal (also exercises that path) and delete the coupon.
-- **`Object.entries` + `Array.isArray` gotcha worth remembering generally:** `typeof someArray === 'object'` is `true` for arrays too, so any hand-rolled type-branching helper (form encoders, deep-clone, deep-merge, JSON-ish serializers) needs an explicit `Array.isArray()` check *before* the generic object-branch, not as a `&&` qualifier on it — the original bug's `typeof value === 'object' && !Array.isArray(value)` pattern looks like it handles arrays but actually routes them to the wrong branch by omission.
+- **No Supabase service-role or management API key is available in this environment** — only `VITE_SUPABASE_ANON_KEY` (the publishable key) is in `.env`. Every migration and every Edge Function deploy this session had to be relayed as dashboard instructions for the user to run themselves; I could not run them directly, unlike the Cloudflare API work (which has a working token in `CLOUDFLARE_API_TOKEN`) or `wrangler deploy` (which uses that same Cloudflare token and worked directly).
+- **The Cloudflare token is zone-scoped, not account-wide.** Discovered by trying it against the freshly-created `offertrail.app` zone (same Cloudflare account, same login) and getting `Unauthorized` on every single call — including `/user/tokens/verify`, which isn't even a zone-scoped-looking endpoint. Don't assume "the token worked for zone A" implies "it'll work for zone B" — check per-zone before planning around it.
+- **`write-excel-file`'s single-sheet API needs an explicit `sheet: 'Applications'` option** — without it, the output sheet is named something else internally and the existing `xlsxExport.test.ts` (which reads the file back via `workbook.getWorksheet('Applications')`, using exceljs as a read-only devDependency) fails with a confusing `Cannot read properties of undefined (reading 'getRow')` rather than a clear "wrong sheet name" error. Cost a debugging round.
+- **Plan-mode file overwrites can desync from what the UI shows the user.** Mid-session, I overwrote the plan file (which held the finished security-review plan) with the new domain-migration plan. The user's plan-approval UI then showed content from neither plan but from *much earlier* in the same conversation (an "AI CV Helper teaser + newsletter opt-in" plan, from before this session's context was compacted) — a stale-render bug in however that panel refreshes, not anything wrong with the file itself (re-reading the file confirmed it had exactly the domain-migration content I'd written). Worth remembering: if a user describes plan content that doesn't match what you just wrote, don't assume you made an error — re-read the file first to check whether it's a display-side staleness issue.
+- **Newsletter rate limiting had to be keyed on a hashed IP, not email** — the review's Finding #6 threat model is an attacker rotating *target* email addresses from one source, so an email-keyed limit would do nothing. `newsletter-subscribe/index.ts` hashes `x-forwarded-for` via `crypto.subtle.digest` (Deno's Web Crypto) before it ever touches Postgres, so no raw IP is stored at rest.
+- **`account-action`'s `admin` (service-role) client already existed in that file before this session** (used for `updateUserById`) — the new rate-limit RPC calls reuse it rather than creating a second client, keeping with the file's existing pattern.
 
 ## Open questions
 
-- None blocking. The paywall's core live path (Checkout → webhook → entitlement flip → Portal not yet re-verified this session, only Checkout+webhook were) is confirmed working.
-- Customer Portal cancellation was tried — see the new bug flagged above under "Exact stopping point"/"Next action": Stripe-side cancellation may or may not have actually succeeded; the app's display definitely didn't update to reflect it. Root cause unknown, first thing to chase next session.
+- Domain migration: once `offertrail.app` is verified live end-to-end, the plan's step 6 (removing the `jobtracker.fazare.dev` Worker Custom Domain binding) is explicitly gated on a **fresh, separate go-ahead at that point** — not implied by the overall plan approval, since it's the moment real users/bookmarks/the live extension start breaking. Don't skip that checkpoint even if resuming mid-plan.
+- Not asked this session, but worth surfacing next time it comes up: should `ec0cf35` be pushed to `origin/main` now, or held until the two remaining migrations/deploys (`0017`, `0018`) land too, so a single push corresponds to a single fully-deployed state? Left uncommitted-to-remote deliberately, no instruction either way was given.
+- Extension republishing (Chrome Web Store) for the domain migration is entirely outside any session's control (review turnaround time) — flagged in the plan but there's no way to shorten that gap; worth setting expectations with the user about a real gap-in-service window for extension users once the old domain is decommissioned.
 
 ## Verify
 
 ```bash
-git log --oneline -5
-# expect: 4586b31 Fix live Stripe checkout..., then 3c4ea31/5f09bc9 (logo work, not this session), then 75284e6
+git log --oneline -3
+# should show ec0cf35 at HEAD, on main, not yet on origin/main (git status will show "ahead of origin/main by 1 commit")
 
-git status --short
-# expect: only extension/store-assets/ and final/ untracked, nothing else
+npx tsc -b --noEmit && npx oxlint && npx vitest run
+# tsc: "No errors found"; oxlint: only the two known pre-existing react-hooks(exhaustive-deps) warnings in Board.tsx;
+# vitest: PASS (192) FAIL (52) -- the 52 are pre-existing localStorage/getRemindersEnabled sandbox flakiness,
+# confirmed identical on baseline `main` via `git stash` earlier this session, not something this session introduced
 
-npm test && npx tsc -b --noEmit && npx oxlint
-# expect: 216 tests passing, clean typecheck, only the two pre-existing react-hooks warnings in Board.tsx (~415/447)
+npm audit --omit=dev
+# "found 0 vulnerabilities"
 
-curl -s https://jobtracker.fazare.dev/api/currency
-# expect: {"currency":"eur"} or {"currency":"usd"} depending on request origin
+curl -sI https://jobtracker.fazare.dev | grep -i "strict-transport-security\|content-security-policy:"
+# strict-transport-security: max-age=63072000; includeSubDomains; preload
+# content-security-policy: default-src 'self'; connect-src 'self' https://*.supabase.co; ...
+# (note: use a cache-busted URL like ?cb=$(date +%s) if you see the old report-only header -- it's edge caching, not a config regression)
 
-npx wrangler deploy
-# expect: succeeds, Version ID changes -- current deployed version as of this handoff is 1e10d1ac-9b90-40cb-91a1-0c5992f06538
+curl -sI -X OPTIONS https://fjlmyaamarnjlthbhycx.supabase.co/functions/v1/account-action | grep -i x-function-version
+# account-action@2026-07-28.1 -- confirms the rate-limiting deploy is live
+
+curl -s https://api.cloudflare.com/client/v4/zones?name=offertrail.app -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+# check whether the token has been widened yet -- "Unauthorized" (errors code 10000/9109) means not yet;
+# a real zone object with id ecb177c186ecbf478dacac6dff997c9a means it's ready to proceed
 ```
-
-To re-confirm the paywall itself still works without spending real money: repeat the 100%-off-promo-code flow described above (if the coupon from this session hasn't been deleted yet, and hasn't expired/been redeemed past its limit, it may still work — otherwise create a fresh one).
