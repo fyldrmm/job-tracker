@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { createPortalSession } from '../lib/billing'
 import { formatDateOnly } from '../lib/format'
+import { PASSWORD_REQUIREMENTS_TEXT, passwordMeetsRequirements } from '../lib/passwordRequirements'
 import type { SubscriptionSummary } from '../lib/entitlements'
 
 interface AccountModalProps {
@@ -76,7 +77,9 @@ export function AccountModal({
   }
 
   const canSubmitPassword =
-    currentPassword.length > 0 && newPassword.length >= 10 && newPassword === confirmPassword
+    currentPassword.length > 0 &&
+    passwordMeetsRequirements(newPassword) &&
+    newPassword === confirmPassword
 
   async function handleChangePassword(e: FormEvent) {
     e.preventDefault()
@@ -220,8 +223,8 @@ export function AccountModal({
             }}
             className="w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
           />
-          {newPassword.length > 0 && newPassword.length < 10 && (
-            <p className="text-xs text-ink-400">At least 10 characters.</p>
+          {newPassword.length > 0 && !passwordMeetsRequirements(newPassword) && (
+            <p className="text-xs text-ink-400">{PASSWORD_REQUIREMENTS_TEXT}</p>
           )}
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
             <p className="text-xs text-rose-600">Passwords don't match.</p>

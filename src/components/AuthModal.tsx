@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useModalDismiss } from '../hooks/useModalDismiss'
+import { PASSWORD_REQUIREMENTS_TEXT } from '../lib/passwordRequirements'
 
 interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
@@ -280,6 +281,9 @@ export function AuthModal({
                 onChange={(e) => setPassword(e.target.value)}
                 className="mt-1 w-full rounded-md border border-ink-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink-400"
               />
+              {mode === 'sign-up' && (
+                <p className="mt-1 text-xs text-ink-400">{PASSWORD_REQUIREMENTS_TEXT}</p>
+              )}
             </div>
 
             {error && <p className="text-sm text-rose-600">{error}</p>}

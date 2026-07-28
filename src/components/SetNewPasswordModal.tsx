@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { PASSWORD_REQUIREMENTS_TEXT, passwordMeetsRequirements } from '../lib/passwordRequirements'
 
 interface SetNewPasswordModalProps {
   onConfirm: (newPassword: string) => Promise<void>
@@ -10,7 +11,7 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const canSubmit = newPassword.length >= 10 && newPassword === confirmPassword
+  const canSubmit = passwordMeetsRequirements(newPassword) && newPassword === confirmPassword
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -66,8 +67,8 @@ export function SetNewPasswordModal({ onConfirm }: SetNewPasswordModalProps) {
             />
           </div>
 
-          {newPassword.length > 0 && newPassword.length < 10 && (
-            <p className="text-xs text-ink-400">At least 10 characters.</p>
+          {newPassword.length > 0 && !passwordMeetsRequirements(newPassword) && (
+            <p className="text-xs text-ink-400">{PASSWORD_REQUIREMENTS_TEXT}</p>
           )}
           {confirmPassword.length > 0 && newPassword !== confirmPassword && (
             <p className="text-xs text-rose-600">Passwords don't match.</p>
