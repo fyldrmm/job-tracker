@@ -10,8 +10,8 @@ const MESSAGE_SOURCE = 'jobtracker-extension'
 // that's already known to be oversized.
 const MAX_TEXT_CHARS = 8000
 
-const TRACKER_URL_PATTERNS = ['https://jobtracker.fazare.dev/*', 'http://localhost:5173/*']
-const TRACKER_DEFAULT_URL = 'https://jobtracker.fazare.dev/'
+const TRACKER_URL_PATTERNS = ['https://offertrail.app/*', 'http://localhost:5173/*']
+const TRACKER_DEFAULT_URL = 'https://offertrail.app/'
 
 // Runs INSIDE the target page via chrome.scripting.executeScript -- must be
 // self-contained (no closures over this file's outer scope).

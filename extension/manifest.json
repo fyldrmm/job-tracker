@@ -22,12 +22,12 @@
   },
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
-    "https://jobtracker.fazare.dev/*",
+    "https://offertrail.app/*",
     "http://localhost:5173/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://jobtracker.fazare.dev/*", "http://localhost:5173/*"],
+      "matches": ["https://offertrail.app/*", "http://localhost:5173/*"],
       "js": ["content-bridge.js"],
       "run_at": "document_idle"
     }

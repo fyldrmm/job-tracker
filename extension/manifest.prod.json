@@ -22,11 +22,11 @@
   },
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
-    "https://jobtracker.fazare.dev/*"
+    "https://offertrail.app/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://jobtracker.fazare.dev/*"],
+      "matches": ["https://offertrail.app/*"],
       "js": ["content-bridge.js"],
       "run_at": "document_idle"
     }

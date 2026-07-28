@@ -20,7 +20,7 @@
   "vars": {
     "SUPABASE_URL": "https://fjlmyaamarnjlthbhycx.supabase.co",
     "SUPABASE_ANON_KEY": "sb_publishable_r6d9C_Ryqe6msi4gOqxoUw_Nvcf0ziv",
-    "PUBLIC_APP_URL": "https://jobtracker.fazare.dev",
+    "PUBLIC_APP_URL": "https://offertrail.app",
     "STRIPE_PRICE_MONTHLY_EUR": "price_1TxoJ0AROImIFWYss6rcn2wL",
     "STRIPE_PRICE_MONTHLY_USD": "price_1TxoJDAROImIFWYs0opw8kdP",
     "STRIPE_PRICE_QUARTERLY_EUR": "price_1TxoJrAROImIFWYsTGuSzu4D",

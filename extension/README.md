@@ -17,7 +17,7 @@ Chrome MV3, vanilla JS, no build step — the files here are loaded directly.
 - **`activeTab`** — read the current tab's URL/title and inject the scrape script, only for the tab the user explicitly clicked the icon on (not standing access to every tab).
 - **`scripting`** — run the scrape function (`chrome.scripting.executeScript`) inside that tab.
 - **`storage`** — `chrome.storage.session` handoff between the background worker and the content-bridge script; session-scoped, cleared when the browser closes.
-- **`host_permissions` for `jobtracker.fazare.dev` and `localhost:5173`** — lets `background.js` read/focus/create tabs at those URLs, and is what the `content_scripts` match pattern restricts the bridge script to. No broader host access than that.
+- **`host_permissions` for `offertrail.app` and `localhost:5173`** — lets `background.js` read/focus/create tabs at those URLs, and is what the `content_scripts` match pattern restricts the bridge script to. No broader host access than that.
 
 No `tabs` permission — reading matching tabs' URLs is covered by the host permissions above without it.
 
