@@ -59,6 +59,7 @@ import { CheckoutReturnBanner } from './CheckoutReturnBanner'
 import { AccountModal } from './AccountModal'
 import { FeedbackModal } from './FeedbackModal'
 import { NewsletterModal } from './NewsletterModal'
+import { LandingPage } from './LandingPage'
 import { DeleteAccountModal } from './DeleteAccountModal'
 import { PrivacyPolicy } from './PrivacyPolicy'
 import { TermsOfService } from './TermsOfService'
@@ -70,7 +71,7 @@ import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { MigrateGuestDataModal } from './MigrateGuestDataModal'
 import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { ExtractionPromo } from './ExtractionPromo'
-import { CoffeeIcon } from './icons'
+import { CoffeeIcon, ChevronDownIcon } from './icons'
 import { DONATION_URL } from '../lib/constants'
 
 type FormState =
@@ -89,6 +90,7 @@ function viewForPathname(pathname: string): View {
 const UNDO_WINDOW_MS = 10000
 const ERROR_WINDOW_MS = 8000
 const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
+const LANDING_DISMISSED_KEY = 'job-tracker:landing-dismissed'
 
 export function Board() {
   const { user, displayName, passwordRecovery, signUp, signIn, signOut, updateName, resetPassword, updatePasswordAfterRecovery } =
@@ -172,6 +174,17 @@ export function Board() {
   const [bannerDismissed, setBannerDismissed] = useState(
     () => sessionStorage.getItem(BANNER_DISMISSED_KEY) === 'true',
   )
+  const [showLanding, setShowLanding] = useState(false)
+  // True only for the voluntary reopen (the top chevron once someone
+  // already has access) -- controls whether LandingPage gets a close
+  // button. The forced first-visit gate never sets this, so beta visitors
+  // can't bypass the newsletter requirement except by subscribing or
+  // logging in with an existing account.
+  const [landingDismissible, setLandingDismissible] = useState(false)
+  const landingCheckedRef = useRef(false)
+  // Captured from the landing page's newsletter form so a later "Sign up"
+  // doesn't ask for the same email twice.
+  const [landingEmail, setLandingEmail] = useState('')
   const [migrating, setMigrating] = useState(false)
   const [migratePrompt, setMigratePrompt] = useState(false)
   const migrationCheckedForRef = useRef<string | null>(null)
@@ -194,6 +207,25 @@ export function Board() {
   useEffect(() => {
     if (view === 'insights') refreshStageHistory()
   }, [view, refreshStageHistory])
+
+  // First-time-visitor landing page: shown once, only to a guest with zero
+  // existing trackers (a genuinely first-ever visit -- see useTrackers.ts,
+  // a brand-new guest legitimately has no trackers) who hasn't dismissed it
+  // before. Ref-guarded so this only ever evaluates once per mount, not on
+  // every `trackers` reference change once the user starts using the app.
+  useEffect(() => {
+    if (landingCheckedRef.current || loading || trackersLoading) return
+    landingCheckedRef.current = true
+    if (!user && trackers.length === 0 && localStorage.getItem(LANDING_DISMISSED_KEY) !== 'true') {
+      setLandingDismissible(false)
+      setShowLanding(true)
+    }
+  }, [loading, trackersLoading, user, trackers])
+
+  function handleDismissLanding() {
+    localStorage.setItem(LANDING_DISMISSED_KEY, 'true')
+    setShowLanding(false)
+  }
 
   function clearSelection() {
     setSelectedIds(new Set())
@@ -959,6 +991,33 @@ export function Board() {
                   : null
 
   return (
+    <>
+      {showLanding && (
+        <LandingPage
+          onContinueAsGuest={handleDismissLanding}
+          // Deliberately doesn't dismiss the landing page on click -- only a
+          // successful sign-in should grant access (see the onSignIn wrapper
+          // below). Closing the modal without logging in leaves the forced
+          // gate exactly as it was.
+          onLogIn={() => setAuthModalMode('log-in')}
+          onSubscribed={setLandingEmail}
+          onDismiss={landingDismissible ? () => setShowLanding(false) : undefined}
+          signedInName={user ? displayName : undefined}
+        />
+      )}
+      {!showLanding && (
+        <button
+          type="button"
+          onClick={() => {
+            setLandingDismissible(true)
+            setShowLanding(true)
+          }}
+          aria-label="Show welcome page"
+          className="fixed top-0 left-1/2 -translate-x-1/2 z-40 px-3 py-1 bg-ink-800 text-white rounded-b-md hover:bg-ink-700"
+        >
+          <ChevronDownIcon className="w-4 h-4" />
+        </button>
+      )}
     <div className="h-screen bg-ink-50 flex">
       <Sidebar
         view={view}
@@ -1255,8 +1314,16 @@ export function Board() {
         <AuthModal
           mode={authModalMode}
           notice={authModalNotice}
+          initialEmail={landingEmail}
           onSignUp={signUp}
-          onSignIn={signIn}
+          onSignIn={async (email, password) => {
+            await signIn(email, password)
+            // Only a real, successful sign-in earns access past the beta
+            // landing gate -- opening the modal from "Log in" must not, or
+            // dismissing the modal without entering valid credentials would
+            // silently unlock the app.
+            if (showLanding) handleDismissLanding()
+          }}
           onResetPassword={resetPassword}
           onClose={() => {
             setAuthModalMode(null)
@@ -1340,5 +1407,6 @@ export function Board() {
         />
       )}
     </div>
+    </>
   )
 }
