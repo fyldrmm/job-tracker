@@ -1,23 +1,24 @@
-// Starts a double-opt-in newsletter subscription. No auth required --
-// unlike account-action, guests should be able to subscribe.
+// Newsletter subscription -- single opt-in. No auth required -- unlike
+// account-action, guests should be able to subscribe.
 //
 // Deployed via the Supabase dashboard's Edge Functions editor (no CLI link
 // set up), same as account-action and extract-job-details. RESEND_API_KEY
-// is the Function secret already used by account-action's deletion email;
-// RESEND_NEWSLETTER_AUDIENCE_ID is used by newsletter-confirm, not here.
+// is the Function secret already used by account-action's deletion email.
 //
-// Security review 2026-07-28, Finding #6: this used to add straight to the
-// Resend Audience on every call -- unauthenticated, unrate-limited, no
-// confirmation step, so anyone could list-bomb third-party addresses or run
-// up the Resend bill. Now: rate-limit by IP, then insert a pending row and
-// email a confirmation link -- the address only reaches Resend once that
-// link is clicked (see newsletter-confirm). Deliberately NOT wired to beta
-// access: this function's success response is all LandingPage.tsx's
-// onSubscribed/submitted UX depends on, so the beta funnel is unaffected by
-// whether the email ever gets confirmed.
+// Security review 2026-07-28, Finding #6 hardened this to rate-limit-by-IP
+// + double opt-in (confirm-before-add) after the original single-opt-in
+// version let anyone list-bomb third-party addresses. Reverted to single
+// opt-in 2026-07-29 at explicit user request (matches how most newsletters
+// work: subscribe immediately, unsubscribe link in every email) -- the rate
+// limit below is kept as the remaining abuse guard, and the confirm email's
+// "click to join" framing (which felt redundant since beta access is
+// already granted by this call succeeding, before any click) is gone.
+// newsletter_pending_confirmations is repurposed as the unsubscribe-token
+// store rather than a migration; see newsletter-confirm, which now handles
+// unsubscribe instead of confirm.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const FUNCTION_VERSION = 'newsletter-subscribe@2026-07-28.2'
+const FUNCTION_VERSION = 'newsletter-subscribe@2026-07-29.1'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -59,8 +60,16 @@ function buildEmailHtml(opts: {
   bodyHtml: string
   ctaHref: string
   ctaLabel: string
+  // 'primary' (green, default) for the main action; 'muted' for a
+  // secondary action like unsubscribe that shouldn't visually compete
+  // with a real CTA.
+  ctaStyle?: 'primary' | 'muted'
   secondaryNoteHtml?: string
 }) {
+  const isMuted = opts.ctaStyle === 'muted'
+  const ctaBg = isMuted ? '#F1F4EE' : '#1fa04e'
+  const ctaColor = isMuted ? '#45594C' : '#FFFFFF'
+  const ctaBorder = isMuted ? 'border:1px solid #D8E0D9;' : ''
   const secondaryNote = opts.secondaryNoteHtml
     ? `<tr>
         <td style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:13px; line-height:1.6; color:#8A9A8E; padding:0;">
@@ -104,8 +113,8 @@ function buildEmailHtml(opts: {
               <td align="left" style="padding:0 0 32px 0;">
                 <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td align="center" bgcolor="#1fa04e" style="border-radius:8px; background-color:#1fa04e;">
-                      <a href="${opts.ctaHref}" target="_blank" style="display:inline-block; padding:13px 28px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:8px;">
+                    <td align="center" bgcolor="${ctaBg}" style="border-radius:8px; background-color:${ctaBg}; ${ctaBorder}">
+                      <a href="${opts.ctaHref}" target="_blank" style="display:inline-block; padding:13px 28px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px; font-weight:600; color:${ctaColor}; text-decoration:none; border-radius:8px;">
                         ${opts.ctaLabel}
                       </a>
                     </td>
@@ -147,14 +156,41 @@ function buildEmailHtml(opts: {
 </html>`
 }
 
-async function sendConfirmationEmail(email: string, token: string, functionsBaseUrl: string) {
+// Adds the address to the Resend Audience immediately -- single opt-in.
+// An "already exists" response from Resend counts as success (e.g.
+// resubscribing after a prior unsubscribe attempt, or a duplicate signup).
+async function addToAudience(email: string, resendApiKey: string, audienceId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, unsubscribed: false }),
+    })
+    if (!response.ok) {
+      const text = await response.text()
+      if (!/already exists|already a member|duplicate/i.test(text)) {
+        console.error('newsletter-subscribe: Resend add-contact error', response.status, text)
+        return false
+      }
+    }
+    return true
+  } catch (err) {
+    console.error('newsletter-subscribe: request to Resend failed', err)
+    return false
+  }
+}
+
+async function sendSubscribedEmail(email: string, unsubscribeToken: string, functionsBaseUrl: string) {
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const fromEmail = Deno.env.get('DELETE_EMAIL_FROM') ?? 'noreply@fazare.dev'
   if (!resendApiKey) {
     console.error('newsletter-subscribe: missing RESEND_API_KEY')
     return false
   }
-  const confirmUrl = `${functionsBaseUrl}/newsletter-confirm?token=${token}`
+  const unsubscribeUrl = `${functionsBaseUrl}/newsletter-confirm?token=${unsubscribeToken}`
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -165,19 +201,19 @@ async function sendConfirmationEmail(email: string, token: string, functionsBase
       body: JSON.stringify({
         from: fromEmail,
         to: email,
-        subject: 'Confirm your OfferTrail beta signup',
+        subject: "You're subscribed to the OfferTrail newsletter",
         text:
-          'Almost there -- click the link below to confirm your email and join the OfferTrail ' +
-          `waitlist:\n\n${confirmUrl}\n\nIf you didn't request this, you can ignore this email.`,
+          "You're subscribed to the OfferTrail newsletter -- we'll email you when v1 launches and " +
+          `for other important updates.\n\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}`,
         html: buildEmailHtml({
-          preheader: 'Confirm your email to join the OfferTrail waitlist.',
-          headline: 'Confirm your beta signup',
+          preheader: "You're subscribed to the OfferTrail newsletter.",
+          headline: "You're subscribed",
           bodyHtml:
-            "Almost there — click below to confirm your email and join the OfferTrail waitlist. " +
-            "We'll email you when v1 launches.",
-          ctaHref: confirmUrl,
-          ctaLabel: 'Confirm email',
-          secondaryNoteHtml: "If you didn't request this, you can safely ignore this email.",
+            "You're on the OfferTrail newsletter — we'll email you when v1 launches and for other " +
+            "important updates. No spam, unsubscribe any time.",
+          ctaHref: unsubscribeUrl,
+          ctaLabel: 'Unsubscribe',
+          ctaStyle: 'muted',
         }),
       }),
     })
@@ -230,6 +266,8 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Too many attempts. Please try again later.' }, 429)
   }
 
+  // The row's token now serves as this address's unsubscribe token, not a
+  // confirm-before-add token -- see the header comment.
   const { data: pending, error: insertError } = await admin
     .from('newsletter_pending_confirmations')
     .insert({ email })
@@ -240,11 +278,26 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500)
   }
 
-  // Best-effort: this response must not leak whether the send succeeded
-  // (matches the enumeration-resistance discipline elsewhere in this
-  // function) and a Resend hiccup shouldn't block the beta-access grant,
-  // which only depends on this response being {ok:true}.
-  await sendConfirmationEmail(email, pending.token, `${supabaseUrl}/functions/v1`)
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')
+  const audienceId = Deno.env.get('RESEND_NEWSLETTER_AUDIENCE_ID')
+  if (!resendApiKey || !audienceId) {
+    console.error('newsletter-subscribe: missing RESEND_API_KEY or RESEND_NEWSLETTER_AUDIENCE_ID')
+    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500)
+  }
+
+  // Unlike the old double-opt-in flow, adding to Resend is no longer
+  // best-effort -- it's the actual subscription, so a failure here must be
+  // surfaced (not silently swallowed the way the confirmation-email send
+  // below still is).
+  const added = await addToAudience(email, resendApiKey, audienceId)
+  if (!added) {
+    return jsonResponse({ error: 'Something went wrong. Please try again.' }, 502)
+  }
+
+  // Best-effort: the notice email is a courtesy, not the subscription
+  // itself, so a Resend hiccup here shouldn't fail a request that already
+  // succeeded.
+  await sendSubscribedEmail(email, pending.token, `${supabaseUrl}/functions/v1`)
 
   return jsonResponse({ ok: true })
 })

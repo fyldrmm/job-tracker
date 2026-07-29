@@ -68,7 +68,7 @@ describe('LandingPage', () => {
     const user = userEvent.setup()
     await user.type(screen.getByLabelText('Email address'), 'ada@example.com')
     await user.click(screen.getByRole('button', { name: 'Get Access' }))
-    await waitFor(() => expect(screen.getByText(/You're on the list/)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/You're subscribed/)).toBeInTheDocument())
     expect(screen.getByRole('button', { name: /Start tracking now/ })).toBeInTheDocument()
   })
 
@@ -82,7 +82,7 @@ describe('LandingPage', () => {
     await user.type(screen.getByLabelText('Email address'), 'ada@example.com')
     await user.click(screen.getByRole('button', { name: 'Get Access' }))
     await waitFor(() => expect(screen.getByText('Please enter a valid email address.')).toBeInTheDocument())
-    expect(screen.queryByText(/You're on the list/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/You're subscribed/)).not.toBeInTheDocument()
     expect(onSubscribed).not.toHaveBeenCalled()
   })
 

@@ -107,7 +107,7 @@ export function LandingPage({
           </div>
         ) : submitted ? (
           <div className="w-full max-w-md text-center bg-black/40 backdrop-blur border border-white/20 rounded-xl p-6 mb-3">
-            <p className="text-emerald-400 font-medium mb-1">You're on the list ✓</p>
+            <p className="text-emerald-400 font-medium mb-1">You're subscribed ✓</p>
             <p className="text-sm text-white/70 mb-4">We'll email you when v1 launches.</p>
             <button
               type="button"
@@ -139,7 +139,7 @@ export function LandingPage({
             </form>
             {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
             <p className="mt-2 text-xs text-white/60 text-center">
-              Required for beta access — get notified when v1 launches, unsubscribe anytime.
+              Joins our newsletter for beta access — unsubscribe anytime.
             </p>
           </div>
         )}
