@@ -8,7 +8,7 @@
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         width: 260px;
         padding: 16px;
-        color: #1e293b;
+        color: #031e0c;
       }
       h1 {
         font-size: 14px;
@@ -17,11 +17,30 @@
       }
       #page-title {
         font-size: 12px;
-        color: #64748b;
+        color: #637968;
         margin: 0 0 12px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+      .field {
+        margin-bottom: 10px;
+      }
+      .field label {
+        display: block;
+        font-size: 11px;
+        font-weight: 500;
+        color: #637968;
+        margin-bottom: 3px;
+      }
+      select {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: 12px;
+        color: #031e0c;
+        background: white;
+        border: 1px solid #cdd7cf;
+        border-radius: 6px;
       }
       button {
         width: 100%;
@@ -29,7 +48,7 @@
         font-size: 13px;
         font-weight: 500;
         color: white;
-        background: #1e293b;
+        background: #142f1d;
         border: none;
         border-radius: 6px;
         cursor: pointer;
@@ -39,22 +58,41 @@
         cursor: default;
       }
       button:hover:not(:disabled) {
-        background: #334155;
+        background: #2c4834;
       }
       .status {
         margin-top: 10px;
         font-size: 12px;
-        color: #64748b;
+        color: #637968;
         min-height: 14px;
       }
       .status.error {
         color: #e11d48;
+      }
+      .quota {
+        font-size: 11px;
+        color: #637968;
+        margin: 0 0 12px;
       }
     </style>
   </head>
   <body>
     <h1>OfferTrail</h1>
     <p id="page-title"></p>
+    <div class="field" id="tracker-field" hidden>
+      <label for="tracker-select">Board</label>
+      <select id="tracker-select"></select>
+    </div>
+    <div class="field" id="stage-field" hidden>
+      <label for="stage-select">Stage</label>
+      <select id="stage-select">
+        <option value="eyes_on">Eyes on</option>
+        <option value="applied" selected>Applied</option>
+        <option value="interview">Interview</option>
+        <option value="offer">Offer</option>
+      </select>
+    </div>
+    <p id="quota" class="quota"></p>
     <button id="send" type="button">Send to OfferTrail</button>
     <p id="status" class="status"></p>
     <script src="popup.js"></script>

@@ -50,6 +50,23 @@ async function sendToTab(tabId, payload, attempt = 0) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === 'sync-from-page') {
+    // Cache the latest tracker/quota snapshot pushed by Board.tsx so the
+    // popup can read it without needing its own Supabase session. Stamped
+    // with when it arrived so the popup can label it "as of your last
+    // visit" rather than implying it's live.
+    chrome.storage.local.set({
+      syncSnapshot: {
+        trackers: message.trackers,
+        extractionsLeft: message.extractionsLeft,
+        extractionLimit: message.extractionLimit,
+        isPro: message.isPro,
+        syncedAt: Date.now(),
+      },
+    })
+    return undefined
+  }
+
   if (message?.type !== 'send-to-tracker') return undefined
 
   ;(async () => {
@@ -77,7 +94,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         return
       }
 
-      const payload = { source: MESSAGE_SOURCE, type: 'extract', text, sourceUrl: tab.url, originalTextLength }
+      const payload = {
+        source: MESSAGE_SOURCE,
+        type: 'extract',
+        text,
+        sourceUrl: tab.url,
+        originalTextLength,
+        // Chosen in the popup from the cached sync snapshot -- undefined if
+        // there was nothing cached to pick from, which Board.tsx treats the
+        // same as an older extension build (falls back to its own defaults).
+        trackerId: message.trackerId || undefined,
+        stage: message.stage || undefined,
+      }
 
       // Stash first (the fallback path for a freshly created/reloading
       // tab), THEN try direct delivery for a tab that's already open and

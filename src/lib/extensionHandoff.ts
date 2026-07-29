@@ -11,6 +11,13 @@
 // are attacker-controlled in general, even though in practice only our own
 // content script (scoped to this origin in the extension's manifest) can
 // reach this listener.
+//
+// A second, opposite-direction message type ('sync') lets the page push a
+// snapshot of trackers + extraction quota to the extension (so the popup
+// can offer a tracker/stage picker and a quota line without needing its own
+// Supabase session -- see postExtensionSync below).
+import type { ApplicationStage } from '../types/application'
+
 export const EXTENSION_MESSAGE_SOURCE = 'jobtracker-extension'
 
 // Mirrors the Edge Function's MAX_TEXT_CHARS (supabase/functions/extract-job-details/index.ts)
@@ -31,7 +38,17 @@ export interface ExtensionHandoffPayload {
   // build); not itself trusted for anything security-sensitive, only used
   // as a metrics signal.
   originalTextLength?: number
+  // Optional tracker/stage picked in the popup (extension 0.3.0+). Absent
+  // for an older extension build, or if the popup had no cached snapshot to
+  // pick from -- Board.tsx falls back to its existing auto-pick logic
+  // (resolveTrackerIdForHandoff / defaulting to 'applied') in that case, and
+  // also if a sent trackerId no longer matches a real tracker (renamed /
+  // deleted since the popup's snapshot was cached).
+  trackerId?: string
+  stage?: ApplicationStage
 }
+
+const APPLICATION_STAGES: ApplicationStage[] = ['eyes_on', 'applied', 'interview', 'offer']
 
 // Validates and normalizes an incoming window.postMessage event's data.
 // Returns null for anything that doesn't match the contract -- malformed,
@@ -47,7 +64,28 @@ export function parseExtensionMessage(data: unknown): ExtensionHandoffPayload | 
     text: msg.text.slice(0, MAX_EXTRACTION_TEXT_CHARS),
     sourceUrl: typeof msg.sourceUrl === 'string' && msg.sourceUrl ? msg.sourceUrl : null,
     originalTextLength: typeof msg.originalTextLength === 'number' ? msg.originalTextLength : undefined,
+    trackerId: typeof msg.trackerId === 'string' && msg.trackerId ? msg.trackerId : undefined,
+    stage:
+      typeof msg.stage === 'string' && APPLICATION_STAGES.includes(msg.stage as ApplicationStage)
+        ? (msg.stage as ApplicationStage)
+        : undefined,
   }
+}
+
+export interface ExtensionSyncPayload {
+  trackers: { id: string; name: string }[]
+  extractionsLeft: number
+  extractionLimit: number
+  isPro: boolean
+}
+
+// Pushed from Board.tsx (signed-in only) so the extension popup has
+// something to show without its own Supabase session -- content-bridge.js
+// relays this to background.js, which caches it in chrome.storage.local.
+// Best-effort, same spirit as extractionsLeft elsewhere: the popup labels
+// this "as of your last visit" rather than treating it as live.
+export function postExtensionSync(payload: ExtensionSyncPayload): void {
+  window.postMessage({ source: EXTENSION_MESSAGE_SOURCE, type: 'sync', ...payload }, window.location.origin)
 }
 
 const PENDING_EXTRACTION_KEY = 'job-tracker:pending-extraction'

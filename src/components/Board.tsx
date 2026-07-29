@@ -29,8 +29,10 @@ import {
   deleteOwnAccount,
   changePassword,
   extractJobDetailsFromText,
+  getExtractionUsageThisMonth,
   type ExtractedJobFields,
 } from '../lib/remoteStore'
+import { PER_USER_MONTHLY_LIMIT, PRO_MONTHLY_LIMIT } from '../lib/extraction'
 import { clearLocalStore, hasAnyLocalGuestData } from '../lib/localStore'
 import { isTextEntryTarget } from '../lib/dom'
 import { subscribeToGlobalErrors } from '../lib/globalErrors'
@@ -38,6 +40,7 @@ import {
   parseExtensionMessage,
   storePendingExtraction,
   consumePendingExtraction,
+  postExtensionSync,
   type ExtensionHandoffPayload,
 } from '../lib/extensionHandoff'
 import { LogoMark, LogoOfferWord } from './Logo'
@@ -619,16 +622,22 @@ export function Board() {
   }
 
   // Picks the tracker an extension handoff's extracted application should
-  // land in: the active one if there is one, else the first tracker, else
+  // land in: the popup's chosen trackerId if it still names a real tracker
+  // (the popup's cached snapshot can be stale if a tracker was renamed or
+  // deleted since), else the active one, else the first tracker, else
   // (a genuinely trackerless account/guest) creates one -- same default
   // name and behavior as the "+ Create tracker" empty state
   // (handleCreateFirstTracker below).
-  const resolveTrackerIdForHandoff = useCallback(async (): Promise<string | null> => {
-    if (activeTrackerId && trackers.some((t) => t.id === activeTrackerId)) return activeTrackerId
-    if (trackers.length > 0) return trackers[0].id
-    const tracker = await createTracker('My Applications')
-    return tracker.id
-  }, [activeTrackerId, trackers, createTracker])
+  const resolveTrackerIdForHandoff = useCallback(
+    async (requestedTrackerId?: string): Promise<string | null> => {
+      if (requestedTrackerId && trackers.some((t) => t.id === requestedTrackerId)) return requestedTrackerId
+      if (activeTrackerId && trackers.some((t) => t.id === activeTrackerId)) return activeTrackerId
+      if (trackers.length > 0) return trackers[0].id
+      const tracker = await createTracker('My Applications')
+      return tracker.id
+    },
+    [activeTrackerId, trackers, createTracker],
+  )
 
   // Runs an extension-handoff extraction and opens the add form pre-filled
   // with the result, for the user to review and save -- same "extract, then
@@ -636,13 +645,16 @@ export function Board() {
   // triggered by an external postMessage instead of a click. On extraction
   // failure, still opens a blank-ish form seeded with the page's URL (if the
   // extension sent one) rather than losing the handoff entirely -- the user
-  // can fill the rest in manually.
+  // can fill the rest in manually. The popup's chosen stage is honored if
+  // present; 'applied' remains the default for an older extension build (or
+  // one that never got a synced snapshot to pick a stage from).
   const runExtensionExtraction = useCallback(
     async (payload: ExtensionHandoffPayload) => {
       setExtractingFromExtension(true)
+      const stage = payload.stage ?? 'applied'
       let trackerId: string | null
       try {
-        trackerId = await resolveTrackerIdForHandoff()
+        trackerId = await resolveTrackerIdForHandoff(payload.trackerId)
       } catch (err) {
         setExtractingFromExtension(false)
         showError(err, 'Could not prepare a tracker for the extracted application.')
@@ -653,14 +665,14 @@ export function Board() {
         const fields = await extractJobDetailsFromText(payload.text, payload.originalTextLength)
         setFormState({
           mode: 'add',
-          stage: 'applied',
+          stage,
           prefill: { ...fields, job_link: fields.job_link ?? payload.sourceUrl },
         })
       } catch (err) {
         showError(err, 'Could not extract job details from that page. You can still add it manually.')
         setFormState({
           mode: 'add',
-          stage: 'applied',
+          stage,
           prefill: payload.sourceUrl ? { job_link: payload.sourceUrl } : null,
         })
       } finally {
@@ -709,6 +721,38 @@ export function Board() {
     if (!pending) return
     runExtensionExtraction(pending)
   }, [user, migrationSettled, trackersLoading, runExtensionExtraction])
+
+  // Sending half of the extension "sync" channel: pushes a snapshot of
+  // trackers + extraction quota so the popup (which has no Supabase session
+  // of its own) can offer a tracker/stage picker and a quota line, cached in
+  // chrome.storage.local by background.js via content-bridge.js. Runs once
+  // trackers have settled after sign-in, then again whenever the tracker
+  // list changes -- NOT on every applications change, since the extraction
+  // count only moves in ways (a fresh AI extraction) this tab wouldn't be
+  // the source of most of the time; best-effort/"as of last visit" is the
+  // agreed tradeoff, not a live counter. A harmless no-op page-side postMessage
+  // if no extension is installed to relay it (there's no ack expected).
+  useEffect(() => {
+    if (!user || trackersLoading) return
+    let cancelled = false
+    getExtractionUsageThisMonth(user.id)
+      .then((used) => {
+        if (cancelled) return
+        const extractionLimit = subscription.isPro ? PRO_MONTHLY_LIMIT : PER_USER_MONTHLY_LIMIT
+        postExtensionSync({
+          trackers: trackers.map((t) => ({ id: t.id, name: t.name })),
+          extractionsLeft: Math.max(0, extractionLimit - used),
+          extractionLimit,
+          isPro: subscription.isPro,
+        })
+      })
+      .catch(() => {
+        /* best-effort -- the popup just keeps showing its last-cached snapshot */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [user, trackersLoading, trackers, subscription.isPro])
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
