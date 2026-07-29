@@ -17,7 +17,7 @@
 // whether the email ever gets confirmed.
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const FUNCTION_VERSION = 'newsletter-subscribe@2026-07-28.1'
+const FUNCTION_VERSION = 'newsletter-subscribe@2026-07-28.2'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -50,6 +50,103 @@ async function hashIp(ip: string): Promise<string> {
     .join('')
 }
 
+// Shared branded-email shell (mirrors email-templates/base-template.html --
+// duplicated per function rather than imported, since these are deployed
+// one file at a time via the dashboard editor, not bundled from the repo).
+function buildEmailHtml(opts: {
+  preheader: string
+  headline: string
+  bodyHtml: string
+  ctaHref: string
+  ctaLabel: string
+  secondaryNoteHtml?: string
+}) {
+  const secondaryNote = opts.secondaryNoteHtml
+    ? `<tr>
+        <td style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:13px; line-height:1.6; color:#8A9A8E; padding:0;">
+          ${opts.secondaryNoteHtml}
+        </td>
+      </tr>`
+    : ''
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>OfferTrail</title>
+</head>
+<body style="margin:0; padding:0; background-color:#F1F4EE; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%;">
+  <div style="display:none; max-height:0; overflow:hidden; mso-hide:all; font-size:1px; line-height:1px; color:#F1F4EE;">${opts.preheader}</div>
+  <center style="width:100%; background-color:#F1F4EE;">
+  <div style="max-width:600px; margin:0 auto;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px; border-collapse:collapse;">
+      <tr>
+        <td align="center" bgcolor="#1c3a27" style="background-color:#1c3a27; background-image:linear-gradient(135deg, #16281D 0%, #1fa04e 100%); padding:32px 24px; border-radius:12px 12px 0 0;">
+          <img src="https://offertrail.app/brand/logo-reversed.png" alt="OfferTrail" width="160" style="display:block; width:160px; height:auto; border:0; outline:none; text-decoration:none;">
+        </td>
+      </tr>
+      <tr>
+        <td bgcolor="#FFFFFF" style="background-color:#FFFFFF; padding:40px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:22px; line-height:1.35; font-weight:700; color:#16281D; padding:0 0 16px 0;">
+                ${opts.headline}
+              </td>
+            </tr>
+            <tr>
+              <td style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px; line-height:1.6; color:#45594C; padding:0 0 28px 0;">
+                ${opts.bodyHtml}
+              </td>
+            </tr>
+            <tr>
+              <td align="left" style="padding:0 0 32px 0;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center" bgcolor="#1fa04e" style="border-radius:8px; background-color:#1fa04e;">
+                      <a href="${opts.ctaHref}" target="_blank" style="display:inline-block; padding:13px 28px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:15px; font-weight:600; color:#FFFFFF; text-decoration:none; border-radius:8px;">
+                        ${opts.ctaLabel}
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            ${secondaryNote}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td bgcolor="#F1F4EE" style="background-color:#F1F4EE; padding:28px 32px; border-radius:0 0 12px 12px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>
+              <td align="center" style="padding:0 0 12px 0;">
+                <img src="https://offertrail.app/brand/icon.png" alt="OfferTrail" width="24" style="display:block; width:24px; height:24px; border:0; outline:none; text-decoration:none; border-radius:6px;">
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:12px; line-height:1.6; color:#8A9A8E; padding:0 0 6px 0;">
+                OfferTrail — track every application, one trail at a time.
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; font-size:12px; line-height:1.8; color:#8A9A8E;">
+                <a href="https://offertrail.app/privacy" style="color:#45594C; text-decoration:underline;">Privacy policy</a>
+                &nbsp;&middot;&nbsp;
+                <a href="https://offertrail.app/terms" style="color:#45594C; text-decoration:underline;">Terms</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </div>
+  </center>
+</body>
+</html>`
+}
+
 async function sendConfirmationEmail(email: string, token: string, functionsBaseUrl: string) {
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const fromEmail = Deno.env.get('DELETE_EMAIL_FROM') ?? 'noreply@fazare.dev'
@@ -72,6 +169,16 @@ async function sendConfirmationEmail(email: string, token: string, functionsBase
         text:
           'Almost there -- click the link below to confirm your email and join the OfferTrail ' +
           `waitlist:\n\n${confirmUrl}\n\nIf you didn't request this, you can ignore this email.`,
+        html: buildEmailHtml({
+          preheader: 'Confirm your email to join the OfferTrail waitlist.',
+          headline: 'Confirm your beta signup',
+          bodyHtml:
+            "Almost there — click below to confirm your email and join the OfferTrail waitlist. " +
+            "We'll email you when v1 launches.",
+          ctaHref: confirmUrl,
+          ctaLabel: 'Confirm email',
+          secondaryNoteHtml: "If you didn't request this, you can safely ignore this email.",
+        }),
       }),
     })
     if (!response.ok) {
