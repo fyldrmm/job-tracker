@@ -4,80 +4,72 @@
 
 ## Session scope
 
-Three threads, in order: (1) verified/corrected the security-review deploy status left ambiguous by the prior handoff, and shipped a small client-side fix for a new Supabase password policy discovered along the way; (2) executed the full domain migration from `jobtracker.fazare.dev` to `offertrail.app`, including the `www` redirect and decommissioning the old domain; (3) caught and fixed a stale Stripe webhook URL that the migration plan hadn't flagged. A fourth thread (Resend email-confirmation template) was raised by the user at the very end and is **not started** — see "Next action".
+Two threads, both fully closed out: (1) fixed the Resend/Supabase confirmation-email bug left open by the prior session (stale branding + broken cross-device link), which turned into three linked fixes — email branding, a Supabase Auth Site URL config fix, and an unrelated-but-real untracked-git-assets bug; (2) reworked the newsletter signup flow from double opt-in back to single opt-in at the user's request, after they found the double-opt-in email UX confusing.
 
 ## Commits this session
 
-- `d765462` — "Surface new password requirements (upper/lower/digit) to users" — pushed.
-- `658028f` — "Point the app and browser extension at offertrail.app" — pushed.
+- `c8cc2a6` — "Brand transactional emails and fix broken brand-image assets" — pushed.
+- `90fd35e` — "Switch newsletter signup to single opt-in with an unsubscribe email" — pushed.
 
-Both are on `origin/main`. Nothing stashed, no scratch branches. (Also confirmed as a side-finding: `ec0cf35`/`606504c` from the *prior* session, which that session's handoff said were "not yet pushed," were in fact already on `origin/main` — corrected in `PLAN.md`.)
+Both on `origin/main`. Working tree is clean at session end (`git status` shows only the pre-existing untracked `extension/store-assets/` and `final/`, unrelated to this session — same baseline as every prior handoff).
 
 ## Exact stopping point
 
-**Domain migration: fully complete**, including the decommission step (which the plan had gated on a separate explicit go-ahead — user gave it this session). Current live state:
-- `offertrail.app` — Worker Custom Domain binding, HSTS/CSP/security headers, `wrangler.jsonc`'s `PUBLIC_APP_URL`, extension manifests all point here. Verified end-to-end in-browser and via `curl`.
-- `www.offertrail.app` — CNAME + 301 redirect to apex, verified working.
-- `jobtracker.fazare.dev` — Worker Custom Domain binding **deleted**; confirmed via `curl -v` that it no longer resolves at all (`Could not resolve host`).
-- Stripe webhook endpoint in the Stripe Dashboard — user edited it in place from `jobtracker.fazare.dev/api/stripe-webhook` to `offertrail.app/api/stripe-webhook` (same signing secret, no `STRIPE_WEBHOOK_SECRET` rotation). Verified reachable (`curl` unsigned POST → `400`/`Invalid signature`, correct behavior). **Not yet verified with a real Stripe event** — user deferred a live-card test to later, by choice.
+Everything planned this session is **done, deployed, and user-verified**. There is no in-progress or stubbed work. Specifically, live and confirmed:
 
-**Still open from this migration, both deliberately left for the user:**
-- Chrome Web Store extension republish — manifests are already updated to `offertrail.app` (this session, commit `658028f`), but the *published* extension is still the old version pointing at the dead domain, broken for existing installs until a new version is submitted and approved.
-- A real live-mode Stripe purchase, to confirm the webhook fires correctly end-to-end post-migration (checkout-session creation was already confirmed working; the webhook delivery itself was only signature-checked, not exercised with a real event).
+- `public/brand/icon.png` / `logo-reversed.png` — committed (were previously untracked, see "Learned this session"), deployed via `npm run build && npx wrangler deploy`, confirmed serving `content-type: image/png` (was `text/html`, the SPA fallback).
+- `supabase/functions/account-action/index.ts` — deletion-confirmation email now HTML-branded via a local `buildEmailHtml()` helper (mirrors `email-templates/base-template.html`), subject fixed from "Job Application Tracker" → "OfferTrail". Redeployed, confirmed via `x-function-version: account-action@2026-07-28.2`.
+- `supabase/functions/newsletter-subscribe/index.ts` — rewritten twice this session. First pass: branded the confirm-email HTML (`@2026-07-28.2`). Second pass (the opt-in switch): now calls a new `addToAudience()` directly instead of only emailing a confirm link, then sends a "You're subscribed" notice via a new `sendSubscribedEmail()` with a muted-style Unsubscribe button (`ctaStyle: 'muted'` added to `buildEmailHtml()`). Currently live at `@2026-07-29.1`.
+- `supabase/functions/newsletter-confirm/index.ts` — fully rewritten from a confirm-link handler into an unsubscribe-link handler (same function name and `newsletter_pending_confirmations` token table, repurposed). No expiry check now. Live at `@2026-07-29.1`.
+- `email-templates/confirm-signup.html`, `email-templates/reset-password.html` — new, pasted by the user into Supabase Dashboard → Authentication → Email Templates (Confirm signup / Reset password), subjects set to "Confirm your OfferTrail account" / "Reset your OfferTrail password".
+- Supabase Dashboard → Authentication → URL Configuration → **Site URL** — user updated from `jobtracker.fazare.dev` to `offertrail.app` (this is what was actually breaking the confirmation link; see "Learned this session").
+- `src/components/LandingPage.tsx` + `LandingPage.test.tsx` — copy updated to name the newsletter explicitly ("Joins our newsletter for beta access — unsubscribe anytime") and match the new "You're subscribed ✓" confirmation text. Verified in-browser via the dev server (screenshot taken, copy renders correctly) — did **not** submit the live form during verification, since that would hit the real Resend/Supabase backend (see below).
+- `tsc -b --noEmit`: clean. `vitest run`: 192 passed / 52 failed — same pre-existing baseline as documented in prior handoffs, no new failures introduced by anything this session touched.
 
-**Security review: 8/10 findings confirmed live, 2 still not deployed.** `supabase/migrations/0017_newsletter_hardening.sql` and `0018_field_length_limits.sql` are confirmed **run** (this session, via live PostgREST probes + the user's own SQL-editor error confirming `0018`). But `newsletter-subscribe/index.ts` is still running the **old** code (`x-function-version: newsletter-subscribe@2026-07-27.1`; source says it should be `@2026-07-28.1`), and `newsletter-confirm/index.ts` was never deployed at all (`404`). Full detail in `PLAN.md`'s "Current status".
-
-**Not started at all: the Resend email-confirmation template fix**, raised by the user in the last message before this handoff. Two reported issues: (1) subject/title says "Job Tracker Test" (stale branding), (2) the confirmation link apparently can't be opened from a different browser/device than the one that requested it. No investigation has happened yet — not even confirming where this template lives (Supabase's built-in template editor vs. something custom).
+No half-finished pieces. If the next session finds anything here in an unexpected state, that's drift since this handoff, not a known loose end.
 
 ## Next action
 
-Start the Resend email-confirmation template fix. First step should be **investigation, not a fix**: confirm where the template actually lives (Supabase Dashboard → Authentication → Email Templates is the most likely place, since Supabase's SMTP is configured to send via Resend per the "Resend domain verified" note in `PLAN.md` — but confirm rather than assume), and read its current HTML/subject there. Then investigate issue (2) specifically — check whether the confirmation link uses Supabase's PKCE flow (which binds a code verifier to the *requesting* browser's storage and would explain "can't open on another device/browser" as expected-but-undesirable PKCE behavior, not a bug) versus the older implicit/token-hash flow (which is a plain URL, portable across devices). `useAuth.ts` and any `supabase.auth.signInWithOtp`/`resetPasswordForEmail`/`signUp` call sites are the places to check which flow this project is actually using.
+Nothing queued from this session. The last unresolved item mentioned in the codebase itself is the small, deliberately-deferred inconsistency in `TermsOfService.tsx` §10 (Contribution License wording, flagged in a comment at the top of that file since the 2026-07-27 monetization session) — not touched this session, still just sitting there for whenever that file is next opened.
+
+If nothing else is queued, the natural next step is asking the user what's next — there's no open bug or half-built feature driving the next session.
 
 ## Learned this session
 
-- **`npx wrangler deploy` does not rebuild the frontend — it silently serves whatever's already in `dist/`.** Cost a real bug: right after editing `wrangler.jsonc`'s `PUBLIC_APP_URL`, ran `wrangler deploy` without rebuilding first; it reported "No updated asset files to upload" and exited successfully, but the live site was still missing that same session's earlier password-requirements UI change. Fixed by always running `npm run build` before `wrangler deploy` whenever frontend source changed, and confirming via `grep` on the built JS that the expected string is actually present before trusting a deploy. **Do this every time a Worker deploy follows a frontend change — there's no warning from wrangler that `dist/` is stale.**
-- **A Cloudflare zone's `permissions` array (from `GET /zones?name=...`) does NOT reflect what a specific API token was actually granted** — it reflects what's possible for the zone/plan in general. Only a direct call against the specific endpoint (e.g. `GET /zones/{id}/dns_records`) tells you the token's real access; a `403`/`Authentication error` there means missing permission regardless of what the zone's own permissions list shows.
-- **Cloudflare's permission picker has near-duplicate-named groups that are easy to conflate**, and this cost two separate back-and-forths this session: "DNS" (governs `/dns_records`, what's needed for actual record CRUD) vs. "DNS Settings" (governs DNSSEC/CAA zone config, not records) — the user's first attempt checked the wrong one. Same trap with "Dynamic URL Redirects": it has separate **Read** and **Edit** checkboxes, and the first attempt only checked Read, which passes nothing (redirect *rule creation* needs Edit).
-- **The account-level Cloudflare `workers/domains` endpoint (`/accounts/{account_id}/workers/domains`) is account-scoped, not zone-scoped** — it worked for creating the `offertrail.app` Worker Custom Domain binding even before any zone-specific DNS/Redirect-Rules permissions were sorted out. Worth remembering: not every Cloudflare API surface follows the same scoping as `/zones/{id}/...` endpoints.
-- **Deleting a Worker Custom Domain binding by its specific binding ID removes only that hostname's binding (and its DNS record) — a sibling binding on the same Worker service is untouched.** Confirmed directly: deleting `jobtracker.fazare.dev`'s binding left `offertrail.app` fully live with zero interruption.
-- **Checkout-session creation working is not proof a Stripe integration survived a domain move — the webhook is a separate, easily-missed piece.** The webhook endpoint URL lives in the Stripe Dashboard itself, entirely outside the app's code and config, so nothing in a `grep` for the old domain across the repo would have caught it. Found only because the user proactively asked "do we need to change anything in Stripe" after noticing the purchase *button* still worked — which it always would have, regardless of webhook health, since checkout-session creation doesn't touch the webhook URL at all.
-- **Editing a Stripe webhook endpoint's URL in place preserves its signing secret; deleting and recreating it does not.** Confirmed by design (not tested destructively) — worth remembering as the reason to always prefer in-place edits for this specific object.
+- **`public/brand/*` was never committed to git** — existed on disk (presumably added by whichever session made the OfferTrail logo, e.g. `3c4ea31`/`5f09bc9`, but those commits evidently only touched in-app SVG logo components, not this folder) but `git status`/`git ls-files public/` showed it untracked. Every deploy since shipped a `dist/` missing it. The tell was `curl -sI https://offertrail.app/brand/icon.png` returning `200` with `content-type: text/html` (the SPA's `index.html`, per `wrangler.jsonc`'s `not_found_handling: "single-page-application"`) instead of a real image — compare against a known-good asset like `/favicon.svg` (`content-type: image/svg+xml`) to confirm it's path-specific, not a general Worker asset-serving failure. **Worth a recurring check**: any time a static asset that "should obviously exist" 404s-as-200 in production, run `git ls-files` on its path before assuming a Worker/Cloudflare config problem.
+- **The reported "confirmation link only works on the browser that signed up" symptom was a red herring** — I initially reasoned toward a PKCE code-verifier explanation (browser-local secret required to complete the flow) before checking. Verified instead, by reading `node_modules/@supabase/auth-js/dist/main/GoTrueClient.js:24`, that the installed `auth-js@2.110.6`'s actual default is `flowType: 'implicit'`, and this app's `createClient()` never overrides it — so no code-verifier is involved at all. The real link the user pasted (`.../auth/v1/verify?token=...&type=signup&redirect_to=https://jobtracker.fazare.dev`) showed the actual bug immediately: `redirect_to` pointed at the fully-decommissioned old domain, which fails identically for every browser and device, not just a "different" one. **Lesson for next time a bug report describes a device/browser-specific-sounding symptom**: get the actual artifact (link, request, error) before reasoning about mechanism — a plausible-sounding cause (PKCE) can send you down the wrong path even when it's technically well-informed.
+- **Double opt-in lasted about 24 hours in production before the user reverted it.** It was added in the 2026-07-28 security review (Finding #6, anti-list-bombing) and reverted 2026-07-29 because the resulting "confirm your beta signup" email felt confusing — beta access is granted the instant the form succeeds, so an email arriving afterward asking the user to "confirm" something that already happened read as broken, not as expected friction. This was flagged explicitly as a security-vs-UX tradeoff before implementing (I asked via a two-option question); the user chose UX with full awareness of the reopened gap. **Not a mistake to "fix" next session** — a deliberate, informed choice, documented in `PLAN.md`'s "Decisions & notes".
+- **Resend's contact-unsubscribe API takes the email address directly in the URL path** — `PATCH https://api.resend.com/audiences/{audienceId}/contacts/{email}` with `{unsubscribed: true}` in the body (used in the rewritten `newsletter-confirm/index.ts`). Not independently verified against a real Resend response in this session (no live unsubscribe click was triggered during my own verification, only the user's own end-to-end test per their "done and tested" confirmation) — if a future session sees unsubscribe reports not actually removing people from the Resend audience, start here.
+- **Didn't submit the live landing-page form during my own verification pass**, even just to see the UI confirmation state, because doing so would trigger a real `newsletter-subscribe` call against production Supabase/Resend (a real contact add + a real email send) — not an appropriate side effect for a routine visual check. Relied on the existing automated test (`LandingPage.test.tsx`, mocked `subscribeToNewsletter`) for that state instead. Worth remembering as the pattern for this repo generally: anything hitting `newsletter-subscribe`, `account-action`, or Stripe endpoints is a real production side effect, not a safe manual-QA action, unless using a disposable/test address deliberately.
 
 ## Open questions
 
-- Should the two still-undeployed security-review pieces (`newsletter-subscribe` redeploy, `newsletter-confirm` first-time deploy) be picked up before or after the new Resend-template task? Not asked this session — the user pivoted straight to the domain migration and then the Resend issue without addressing this. Both are dashboard-only manual deploys for the user; no blocker either way.
-- Chrome Web Store republish timing is entirely the user's call and outside any session's control once submitted (review turnaround).
-- Real live-mode Stripe purchase test — user said "I'll do a live test with a real card and account later," explicitly deferred, no timeline given.
+- `NewsletterModal.tsx` (the separate AI-CV-Helper-teaser newsletter entry point, same `subscribeToNewsletter()` call) still shows "You're on the list — look out for our next update." after the opt-in-model change — inherited the new single-opt-in *behavior* automatically since it calls the same function, but its own success copy wasn't updated for consistency with `LandingPage.tsx`'s new "You're subscribed ✓" wording. Not raised by the user this session — flagging in case it's noticed later, not because it's broken.
+- `supabase/migrations/0017_newsletter_hardening.sql`'s inline SQL comments still describe the double-opt-in design that this session partially reversed at the application layer. Deliberately left un-edited (already-applied migration, historical record) — documented instead in `PLAN.md` and the two Edge Functions' own header comments. Flagging in case a future session finds the comment/behavior mismatch confusing without this context.
+- No timeline update on the two items still explicitly deferred to the user from before this session: Chrome Web Store extension republish, and a real live-mode Stripe purchase test. Neither came up this session.
 
 ## Verify
 
 ```bash
 git log --oneline -5
-# d765462 and 658028f should be present, both on origin/main (git status: not ahead)
+# 90fd35e and c8cc2a6 should be present, both on origin/main (git status: not ahead)
 
 git status
-# should be clean except pre-existing untracked extension/store-assets/ and final/ (unrelated to this session)
+# clean except pre-existing untracked extension/store-assets/ and final/
 
-curl -sI "https://offertrail.app/?cb=$(date +%s)" | grep -i "strict-transport-security\|content-security-policy:"
-# strict-transport-security: max-age=63072000; includeSubDomains; preload
-# content-security-policy: default-src 'self'; connect-src 'self' https://*.supabase.co; ...
+curl -sI https://offertrail.app/brand/icon.png | grep -i content-type
+curl -sI https://offertrail.app/brand/logo-reversed.png | grep -i content-type
+# both: content-type: image/png -- if either shows text/html, the brand-asset fix regressed
+# (check `git ls-files public/brand/` first -- confirms the files are still tracked)
 
-curl -v "https://jobtracker.fazare.dev" 2>&1 | grep "Could not resolve"
-# "Could not resolve host: jobtracker.fazare.dev" -- confirms decommission held
-
-curl -sL -o /dev/null -w "%{url_effective} -> %{http_code}\n" "https://www.offertrail.app/?cb=$(date +%s)"
-# https://offertrail.app/?cb=... -> 200
-
-curl -s -X POST "https://offertrail.app/api/stripe-webhook" -d '{}'
-# {"error":"Invalid signature"} -- confirms endpoint live and verifying signatures (not proof a real event was ever received)
+curl -sI -X OPTIONS "https://fjlmyaamarnjlthbhycx.supabase.co/functions/v1/account-action" | grep -i x-function-version
+# account-action@2026-07-28.2
 
 curl -sI -X OPTIONS "https://fjlmyaamarnjlthbhycx.supabase.co/functions/v1/newsletter-subscribe" | grep -i x-function-version
-# newsletter-subscribe@2026-07-27.1 -- if this is still the version shown, the security-review redeploy still hasn't happened
+curl -sI -X OPTIONS "https://fjlmyaamarnjlthbhycx.supabase.co/functions/v1/newsletter-confirm" | grep -i x-function-version
+# both: @2026-07-29.1
 
-curl -sI -X OPTIONS "https://fjlmyaamarnjlthbhycx.supabase.co/functions/v1/newsletter-confirm"
-# HTTP/2 404 -- if still 404, this function has never been deployed
-
-npx tsc -b --noEmit && npx oxlint && npx vitest run
-# tsc: "No errors found"; oxlint: only the two known pre-existing react-hooks(exhaustive-deps) warnings in Board.tsx;
-# vitest: PASS (192) FAIL (52) -- same pre-existing baseline as documented in the prior handoff, not something this session introduced
+npx tsc -b --noEmit && npx vitest run
+# tsc: "No errors found"
+# vitest: PASS (192) FAIL (52) -- same pre-existing baseline as every prior handoff, not new
 ```
