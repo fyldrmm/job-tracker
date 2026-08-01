@@ -25,6 +25,7 @@ async function renderFormWithUsage(used: number, overrides: { isPro?: boolean; o
       onUpgradeRequest={overrides.onUpgradeRequest ?? vi.fn()}
       onSubmit={vi.fn()}
       onRequestSignUp={vi.fn()}
+      onOpenFeedback={vi.fn()}
       onClose={vi.fn()}
     />,
   )

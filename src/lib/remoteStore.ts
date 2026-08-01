@@ -157,17 +157,33 @@ export interface ExtractedJobFields {
   work_mode: WorkMode | null
 }
 
+// Set when the call succeeded (charged, not an error) but found nothing
+// usable -- 'not_job_posting' if the model itself flagged the input as not a
+// job posting at all, 'no_details_found' if it thought it was one but
+// couldn't pull any fields. Both cost a real extraction (see the Edge
+// Function's comment for why refunding these was reversed 2026-08-01);
+// 'no_details_found' is the one worth pointing a user at Feedback for, since
+// it might mean a real posting extraction is failing on.
+export interface ExtractionWarning {
+  reason: 'not_job_posting' | 'no_details_found'
+  message: string
+}
+
+export interface ExtractionResult {
+  fields: ExtractedJobFields
+  warning: ExtractionWarning | null
+}
+
 // Calls the extract-job-details Edge Function (Claude Haiku 4.5 vision +
 // structured output). Quota and image-size limits are enforced server-side
 // (supabase/functions/extract-job-details/index.ts); a 429/400 from there
 // surfaces here as a thrown Error with the real message via
 // invokeEdgeFunction's error.context extraction.
-export async function extractJobDetails(imageBase64: string, mediaType: string): Promise<ExtractedJobFields> {
-  const { fields } = await invokeEdgeFunction<{ fields: ExtractedJobFields }>('extract-job-details', {
+export async function extractJobDetails(imageBase64: string, mediaType: string): Promise<ExtractionResult> {
+  return invokeEdgeFunction<ExtractionResult>('extract-job-details', {
     imageBase64,
     mediaType,
   })
-  return fields
 }
 
 // Text-mode sibling of extractJobDetails, for the browser-extension handoff
@@ -176,12 +192,11 @@ export async function extractJobDetails(imageBase64: string, mediaType: string):
 export async function extractJobDetailsFromText(
   text: string,
   originalTextLength?: number,
-): Promise<ExtractedJobFields> {
-  const { fields } = await invokeEdgeFunction<{ fields: ExtractedJobFields }>('extract-job-details', {
+): Promise<ExtractionResult> {
+  return invokeEdgeFunction<ExtractionResult>('extract-job-details', {
     text,
     originalTextLength,
   })
-  return fields
 }
 
 // How many extractions the caller has used this calendar month, for the

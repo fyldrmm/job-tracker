@@ -662,12 +662,26 @@ export function Board() {
       }
       setActiveTrackerId(trackerId)
       try {
-        const fields = await extractJobDetailsFromText(payload.text, payload.originalTextLength)
+        const { fields, warning } = await extractJobDetailsFromText(payload.text, payload.originalTextLength)
         setFormState({
           mode: 'add',
           stage,
           prefill: { ...fields, job_link: fields.job_link ?? payload.sourceUrl },
         })
+        // Not thrown -- the call succeeded and was charged (see the Edge
+        // Function's comment on why blank results aren't refunded) -- just
+        // came back empty. Pointed at the sidebar's Feedback button (always
+        // visible) rather than opening FeedbackModal directly here, unlike
+        // ApplicationForm's inline "send feedback" link -- this toast is
+        // transient and shared across every error in the app, not worth a
+        // one-off action-button extension for this single case.
+        if (warning) {
+          const toastMessage =
+            warning.reason === 'no_details_found'
+              ? `${warning.message} If this was a real job posting, use the Feedback button in the sidebar to let us know.`
+              : warning.message
+          showError(new Error(toastMessage), toastMessage)
+        }
       } catch (err) {
         showError(err, 'Could not extract job details from that page. You can still add it manually.')
         setFormState({
@@ -1324,6 +1338,10 @@ export function Board() {
           // discarding it here would contradict that. AuthModal renders
           // after this in the tree, so it stacks on top.
           onRequestSignUp={() => setAuthModalMode('sign-up')}
+          // FeedbackModal renders after this in the tree (below), so it
+          // stacks on top without needing to close the form first -- same
+          // "leave it mounted underneath" reasoning as onRequestSignUp above.
+          onOpenFeedback={() => setFeedbackModalOpen(true)}
           onClose={() => setFormState(null)}
         />
       )}

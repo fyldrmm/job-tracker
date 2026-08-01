@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import type { Application, ApplicationStage, EmploymentType, WorkMode } from '../types/application'
 import type { ApplicationInput } from '../hooks/useApplications'
-import { extractJobDetails, getExtractionUsageThisMonth, type ExtractedJobFields } from '../lib/remoteStore'
+import {
+  extractJobDetails,
+  getExtractionUsageThisMonth,
+  type ExtractedJobFields,
+  type ExtractionWarning,
+} from '../lib/remoteStore'
 import { PER_USER_MONTHLY_LIMIT, PRO_MONTHLY_LIMIT } from '../lib/extraction'
 import { EMPLOYMENT_TYPE_LABELS, WORK_MODE_LABELS } from '../lib/employment'
 import { useModalDismiss } from '../hooks/useModalDismiss'
@@ -14,6 +19,11 @@ interface ApplicationFormProps {
   onUpgradeRequest: () => void
   onSubmit: (input: ApplicationInput) => Promise<void>
   onRequestSignUp: () => void
+  // Opens the (already-existing, always-mounted-on-demand) Feedback modal on
+  // top of this form -- used by the "Send feedback" link on a
+  // no_details_found extraction warning, so a user whose real job posting
+  // didn't extract can report it without losing the form underneath.
+  onOpenFeedback: () => void
   onClose: () => void
   // Seeds add-mode fields without a full Application (no id/timestamps/etc)
   // -- used by the browser-extension handoff (Board.tsx) to open the form
@@ -40,6 +50,7 @@ export function ApplicationForm({
   onUpgradeRequest,
   onSubmit,
   onRequestSignUp,
+  onOpenFeedback,
   onClose,
   prefill,
 }: ApplicationFormProps) {
@@ -60,6 +71,7 @@ export function ApplicationForm({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
+  const [extractWarning, setExtractWarning] = useState<ExtractionWarning | null>(null)
   const [extractionsLeft, setExtractionsLeft] = useState<number | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -103,6 +115,7 @@ export function ApplicationForm({
 
     setExtracting(true)
     setExtractError(null)
+    setExtractWarning(null)
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
@@ -112,7 +125,7 @@ export function ApplicationForm({
       })
       const imageBase64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
 
-      const fields = await extractJobDetails(imageBase64, file.type)
+      const { fields, warning } = await extractJobDetails(imageBase64, file.type)
       if (fields.company) setCompany(fields.company)
       if (fields.role_title) setRoleTitle(fields.role_title)
       if (fields.salary_range) setSalaryRange(fields.salary_range)
@@ -120,7 +133,11 @@ export function ApplicationForm({
       if (fields.job_link) setJobLink(fields.job_link)
       if (fields.employment_type) setEmploymentType(fields.employment_type)
       if (fields.work_mode) setWorkMode(fields.work_mode)
+      // A blank result still costs a real extraction now (see the Edge
+      // Function's comment) -- decrement regardless of whether `warning` is
+      // set, same as any other completed call.
       setExtractionsLeft((left) => (left !== null ? Math.max(0, left - 1) : left))
+      setExtractWarning(warning)
     } catch (err) {
       setExtractError(err instanceof Error ? err.message : 'Extraction failed. Please fill in the details manually.')
     } finally {
@@ -203,6 +220,21 @@ export function ApplicationForm({
                 </p>
               )}
               {extractError && <p className="mt-1 text-sm text-red-600">{extractError}</p>}
+              {extractWarning && (
+                <p className="mt-1 text-sm text-amber-600">
+                  {extractWarning.message}
+                  {extractWarning.reason === 'no_details_found' && (
+                    <>
+                      {' '}
+                      If this was a real job posting,{' '}
+                      <button type="button" onClick={onOpenFeedback} className="font-medium underline hover:no-underline">
+                        send feedback
+                      </button>{' '}
+                      so we can improve extraction.
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           )}
 
