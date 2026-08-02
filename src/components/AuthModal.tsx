@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useModalDismiss } from '../hooks/useModalDismiss'
 import { PASSWORD_REQUIREMENTS_TEXT } from '../lib/passwordRequirements'
+import { GoogleIcon } from './icons'
 
 interface AuthModalProps {
   mode: 'sign-up' | 'log-in'
@@ -12,6 +13,7 @@ interface AuthModalProps {
   initialEmail?: string
   onSignUp: (email: string, password: string, name: string) => Promise<void>
   onSignIn: (email: string, password: string) => Promise<void>
+  onGoogleSignIn: () => Promise<void>
   onResetPassword: (email: string) => Promise<void>
   onClose: () => void
 }
@@ -22,6 +24,7 @@ export function AuthModal({
   initialEmail,
   onSignUp,
   onSignIn,
+  onGoogleSignIn,
   onResetPassword,
   onClose,
 }: AuthModalProps) {
@@ -37,6 +40,22 @@ export function AuthModal({
   // Escape only, no backdrop-click-to-close -- avoids discarding a
   // half-typed email/password on a stray click.
   useModalDismiss(onClose)
+
+  // signInWithOAuth navigates away almost immediately on success -- this
+  // only ever surfaces an error from something failing BEFORE the redirect
+  // (e.g. the provider isn't enabled), so there's no matching "success"
+  // state to handle here, unlike handleSubmit/handleResetSubmit.
+  async function handleGoogleClick() {
+    setError(null)
+    setSubmitting(true)
+    try {
+      await onGoogleSignIn()
+    } catch (err) {
+      console.error('Google sign-in error', err)
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setSubmitting(false)
+    }
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -219,6 +238,22 @@ export function AuthModal({
                 Your existing board data will transfer to this account automatically.
               </p>
             )}
+
+            <button
+              type="button"
+              onClick={handleGoogleClick}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-ink-700 bg-white border border-ink-300 rounded-md hover:bg-ink-50 disabled:opacity-50"
+            >
+              <GoogleIcon className="w-4 h-4" />
+              Continue with Google
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-ink-200" />
+              <span className="text-xs text-ink-400">or</span>
+              <div className="h-px flex-1 bg-ink-200" />
+            </div>
 
             {mode === 'sign-up' && (
               <div>

@@ -12,9 +12,10 @@ interface TermsOfServiceProps {
 // described one anyway), rewrote Reviews to reflect that Feedback is
 // private and never published (the generator wrote it as a public,
 // broadcast-licensed review system), and replaced Social Media with a
-// plain "not offered yet" placeholder since Google sign-in isn't built --
-// the generated section described full social-graph/friend-list sync, far
-// beyond what plain OAuth sign-in will ever need once it ships.
+// plain "not offered yet" placeholder since Google sign-in wasn't built
+// yet -- the generated section described full social-graph/friend-list
+// sync, far beyond what plain OAuth sign-in needed once it shipped
+// (2026-08-03, Section 12 rewritten to match).
 //
 // Known open item NOT covered by the fixes above: Section 10 (Contribution
 // License) still talks about "Contributions" as an ongoing, plural thing,
@@ -328,9 +329,11 @@ export function TermsOfService({ onBack }: TermsOfServiceProps) {
 
         <h3 className="font-medium text-ink-800 pt-2">12. Third-party sign-in</h3>
         <p>
-          The Services do not currently offer the ability to link your account with third-party social
-          media accounts. If this changes in the future, this section will be updated to describe exactly
-          what data is accessed and how.
+          You may create an account or log in using Google. Doing so shares your name, email
+          address, and profile picture from your Google account with us, which we use the same way
+          as the name and email on a regular account -- see our Privacy Policy for details. We don't
+          access anything else in your Google account, and Google never shares your password with
+          us.
         </p>
 
         <h3 className="font-medium text-ink-800 pt-2">13. Third-party websites and content</h3>

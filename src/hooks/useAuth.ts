@@ -44,6 +44,22 @@ export function useAuth() {
     if (error) throw error
   }
 
+  // Full-page redirect to Google, then back to redirectTo with the session
+  // in the URL -- detectSessionInUrl (default true) picks it up and the
+  // onAuthStateChange listener above fires same as any other sign-in.
+  // Deliberately does NOT call markPendingSignup: unlike email signUp(),
+  // there's no reliable way to tell "brand-new account" from "returning
+  // login" here, so guest-data migration always goes through the existing
+  // confirm-first prompt in Board.tsx rather than risking a silent merge
+  // into the wrong account.
+  async function signInWithGoogle() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) throw error
+  }
+
   async function signOut() {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
@@ -82,6 +98,7 @@ export function useAuth() {
     passwordRecovery,
     signUp,
     signIn,
+    signInWithGoogle,
     signOut,
     updateName,
     resetPassword,

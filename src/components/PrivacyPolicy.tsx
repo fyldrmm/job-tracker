@@ -37,6 +37,12 @@ export function PrivacyPolicy({ onBack }: PrivacyPolicyProps) {
           used to greet you in the app, and is stored alongside your login details in Supabase Auth.
           We don't collect or request any other personal information.
         </p>
+        <p>
+          You can also sign up or log in with Google. Google shares your name, email address, and
+          profile picture with us for this -- we use the name and email the same way as a regular
+          account, and don't store or display the picture. Google never shares your password with
+          us.
+        </p>
 
         <h3 className="font-medium text-ink-800 pt-2">AI extraction</h3>
         <p>

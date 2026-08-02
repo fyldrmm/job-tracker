@@ -147,3 +147,29 @@ export function ChevronDownIcon(props: IconProps) {
     </svg>
   )
 }
+
+// Google's brand guidelines keep the four-color "G" mark as-is rather than
+// recoloring it to match a host app's palette -- unlike every other icon
+// here, this one doesn't use `base`/currentColor.
+export function GoogleIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" {...props}>
+      <path
+        fill="#4285F4"
+        d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 0 1-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.07 7.95-2.91l-3.88-3a7.15 7.15 0 0 1-10.66-3.76H1.42v3.09A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.41 14.33a7.2 7.2 0 0 1 0-4.66V6.58H1.42a12 12 0 0 0 0 10.84l3.99-3.09Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.77c1.76 0 3.34.6 4.59 1.79l3.44-3.44C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.42 6.58l3.99 3.09A7.15 7.15 0 0 1 12 4.77Z"
+      />
+    </svg>
+  )
+}

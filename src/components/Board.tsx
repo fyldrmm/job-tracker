@@ -96,8 +96,18 @@ const BANNER_DISMISSED_KEY = 'job-tracker:nudge-dismissed'
 const LANDING_DISMISSED_KEY = 'job-tracker:landing-dismissed'
 
 export function Board() {
-  const { user, displayName, passwordRecovery, signUp, signIn, signOut, updateName, resetPassword, updatePasswordAfterRecovery } =
-    useAuth()
+  const {
+    user,
+    displayName,
+    passwordRecovery,
+    signUp,
+    signIn,
+    signInWithGoogle,
+    signOut,
+    updateName,
+    resetPassword,
+    updatePasswordAfterRecovery,
+  } = useAuth()
   const {
     applications,
     loading,
@@ -1405,6 +1415,7 @@ export function Board() {
             // silently unlock the app.
             if (showLanding) handleDismissLanding()
           }}
+          onGoogleSignIn={signInWithGoogle}
           onResetPassword={resetPassword}
           onClose={() => {
             setAuthModalMode(null)
