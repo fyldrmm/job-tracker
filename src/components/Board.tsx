@@ -1057,9 +1057,19 @@ export function Board() {
                   ? 'Terms of Service'
                   : null
 
+  // The privacy policy must be reachable without clearing the newsletter
+  // wall -- Chrome Web Store review hits /privacy directly (it's the URL
+  // in the extension listing's privacy policy field) and never subscribes
+  // or logs in, so gating it the same as the board got the extension
+  // rejected. Suppressing the overlay only for this one view -- rather
+  // than skipping the showLanding effect for this pathname -- keeps the
+  // gate's underlying state untouched, so navigating away from /privacy to
+  // any other view (board, table, etc.) still shows the wall as normal;
+  // this view alone is exempt, not the session.
+  const landingSuppressed = view === 'privacy'
   return (
     <>
-      {showLanding && (
+      {showLanding && !landingSuppressed && (
         <LandingPage
           onContinueAsGuest={handleDismissLanding}
           // Deliberately doesn't dismiss the landing page on click -- only a
@@ -1072,7 +1082,7 @@ export function Board() {
           signedInName={user ? displayName : undefined}
         />
       )}
-      {!showLanding && (
+      {!showLanding && !landingSuppressed && (
         <button
           type="button"
           onClick={() => {
