@@ -92,7 +92,7 @@ const MAX_TEXT_CHARS = 8000
 // CLI link, so nothing else can tell you which build is actually live
 // (AUDIT.md D3). Check with: curl -sI -X OPTIONS <function-url>
 // Caveat: this only detects drift if it actually gets bumped.
-const FUNCTION_VERSION = 'extract-job-details@2026-08-01.2'
+const FUNCTION_VERSION = 'extract-job-details@2026-08-02.1'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -408,8 +408,17 @@ Deno.serve(async (req: Request) => {
   // differs; so a real-but-hard-to-parse posting doesn't get told it
   // "doesn't look like a job posting," and is pointed at Feedback in case
   // extraction is missing something it shouldn't.
-  const hasAnyField = RESULT_FIELDS.some((field) => extracted[field] != null)
-  const warning = hasAnyField
+  //
+  // "Usable" checks company/role_title specifically (2026-08-02, was: any of
+  // the 7 RESULT_FIELDS) -- those are the only two fields ApplicationForm
+  // actually requires to save an application. A genuinely irrelevant image
+  // (a photo, a logo, a wallpaper) could still make the model return a stray
+  // non-null work_mode/salary_range/etc. despite the "do not guess"
+  // instruction; treating that as a usable extraction meant real junk showed
+  // no warning at all -- a blank, unexplained form plus a silently spent
+  // extraction, which is the bug this fixes.
+  const hasRequiredFields = extracted.company != null || extracted.role_title != null
+  const warning = hasRequiredFields
     ? null
     : extracted.is_job_posting === false
       ? {
