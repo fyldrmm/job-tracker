@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { LogoMark } from './Logo'
-import { BoardIcon, BellIcon, NoteIcon } from './icons'
+import { BoardIcon, BellIcon, NoteIcon, ExtensionIcon } from './icons'
 import { subscribeToNewsletter } from '../lib/newsletter'
+import { EXTENSION_URL } from '../lib/constants'
 
 interface LandingPageProps {
   onContinueAsGuest: () => void
@@ -159,17 +160,34 @@ export function LandingPage({
           <Feature icon={<BoardIcon className="w-4 h-4" />} label="Board, table & insights" />
           <Feature icon={<BellIcon className="w-4 h-4" />} label="Follow-up reminders" />
           <Feature icon={<NoteIcon className="w-4 h-4" />} label="AI autofill" />
+          <Feature icon={<ExtensionIcon className="w-4 h-4" />} label="Browser extension" href={EXTENSION_URL} />
         </div>
       </div>
     </div>
   )
 }
 
-function Feature({ icon, label }: { icon: React.ReactNode; label: string }) {
-  return (
-    <span className="flex items-center gap-2 text-sm">
+// href is optional -- only the extension entry links out (to the Chrome
+// Web Store); the other three describe in-app features with nowhere to
+// send someone before they've even signed up.
+function Feature({ icon, label, href }: { icon: React.ReactNode; label: string; href?: string }) {
+  const content = (
+    <>
       {icon}
       {label}
-    </span>
+    </>
   )
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="flex items-center gap-2 text-sm hover:text-white underline decoration-white/30 hover:decoration-white/70"
+      >
+        {content}
+      </a>
+    )
+  }
+  return <span className="flex items-center gap-2 text-sm">{content}</span>
 }

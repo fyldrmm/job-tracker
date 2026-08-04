@@ -74,8 +74,8 @@ import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { MigrateGuestDataModal } from './MigrateGuestDataModal'
 import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { ExtractionPromo } from './ExtractionPromo'
-import { CoffeeIcon, ChevronDownIcon } from './icons'
-import { DONATION_URL } from '../lib/constants'
+import { CoffeeIcon, ChevronDownIcon, ExtensionIcon } from './icons'
+import { DONATION_URL, EXTENSION_URL } from '../lib/constants'
 
 type FormState =
   | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
@@ -1145,6 +1145,16 @@ export function Board() {
           {extractingFromExtension && (
             <span className="text-sm text-ink-400">Extracting job details…</span>
           )}
+          <a
+            href={EXTENSION_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Get the OfferTrail browser extension"
+            title="Get the browser extension"
+            className="text-ink-400 hover:text-ink-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-ink-100"
+          >
+            <ExtensionIcon className="w-5 h-5" />
+          </a>
           <a
             href={DONATION_URL}
             target="_blank"
