@@ -74,8 +74,8 @@ import { DeleteApplicationModal } from './DeleteApplicationModal'
 import { MigrateGuestDataModal } from './MigrateGuestDataModal'
 import { InterviewScheduleModal } from './InterviewScheduleModal'
 import { ExtractionPromo } from './ExtractionPromo'
-import { CoffeeIcon, ChevronDownIcon, ExtensionIcon } from './icons'
-import { DONATION_URL, EXTENSION_URL } from '../lib/constants'
+import { ChevronDownIcon, ExtensionIcon } from './icons'
+import { EXTENSION_URL } from '../lib/constants'
 
 type FormState =
   | { mode: 'add'; stage: ApplicationStage; prefill?: Partial<ExtractedJobFields> | null }
@@ -1149,21 +1149,15 @@ export function Board() {
             href={EXTENSION_URL}
             target="_blank"
             rel="noreferrer"
-            aria-label="Get the OfferTrail browser extension"
-            title="Get the browser extension"
-            className="text-ink-400 hover:text-ink-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-ink-100"
+            // Bordered, page-colored fill rather than the filled-dark style
+            // of "+ Add application" -- deliberately lower-emphasis than the
+            // primary action, but still a real button, not just an icon
+            // (the icon-only version this replaced read as too easy to miss
+            // next to the Ko-fi cup it sat beside).
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-ink-700 bg-ink-50 border border-ink-300 rounded-md hover:bg-ink-100"
           >
-            <ExtensionIcon className="w-5 h-5" />
-          </a>
-          <a
-            href={DONATION_URL}
-            target="_blank"
-            rel="noreferrer"
-            aria-label="Support this project"
-            title="Support this project"
-            className="text-ink-400 hover:text-ink-600 w-8 h-8 flex items-center justify-center rounded-md hover:bg-ink-100"
-          >
-            <CoffeeIcon className="w-5 h-5" />
+            <ExtensionIcon className="w-4 h-4" />
+            Our Extension
           </a>
           {(view === 'board' || view === 'table') && activeTrackerId && (
             <button

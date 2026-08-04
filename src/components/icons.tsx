@@ -151,7 +151,14 @@ export function ChevronDownIcon(props: IconProps) {
 export function ExtensionIcon(props: IconProps) {
   return (
     <svg {...base} {...props}>
-      <path d="M9 4h4v2.5a1.5 1.5 0 0 0 3 0V4h4v4h-2.5a1.5 1.5 0 0 0 0 3H20v4h-4v-2.5a1.5 1.5 0 0 0-3 0V15H9v-4H6.5a1.5 1.5 0 0 1 0-3H9V4Z" />
+      {/* The raw path's own geometry sits in the upper-left of the 24x24
+          box (bbox center (12.5, 9.5), not (12, 12)) -- this transform
+          re-centers it so it lines up with adjacent text on the same
+          baseline instead of looking like it floats high. */}
+      <path
+        transform="translate(-0.5 2.5)"
+        d="M9 4h4v2.5a1.5 1.5 0 0 0 3 0V4h4v4h-2.5a1.5 1.5 0 0 0 0 3H20v4h-4v-2.5a1.5 1.5 0 0 0-3 0V15H9v-4H6.5a1.5 1.5 0 0 1 0-3H9V4Z"
+      />
     </svg>
   )
 }
