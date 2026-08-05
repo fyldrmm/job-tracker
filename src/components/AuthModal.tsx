@@ -8,9 +8,6 @@ interface AuthModalProps {
   // Shown above the form -- e.g. "Password changed -- please log in
   // again." after a password change revokes every session (AUDIT.md M5).
   notice?: string | null
-  // Pre-fills the email field -- e.g. the address a visitor already gave
-  // the landing page's newsletter form, so they never type it twice.
-  initialEmail?: string
   onSignUp: (email: string, password: string, name: string) => Promise<void>
   onSignIn: (email: string, password: string) => Promise<void>
   onGoogleSignIn: () => Promise<void>
@@ -21,7 +18,6 @@ interface AuthModalProps {
 export function AuthModal({
   mode: initialMode,
   notice,
-  initialEmail,
   onSignUp,
   onSignIn,
   onGoogleSignIn,
@@ -30,7 +26,7 @@ export function AuthModal({
 }: AuthModalProps) {
   const [mode, setMode] = useState(initialMode)
   const [name, setName] = useState('')
-  const [email, setEmail] = useState(initialEmail ?? '')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)

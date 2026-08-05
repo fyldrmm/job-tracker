@@ -1,51 +1,48 @@
 import { useState } from 'react'
 import { LogoMark } from './Logo'
-import { BoardIcon, BellIcon, NoteIcon, ExtensionIcon } from './icons'
-import { subscribeToNewsletter } from '../lib/newsletter'
+import { BoardIcon, BellIcon, NoteIcon, ExtensionIcon, GoogleIcon } from './icons'
 import { EXTENSION_URL } from '../lib/constants'
 
 interface LandingPageProps {
   onContinueAsGuest: () => void
+  onSignUp: () => void
   onLogIn: () => void
-  // Reports the subscribed email upward so a later "Sign up" doesn't ask
-  // for it a second time (see AuthModal's initialEmail).
-  onSubscribed: (email: string) => void
+  onGoogleSignIn: () => Promise<void>
   // Only set for the voluntary reopen (the top chevron, once someone
   // already has access) -- renders a close button. The forced first-visit
-  // gate never gets this prop, so there is no way to bypass the beta's
-  // newsletter requirement other than subscribing or logging in.
+  // splash never gets this prop; "Continue as guest" is that gate's own
+  // dismiss action, not a separate close control.
   onDismiss?: () => void
   // Set when a signed-in user reopens this page (voluntary reopen only --
   // the forced gate never shows for a signed-in user in the first place).
-  // Swaps the email form and "Log in" link for a personalized welcome,
-  // since asking them to log in again would be nonsensical.
+  // Swaps the button row for a personalized welcome, since asking them to
+  // sign up or log in again would be nonsensical.
   signedInName?: string
 }
 
 export function LandingPage({
   onContinueAsGuest,
+  onSignUp,
   onLogIn,
-  onSubscribed,
+  onGoogleSignIn,
   onDismiss,
   signedInName,
 }: LandingPageProps) {
-  const [email, setEmail] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+  const [googleError, setGoogleError] = useState<string | null>(null)
+  const [googleSubmitting, setGoogleSubmitting] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setSubmitting(true)
-    setError(null)
+  // Same shape as AuthModal's handleGoogleClick: signInWithOAuth navigates
+  // away almost immediately on success, so an error here only ever means
+  // something failed BEFORE the redirect (e.g. the provider isn't
+  // enabled) -- there's no "success" state to render.
+  async function handleGoogleClick() {
+    setGoogleError(null)
+    setGoogleSubmitting(true)
     try {
-      await subscribeToNewsletter(email)
-      setSubmitted(true)
-      onSubscribed(email)
+      await onGoogleSignIn()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
-    } finally {
-      setSubmitting(false)
+      setGoogleError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setGoogleSubmitting(false)
     }
   }
 
@@ -93,8 +90,6 @@ export function LandingPage({
           OfferTrail keeps every application, interview, and follow-up in one place.
         </p>
 
-        {/* Primary CTA: waitlist email capture -- required for beta access,
-            no skip. Signed-in users reopening this page skip all of that. */}
         {signedInName ? (
           <div className="w-full max-w-md text-center bg-black/40 backdrop-blur border border-white/20 rounded-xl p-6 mb-3">
             <p className="text-white font-medium mb-1">Welcome, {signedInName}!</p>
@@ -106,53 +101,40 @@ export function LandingPage({
               Continue to your board →
             </button>
           </div>
-        ) : submitted ? (
-          <div className="w-full max-w-md text-center bg-black/40 backdrop-blur border border-white/20 rounded-xl p-6 mb-3">
-            <p className="text-emerald-400 font-medium mb-1">You're subscribed ✓</p>
-            <p className="text-sm text-white/70 mb-4">We'll email you when v1 launches.</p>
+        ) : (
+          <div className="w-full max-w-md flex flex-col gap-2.5 mb-3">
+            <button
+              type="button"
+              onClick={onSignUp}
+              className="w-full px-4 py-3 text-sm font-medium text-ink-900 bg-white rounded-lg hover:bg-white/90"
+            >
+              Sign up
+            </button>
+            <button
+              type="button"
+              onClick={handleGoogleClick}
+              disabled={googleSubmitting}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white bg-white/10 backdrop-blur border border-white/25 rounded-lg hover:bg-white/20 disabled:opacity-50"
+            >
+              <GoogleIcon className="w-4 h-4" />
+              Continue with Google
+            </button>
+            {googleError && <p className="text-sm text-rose-300 text-center">{googleError}</p>}
+            <button
+              type="button"
+              onClick={onLogIn}
+              className="w-full px-4 py-3 text-sm font-medium text-white bg-white/10 backdrop-blur border border-white/25 rounded-lg hover:bg-white/20"
+            >
+              Log in
+            </button>
             <button
               type="button"
               onClick={onContinueAsGuest}
-              className="w-full px-4 py-3 text-sm font-medium text-ink-900 bg-white rounded-lg hover:bg-white/90"
+              className="w-full px-4 py-3 text-sm font-medium text-white/70 border border-white/20 rounded-lg hover:text-white hover:border-white/40"
             >
-              Start tracking now →
+              Continue as guest
             </button>
           </div>
-        ) : (
-          <div className="w-full max-w-md mb-3">
-            <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                aria-label="Email address"
-                className="flex-1 rounded-lg border border-white/25 px-4 py-3 text-sm bg-white/10 backdrop-blur text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/50"
-              />
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-3 text-sm font-medium text-ink-900 bg-white rounded-lg hover:bg-white/90 disabled:opacity-40 whitespace-nowrap"
-              >
-                {submitting ? 'Requesting…' : 'Get Access'}
-              </button>
-            </form>
-            {error && <p className="mt-2 text-sm text-rose-300">{error}</p>}
-            <p className="mt-2 text-xs text-white/60 text-center">
-              Joins our newsletter for beta access — unsubscribe anytime.
-            </p>
-          </div>
-        )}
-
-        {!signedInName && (
-          <button
-            type="button"
-            onClick={onLogIn}
-            className="text-sm text-white/70 hover:text-white"
-          >
-            Already have an account? Log in
-          </button>
         )}
 
         {/* Feature glance -- short labels, not sentences */}

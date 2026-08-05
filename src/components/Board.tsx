@@ -190,14 +190,11 @@ export function Board() {
   const [showLanding, setShowLanding] = useState(false)
   // True only for the voluntary reopen (the top chevron once someone
   // already has access) -- controls whether LandingPage gets a close
-  // button. The forced first-visit gate never sets this, so beta visitors
-  // can't bypass the newsletter requirement except by subscribing or
-  // logging in with an existing account.
+  // button. The forced first-visit splash never sets this, so a first-time
+  // visitor's only way past it is one of its own buttons (sign up, Google,
+  // log in, or continue as guest) -- there is no separate close control.
   const [landingDismissible, setLandingDismissible] = useState(false)
   const landingCheckedRef = useRef(false)
-  // Captured from the landing page's newsletter form so a later "Sign up"
-  // doesn't ask for the same email twice.
-  const [landingEmail, setLandingEmail] = useState('')
   const [migrating, setMigrating] = useState(false)
   const [migratePrompt, setMigratePrompt] = useState(false)
   const migrationCheckedForRef = useRef<string | null>(null)
@@ -1067,27 +1064,24 @@ export function Board() {
                   ? 'Terms of Service'
                   : null
 
-  // The privacy policy must be reachable without clearing the newsletter
-  // wall -- Chrome Web Store review hits /privacy directly (it's the URL
-  // in the extension listing's privacy policy field) and never subscribes
-  // or logs in, so gating it the same as the board got the extension
-  // rejected. Suppressing the overlay only for this one view -- rather
-  // than skipping the showLanding effect for this pathname -- keeps the
-  // gate's underlying state untouched, so navigating away from /privacy to
-  // any other view (board, table, etc.) still shows the wall as normal;
-  // this view alone is exempt, not the session.
+  // The privacy policy must be reachable without clearing the first-visit
+  // splash -- Chrome Web Store review hits /privacy directly (it's the URL
+  // in the extension listing's privacy policy field) and never signs up,
+  // logs in, or continues as guest, so gating it the same as the board got
+  // the extension rejected. Suppressing the overlay only for this one view
+  // -- rather than skipping the showLanding effect for this pathname --
+  // keeps the splash's underlying state untouched, so navigating away from
+  // /privacy to any other view (board, table, etc.) still shows it as
+  // normal; this view alone is exempt, not the session.
   const landingSuppressed = view === 'privacy'
   return (
     <>
       {showLanding && !landingSuppressed && (
         <LandingPage
           onContinueAsGuest={handleDismissLanding}
-          // Deliberately doesn't dismiss the landing page on click -- only a
-          // successful sign-in should grant access (see the onSignIn wrapper
-          // below). Closing the modal without logging in leaves the forced
-          // gate exactly as it was.
+          onSignUp={() => setAuthModalMode('sign-up')}
           onLogIn={() => setAuthModalMode('log-in')}
-          onSubscribed={setLandingEmail}
+          onGoogleSignIn={signInWithGoogle}
           onDismiss={landingDismissible ? () => setShowLanding(false) : undefined}
           signedInName={user ? displayName : undefined}
         />
@@ -1409,14 +1403,13 @@ export function Board() {
         <AuthModal
           mode={authModalMode}
           notice={authModalNotice}
-          initialEmail={landingEmail}
           onSignUp={signUp}
           onSignIn={async (email, password) => {
             await signIn(email, password)
-            // Only a real, successful sign-in earns access past the beta
-            // landing gate -- opening the modal from "Log in" must not, or
-            // dismissing the modal without entering valid credentials would
-            // silently unlock the app.
+            // Only a real, successful sign-in earns access past the
+            // first-visit splash -- opening the modal from "Log in" must
+            // not, or dismissing the modal without entering valid
+            // credentials would silently unlock the app.
             if (showLanding) handleDismissLanding()
           }}
           onGoogleSignIn={signInWithGoogle}
