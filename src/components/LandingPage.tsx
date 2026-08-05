@@ -102,38 +102,43 @@ export function LandingPage({
             </button>
           </div>
         ) : (
-          <div className="w-full max-w-md flex flex-col gap-2.5 mb-3">
-            <button
-              type="button"
-              onClick={onSignUp}
-              className="w-full px-4 py-3 text-sm font-medium text-ink-900 bg-white rounded-lg hover:bg-white/90"
-            >
-              Sign up
-            </button>
-            <button
-              type="button"
-              onClick={handleGoogleClick}
-              disabled={googleSubmitting}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white bg-white/10 backdrop-blur border border-white/25 rounded-lg hover:bg-white/20 disabled:opacity-50"
-            >
-              <GoogleIcon className="w-4 h-4" />
-              Continue with Google
-            </button>
-            {googleError && <p className="text-sm text-rose-300 text-center">{googleError}</p>}
-            <button
-              type="button"
-              onClick={onLogIn}
-              className="w-full px-4 py-3 text-sm font-medium text-white bg-white/10 backdrop-blur border border-white/25 rounded-lg hover:bg-white/20"
-            >
-              Log in
-            </button>
-            <button
-              type="button"
-              onClick={onContinueAsGuest}
-              className="w-full px-4 py-3 text-sm font-medium text-white/70 border border-white/20 rounded-lg hover:text-white hover:border-white/40"
-            >
-              Continue as guest
-            </button>
+          <div className="w-full max-w-md mb-3">
+            {/* Two real buttons, not four -- same weighting convention as
+                every mainstream auth screen (Linear, Vercel, etc.): one
+                primary action, one OAuth alternative, then everything else
+                drops to a plain text link below. Four equal-weight boxes
+                stacked reads as a wall of identical buttons instead of a
+                clear "start here." */}
+            <div className="flex flex-col gap-2.5">
+              <button
+                type="button"
+                onClick={onSignUp}
+                className="w-full px-4 py-3 text-sm font-medium text-ink-900 bg-white rounded-lg hover:bg-white/90"
+              >
+                Sign up
+              </button>
+              <button
+                type="button"
+                onClick={handleGoogleClick}
+                disabled={googleSubmitting}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium text-white bg-white/10 backdrop-blur border border-white/25 rounded-lg hover:bg-white/20 disabled:opacity-50"
+              >
+                <GoogleIcon className="w-4 h-4" />
+                Continue with Google
+              </button>
+            </div>
+            {googleError && <p className="mt-2 text-sm text-rose-300 text-center">{googleError}</p>}
+            <div className="flex items-center justify-center gap-1.5 mt-4 text-sm">
+              <span className="text-white/60">Already have an account?</span>
+              <button type="button" onClick={onLogIn} className="text-white hover:underline font-medium">
+                Log in
+              </button>
+            </div>
+            <div className="flex justify-center mt-1.5">
+              <button type="button" onClick={onContinueAsGuest} className="text-sm text-white/45 hover:text-white/70">
+                Continue as guest
+              </button>
+            </div>
           </div>
         )}
 
